@@ -7,13 +7,18 @@ import {
   ScrollView,
   Image,
   View,
+  Alert,
+  Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import EyeIcon from './assets/eye.svg';
 import EyeOffIcon from './assets/eye-off.svg';
 import Register from './Register';
 
 const Login = () => {
-  const [showRegister, setShowRegister] = useState(false);
+  const { width } = useWindowDimensions();
+  const logoSize = Math.min(width * 0.8, 360);
+  const [showSignUp, setShowSignUp] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -42,51 +47,42 @@ const Login = () => {
 
   const handleLogin = () => {
     if (!formData.email.trim() || emailError) {
-      alert(emailError || 'Please enter your email');
+      Alert.alert('Error', emailError || 'Please enter your email');
       return;
     }
     if (!formData.password) {
-      alert('Please enter your password');
+      Alert.alert('Error', 'Please enter your password');
       return;
     }
     // TODO: Implement actual login logic
-    alert('Login successful!');
+    Alert.alert('Success', 'Login successful!');
   };
 
   const isFormValid = formData.email && !emailError && formData.password;
 
   return (
-    showRegister ? (
-      <Register onGoToLogin={() => setShowRegister(false)} />
+    showSignUp ? (
+      <Register onGoToLogin={() => setShowSignUp(false)} />
     ) : (
       <ScrollView
         style={{ flex: 1, backgroundColor: '#ffffff' }}
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}
       >
         <Image
-          source={require('./assets/logo.jpg')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
+          source={require('./assets/loginlogo.png')}
+          style={{ width: logoSize, height: logoSize, alignSelf: 'center', marginTop: -80 }}
         />
-        <Text
-          style={{
-            fontSize: 24,
-            fontWeight: 'bold',
-            textAlign: 'center',
-            marginBottom: 30,
-            color: '#333',
-          }}
-        >
-          E-Responde
-        </Text>
-        <View style={{ position: 'relative', marginBottom: 15 }}>
+        <View style={{ position: 'relative', marginBottom: 15, alignSelf: 'center', width: '80%', marginTop: -40 }}>
           <TextInput
             style={{
-              borderBottomWidth: 1,
-              borderBottomColor: focusedField === 'email' ? '#000000' : '#D3D3D3',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              color: '#FFFFFF',
               padding: 15,
               fontSize: 16,
+              borderRadius: 8,
             }}
             placeholder="Email Address"
+            placeholderTextColor="#DDDDDD"
             value={formData.email}
             onChangeText={value => handleInputChange('email', value)}
             onFocus={() => handleFocus('email')}
@@ -109,16 +105,18 @@ const Login = () => {
             </View>
           )}
         </View>
-        <View style={{ position: 'relative', marginBottom: 25 }}>
+        <View style={{ position: 'relative', marginBottom: 65, alignSelf: 'center', width: '80%' }}>
           <TextInput
             style={{
-              borderBottomWidth: 1,
-              borderBottomColor: focusedField === 'password' ? '#000000' : '#D3D3D3',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              color: '#FFFFFF',
               padding: 15,
               fontSize: 16,
               paddingRight: 50,
+              borderRadius: 8,
             }}
             placeholder="Password"
+            placeholderTextColor="#DDDDDD"
             value={formData.password}
             onChangeText={value => handleInputChange('password', value)}
             onFocus={() => handleFocus('password')}
@@ -136,27 +134,30 @@ const Login = () => {
             )}
           </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={{
-            backgroundColor: isFormValid ? '#007AFF' : '#aaa',
-            borderRadius: 8,
+        <Pressable
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? '#808080' : '#000000',
+            borderRadius: 15,
             padding: 15,
             alignItems: 'center',
-          }}
+            alignSelf: 'center',
+            width: '50%',
+            marginTop: 60,
+          })}
           onPress={handleLogin}
           disabled={!isFormValid}
         >
-          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Log In</Text>
-        </TouchableOpacity>
+          <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Log In</Text>
+        </Pressable>
         <Text
           style={{ textAlign: 'center', marginTop: 20, color: '#666', fontSize: 14 }}
         >
           Don't have an account?{' '}
           <Text
-            style={{ color: '#007AFF', fontWeight: 'bold' }}
-            onPress={() => setShowRegister(true)}
+            style={{ color: '#1E3A8A', fontWeight: 'bold' }}
+            onPress={() => setShowSignUp(true)}
           >
-            Register
+            Sign Up
           </Text>
         </Text>
       </ScrollView>
