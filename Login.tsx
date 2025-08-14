@@ -14,11 +14,13 @@ import {
 import EyeIcon from './assets/eye.svg';
 import EyeOffIcon from './assets/eye-off.svg';
 import Register from './Register';
+import ForgotPassword from './ForgotPassword';
 
 const Login = () => {
   const { width } = useWindowDimensions();
   const logoSize = Math.min(width * 0.8, 360);
   const [showSignUp, setShowSignUp] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -61,7 +63,9 @@ const Login = () => {
   const isFormValid = formData.email && !emailError && formData.password;
 
   return (
-    showSignUp ? (
+    showForgotPassword ? (
+      <ForgotPassword onGoToLogin={() => setShowForgotPassword(false)} />
+    ) : showSignUp ? (
       <Register onGoToLogin={() => setShowSignUp(false)} />
     ) : (
       <ScrollView
@@ -133,6 +137,18 @@ const Login = () => {
               <EyeIcon width={24} height={24} />
             )}
           </TouchableOpacity>
+          <Text
+            style={{ 
+              color: '#1E3A8A',
+              fontWeight: 'bold',
+              textAlign: 'right',
+              marginTop: 8,
+              fontSize: 14,
+            }}
+            onPress={() => setShowForgotPassword(true)}
+          >
+            Forgot Password?
+          </Text>
         </View>
         <Pressable
           style={({ pressed }) => ({
@@ -157,7 +173,7 @@ const Login = () => {
             style={{ color: '#1E3A8A', fontWeight: 'bold' }}
             onPress={() => setShowSignUp(true)}
           >
-            Sign Up
+            Register
           </Text>
         </Text>
       </ScrollView>

@@ -14,7 +14,8 @@ import EyeOffIcon from './assets/eye-off.svg';
 
 const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -62,8 +63,8 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   };
 
   const handleRegister = () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'Please enter your name');
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      Alert.alert('Error', 'Please enter your first and last name');
       return;
     }
     if (emailError) {
@@ -83,7 +84,8 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         text: 'OK',
         onPress: () => {
           setFormData({
-            name: '',
+            firstName: '',
+            lastName: '',
             email: '',
             password: '',
             confirmPassword: '',
@@ -95,7 +97,8 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   };
 
   const isFormValid =
-    formData.name.trim() &&
+    formData.firstName.trim() &&
+    formData.lastName.trim() &&
     !emailError &&
     !passwordErrors.length &&
     formData.password === formData.confirmPassword;
@@ -112,36 +115,54 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         padding: 20,
       }}>
       <Image
-        source={require('./assets/logo.jpg')}
-        style={{
-          width: 100,
-          height: 100,
-          alignSelf: 'center',
+        source={require('./assets/signuplogo.png')}
+                  style={{
+            width: 300,
+            height: 300,
+            alignSelf: 'center',
+            marginBottom: 40,
         }}
       />
-      <Text
-        style={{
-          fontSize: 24,
-          fontWeight: 'bold',
-          textAlign: 'center',
-          marginBottom: 30,
-          color: '#333',
-        }}>
-        E-Responde
-      </Text>
 
-      <TextInput
+            <TextInput
         style={{
-          borderBottomWidth: 1,
-          borderBottomColor: focusedField === 'name' ? '#000000' : '#D3D3D3',
+          backgroundColor: 'rgba(30, 58, 138, 0.31)',
           padding: 15,
           marginBottom: 15,
           fontSize: 16,
+          borderRadius: 8,
+          width: '80%',
+          alignSelf: 'center',
+          color: '#FFFFFF',
+          marginTop: -80,
+          fontWeight: '500',
         }}
-        placeholder="Full Name"
-        value={formData.name}
-        onChangeText={value => handleInputChange('name', value)}
-        onFocus={() => handleFocus('name')}
+        placeholderTextColor="rgba(255, 255, 255, 0.6)"
+        placeholder="First Name"
+        value={formData.firstName}
+        onChangeText={value => handleInputChange('firstName', value)}
+        onFocus={() => handleFocus('firstName')}
+        onBlur={handleBlur}
+        autoCapitalize="words"
+      />
+
+      <TextInput
+        style={{
+          backgroundColor: 'rgba(30, 58, 138, 0.31)',
+          padding: 15,
+          marginBottom: 15,
+          fontSize: 16,
+          borderRadius: 8,
+          width: '80%',
+          alignSelf: 'center',
+          color: '#FFFFFF',
+          fontWeight: '500',
+        }}
+        placeholderTextColor="rgba(255, 255, 255, 0.6)"
+        placeholder="Last Name"
+        value={formData.lastName}
+        onChangeText={value => handleInputChange('lastName', value)}
+        onFocus={() => handleFocus('lastName')}
         onBlur={handleBlur}
         autoCapitalize="words"
       />
@@ -149,12 +170,17 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
       <View style={{ position: 'relative', marginBottom: 15 }}>
         <TextInput
           style={{
-            borderBottomWidth: 1,
-            borderBottomColor: focusedField === 'email' ? '#000000' : '#D3D3D3',
+            backgroundColor: 'rgba(30, 58, 138, 0.31)',
             padding: 15,
             fontSize: 16,
+            borderRadius: 8,
+            width: '80%',
+            alignSelf: 'center',
+            color: '#FFFFFF',
+            fontWeight: '500',
           }}
           placeholder="Email Address"
+          placeholderTextColor="rgba(255, 255, 255, 0.6)"
           value={formData.email}
           onChangeText={value => handleInputChange('email', value)}
           onFocus={() => handleFocus('email')}
@@ -173,7 +199,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
             borderRadius: 6,
             zIndex: 10,
           }}>
-            <Text style={{ color: 'white', fontSize: 13, textAlign: 'center' }}>{emailError}</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, textAlign: 'center', fontWeight: 'bold' }}>{emailError}</Text>
           </View>
         )}
       </View>
@@ -181,13 +207,18 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
       <View style={{ position: 'relative', marginBottom: 15 }}>
         <TextInput
           style={{
-            borderBottomWidth: 1,
-            borderBottomColor: focusedField === 'password' ? '#000000' : '#D3D3D3',
+            backgroundColor: 'rgba(30, 58, 138, 0.31)',
             padding: 15,
             fontSize: 16,
             paddingRight: 50,
+            borderRadius: 8,
+            width: '80%',
+            alignSelf: 'center',
+            color: '#FFFFFF',
+            fontWeight: '500',
           }}
           placeholder="Password"
+          placeholderTextColor="rgba(255, 255, 255, 0.6)"
           value={formData.password}
           onChangeText={value => handleInputChange('password', value)}
           onFocus={() => handleFocus('password')}
@@ -197,7 +228,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         <TouchableOpacity
           style={{
             position: 'absolute',
-            right: 15,
+            right: '14%',
             top: 15,
             padding: 5,
           }}
@@ -220,7 +251,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
             zIndex: 10,
           }}>
             {passwordErrors.map((err, idx) => (
-              <Text key={idx} style={{ color: 'white', fontSize: 13, textAlign: 'center' }}>
+              <Text key={idx} style={{ color: '#FFFFFF', fontSize: 13, textAlign: 'center', fontWeight: 'bold' }}>
                 Password must have: {err}
               </Text>
             ))}
@@ -231,13 +262,18 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
       <View style={{ position: 'relative', marginBottom: 25 }}>
         <TextInput
           style={{
-            borderBottomWidth: 1,
-            borderBottomColor: focusedField === 'confirmPassword' ? '#000000' : '#D3D3D3',
+            backgroundColor: 'rgba(30, 58, 138, 0.31)',
             padding: 15,
             fontSize: 16,
             paddingRight: 50,
+            borderRadius: 8,
+            width: '80%',
+            alignSelf: 'center',
+            color: '#FFFFFF',
+            fontWeight: '500',
           }}
           placeholder="Confirm Password"
+          placeholderTextColor="rgba(255, 255, 255, 0.6)"
           value={formData.confirmPassword}
           onChangeText={value => handleInputChange('confirmPassword', value)}
           onFocus={() => handleFocus('confirmPassword')}
@@ -247,7 +283,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         <TouchableOpacity
           style={{
             position: 'absolute',
-            right: 15,
+            right: '14%',
             top: 15,
             padding: 5,
           }}
@@ -259,7 +295,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
           )}
         </TouchableOpacity>
         {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-          <Text style={{ color: 'red', marginBottom: 10, fontSize: 13 }}>
+          <Text style={{ color: '#FFFFFF', marginBottom: 10, fontSize: 13, fontWeight: 'bold' }}>
             Passwords do not match
           </Text>
         )}
@@ -267,10 +303,13 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
 
       <TouchableOpacity
         style={{
-          backgroundColor: isFormValid ? '#007AFF' : '#aaa',
-          borderRadius: 8,
+          backgroundColor: isFormValid ? '#aaa' : '#1E3A8A',
+          borderRadius: 15,
           padding: 15,
+          marginTop: 60,
           alignItems: 'center',
+          alignSelf: 'center',
+          width: '50%',
         }}
         onPress={handleRegister}
         disabled={!isFormValid}
@@ -278,7 +317,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         <Text
           style={{
             color: 'white',
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: 'bold',
           }}>
           Register
@@ -286,16 +325,16 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
       </TouchableOpacity>
 
       <Text
-        style={{
-          textAlign: 'center',
-          marginTop: 20,
-          color: '#666',
-          fontSize: 14,
-        }}>
+                  style={{
+            textAlign: 'center',
+            marginTop: 20,
+            color: '#000000',
+            fontSize: 14,
+          }}>
         Already have an account?{' '}
         <Text
           style={{
-            color: '#007AFF',
+            color: '#1E3A8A',
             fontWeight: 'bold',
           }}
           onPress={onGoToLogin}
