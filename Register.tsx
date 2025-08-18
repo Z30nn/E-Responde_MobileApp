@@ -8,9 +8,11 @@ import {
   Alert,
   Image,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import EyeIcon from './assets/eye.svg';
 import EyeOffIcon from './assets/eye-off.svg';
+import { FirebaseService } from './services/firebaseService';
 
 const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   const [formData, setFormData] = useState({
@@ -25,6 +27,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setEmailError(validateEmail(formData.email));
@@ -62,7 +65,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
     setFocusedField(null);
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!formData.firstName.trim() || !formData.lastName.trim()) {
       Alert.alert('Error', 'Please enter your first and last name');
       return;
@@ -79,21 +82,61 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
       Alert.alert('Error', 'Passwords do not match');
       return;
     }
-    Alert.alert('Success', 'Registration successful!', [
-      {
-        text: 'OK',
-        onPress: () => {
-          setFormData({
-            firstName: '',
-            lastName: '',
-            email: '',
-            password: '',
-            confirmPassword: '',
-          });
-          if (onGoToLogin) onGoToLogin();
+
+    setIsLoading(true);
+    try {
+      // Check if user already exists
+      const userExists = await FirebaseService.checkCivilianUser(formData.email);
+      if (userExists) {
+        Alert.alert('Error', 'An account with this email already exists');
+        return;
+      }
+
+      // Register user with Firebase
+      await FirebaseService.registerCivilian({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+
+      Alert.alert('Success', 'Registration successful!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            setFormData({
+              firstName: '',
+              lastName: '',
+              email: '',
+              password: '',
+              confirmPassword: '',
+            });
+            if (onGoToLogin) onGoToLogin();
+          },
         },
-      },
-    ]);
+      ]);
+    } catch (error: any) {
+      let errorMessage = 'Registration failed. Please try again.';
+      console.error('Registration error details:', error);
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'An account with this email already exists';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Email/password authentication is not enabled. Please contact support.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const isFormValid =
@@ -303,7 +346,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
 
       <TouchableOpacity
         style={{
-          backgroundColor: isFormValid ? '#aaa' : '#1E3A8A',
+          backgroundColor: isFormValid && !isLoading ? '#1E3A8A' : '#aaa',
           borderRadius: 15,
           padding: 15,
           marginTop: 60,
@@ -312,16 +355,20 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
           width: '50%',
         }}
         onPress={handleRegister}
-        disabled={!isFormValid}
+        disabled={!isFormValid || isLoading}
       >
-        <Text
-          style={{
-            color: 'white',
-            fontSize: 20,
-            fontWeight: 'bold',
-          }}>
-          Register
-        </Text>
+        {isLoading ? (
+          <ActivityIndicator color="white" size="small" />
+        ) : (
+          <Text
+            style={{
+              color: 'white',
+              fontSize: 20,
+              fontWeight: 'bold',
+            }}>
+            Register
+          </Text>
+        )}
       </TouchableOpacity>
 
       <Text

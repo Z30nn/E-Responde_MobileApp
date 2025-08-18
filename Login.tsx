@@ -10,11 +10,14 @@ import {
   Alert,
   Pressable,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import EyeIcon from './assets/eye.svg';
 import EyeOffIcon from './assets/eye-off.svg';
 import Register from './Register';
 import ForgotPassword from './ForgotPassword';
+import { FirebaseService } from './services/firebaseService';
+import Dashboard from './Dashboard';
 
 const Login = () => {
   const { width } = useWindowDimensions();
@@ -28,6 +31,8 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [emailError, setEmailError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const validateEmail = (email: string) => {
     if (!email) return 'Email is required.';
@@ -47,7 +52,7 @@ const Login = () => {
     setFocusedField(null);
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!formData.email.trim() || emailError) {
       Alert.alert('Error', emailError || 'Please enter your email');
       return;
@@ -56,14 +61,40 @@ const Login = () => {
       Alert.alert('Error', 'Please enter your password');
       return;
     }
-    // TODO: Implement actual login logic
-    Alert.alert('Success', 'Login successful!');
+
+    setIsLoading(true);
+    try {
+      // Login with Firebase
+      await FirebaseService.loginCivilian({
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+
+      // Automatically navigate to Dashboard screen
+      setShowDashboard(true);
+    } catch (error: any) {
+      let errorMessage = 'Login failed. Please check your credentials.';
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many failed attempts. Please try again later.';
+      }
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const isFormValid = formData.email && !emailError && formData.password;
 
   return (
-    showForgotPassword ? (
+    showDashboard ? (
+      <Dashboard onLogout={() => setShowDashboard(false)} />
+    ) : showForgotPassword ? (
       <ForgotPassword onGoToLogin={() => setShowForgotPassword(false)} />
     ) : showSignUp ? (
       <Register onGoToLogin={() => setShowSignUp(false)} />
@@ -152,7 +183,7 @@ const Login = () => {
         </View>
         <Pressable
           style={({ pressed }) => ({
-            backgroundColor: pressed ? '#808080' : '#000000',
+            backgroundColor: pressed ? '#808080' : (isFormValid && !isLoading ? '#000000' : '#808080'),
             borderRadius: 15,
             padding: 15,
             alignItems: 'center',
@@ -161,9 +192,13 @@ const Login = () => {
             marginTop: 60,
           })}
           onPress={handleLogin}
-          disabled={!isFormValid}
+          disabled={!isFormValid || isLoading}
         >
-          <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Log In</Text>
+          {isLoading ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Log In</Text>
+          )}
         </Pressable>
         <Text
           style={{ textAlign: 'center', marginTop: 20, color: '#666', fontSize: 14 }}

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "343953743058",
+    "firebase_url": "https://e-responde-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "e-responde",
+    "storage_bucket": "e-responde.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:343953743058:android:402d049aa2fd446be7e10b",
+        "android_client_info": {
+          "package_name": "com.mobileapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZzn8kYUjqTo1-Wpu9vT4jZ9-UB2BDL4Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

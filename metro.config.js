@@ -17,3 +17,6 @@ module.exports = mergeConfig(getDefaultConfig(__dirname), {
         sourceExts: [...sourceExts, 'svg'],
     },
 });
+
+// If you still have Metro issues, uncomment the line below to use the original config:
+// module.exports = getDefaultConfig(__dirname);
