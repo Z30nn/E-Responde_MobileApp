@@ -10,12 +10,15 @@ import {
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { auth } from './firebaseConfig';
+import { useTheme, colors } from './services/themeContext';
 
 interface CrimeListFromOthersProps {
   onViewReport?: (reportId: string) => void;
 }
 
 const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? colors.dark : colors.light;
   const [reports, setReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +88,136 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
     }
   };
 
+  const styles = StyleSheet.create({
+    listContainer: {
+      flex: 1,
+      minHeight: 300,
+    },
+    list: {
+      flex: 1,
+    },
+    listContent: {
+      paddingBottom: 20,
+    },
+    reportCard: {
+      backgroundColor: theme.menuBackground,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+    cardHeader: {
+      marginBottom: 12,
+    },
+    crimeTypeContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    crimeType: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.primary,
+      flex: 1,
+    },
+    statusBadge: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      minWidth: 80,
+    },
+    statusText: {
+      color: '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '600',
+      textAlign: 'center',
+      textTransform: 'capitalize',
+    },
+    dateTime: {
+      fontSize: 14,
+      color: theme.secondaryText,
+      fontStyle: 'italic',
+    },
+    description: {
+      fontSize: 16,
+      color: theme.text,
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+    cardFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    location: {
+      fontSize: 14,
+      color: theme.secondaryText,
+      flex: 1,
+    },
+    reporter: {
+      fontSize: 14,
+      color: theme.secondaryText,
+      fontStyle: 'italic',
+      textAlign: 'right',
+    },
+    loadingContainer: {
+      alignItems: 'center',
+      padding: 40,
+    },
+    loadingText: {
+      marginTop: 16,
+      fontSize: 16,
+      color: theme.secondaryText,
+    },
+    errorContainer: {
+      alignItems: 'center',
+      padding: 40,
+    },
+    errorText: {
+      fontSize: 16,
+      color: '#EF4444',
+      textAlign: 'center',
+      marginBottom: 16,
+    },
+    retryButton: {
+      backgroundColor: theme.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    retryButtonText: {
+      color: theme.background,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      padding: 40,
+    },
+    emptyText: {
+      fontSize: 18,
+      color: theme.secondaryText,
+      fontWeight: '600',
+      marginBottom: 8,
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: theme.secondaryText,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });
+
   const renderReportCard = ({ item }: { item: CrimeReport }) => (
     <TouchableOpacity
       style={styles.reportCard}
@@ -121,7 +254,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1E3A8A" />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.loadingText}>Loading crime reports...</Text>
       </View>
     );
@@ -165,135 +298,5 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  listContainer: {
-    flex: 1,
-    minHeight: 300,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  reportCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  cardHeader: {
-    marginBottom: 12,
-  },
-  crimeTypeContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  crimeType: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
-    flex: 1,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    minWidth: 80,
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    textTransform: 'capitalize',
-  },
-  dateTime: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontStyle: 'italic',
-  },
-  description: {
-    fontSize: 16,
-    color: '#374151',
-    lineHeight: 22,
-    marginBottom: 16,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  location: {
-    fontSize: 14,
-    color: '#6B7280',
-    flex: 1,
-  },
-  reporter: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    textAlign: 'right',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  errorContainer: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#EF4444',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: '#1E3A8A',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#6B7280',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});
 
 export default CrimeListFromOthers;

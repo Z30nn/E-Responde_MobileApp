@@ -176,11 +176,11 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
           borderRadius: 8,
           width: '80%',
           alignSelf: 'center',
-          color: '#FFFFFF',
+          color: '#1E3A8A',
           marginTop: -80,
           fontWeight: '500',
         }}
-        placeholderTextColor="rgba(255, 255, 255, 0.6)"
+        placeholderTextColor="#1E3A8A"
         placeholder="First Name"
         value={formData.firstName}
         onChangeText={value => handleInputChange('firstName', value)}
@@ -198,10 +198,10 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
           borderRadius: 8,
           width: '80%',
           alignSelf: 'center',
-          color: '#FFFFFF',
+          color: '#1E3A8A',
           fontWeight: '500',
         }}
-        placeholderTextColor="rgba(255, 255, 255, 0.6)"
+        placeholderTextColor="#1E3A8A"
         placeholder="Last Name"
         value={formData.lastName}
         onChangeText={value => handleInputChange('lastName', value)}
@@ -219,11 +219,11 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
             borderRadius: 8,
             width: '80%',
             alignSelf: 'center',
-            color: '#FFFFFF',
+            color: '#1E3A8A',
             fontWeight: '500',
           }}
           placeholder="Email Address"
-          placeholderTextColor="rgba(255, 255, 255, 0.6)"
+          placeholderTextColor="#1E3A8A"
           value={formData.email}
           onChangeText={value => handleInputChange('email', value)}
           onFocus={() => handleFocus('email')}
@@ -257,11 +257,11 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
             borderRadius: 8,
             width: '80%',
             alignSelf: 'center',
-            color: '#FFFFFF',
+            color: '#1E3A8A',
             fontWeight: '500',
           }}
           placeholder="Password"
-          placeholderTextColor="rgba(255, 255, 255, 0.6)"
+          placeholderTextColor="#1E3A8A"
           value={formData.password}
           onChangeText={value => handleInputChange('password', value)}
           onFocus={() => handleFocus('password')}
@@ -312,11 +312,11 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
             borderRadius: 8,
             width: '80%',
             alignSelf: 'center',
-            color: '#FFFFFF',
+            color: '#1E3A8A',
             fontWeight: '500',
           }}
           placeholder="Confirm Password"
-          placeholderTextColor="rgba(255, 255, 255, 0.6)"
+          placeholderTextColor="#1E3A8A"
           value={formData.confirmPassword}
           onChangeText={value => handleInputChange('confirmPassword', value)}
           onFocus={() => handleFocus('confirmPassword')}

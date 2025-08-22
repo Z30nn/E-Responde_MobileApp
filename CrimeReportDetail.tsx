@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
+import { useTheme, colors } from './services/themeContext';
 
 interface CrimeReportDetailProps {
   reportId: string;
@@ -16,6 +17,8 @@ interface CrimeReportDetailProps {
 }
 
 const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? colors.dark : colors.light;
   const [report, setReport] = useState<CrimeReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,10 +88,147 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 20,
+      backgroundColor: theme.menuBackground,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    backButton: {
+      padding: 8,
+    },
+    backButtonText: {
+      fontSize: 16,
+      color: theme.primary,
+      fontWeight: '600',
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: theme.primary,
+    },
+    headerSpacer: {
+      width: 60,
+    },
+    content: {
+      flex: 1,
+      padding: 20,
+    },
+    statusBanner: {
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 24,
+    },
+    statusBannerText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 8,
+    },
+    statusDescription: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      lineHeight: 20,
+      opacity: 0.9,
+    },
+    section: {
+      backgroundColor: theme.menuBackground,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.primary,
+      marginBottom: 16,
+    },
+    infoRow: {
+      flexDirection: 'row',
+      marginBottom: 12,
+      alignItems: 'flex-start',
+    },
+    infoLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+      width: 100,
+      flexShrink: 0,
+    },
+    infoValue: {
+      fontSize: 16,
+      color: theme.secondaryText,
+      flex: 1,
+      lineHeight: 22,
+    },
+    multimediaItem: {
+      backgroundColor: isDarkMode ? theme.settingsBackground : '#F3F4F6',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+    },
+    multimediaText: {
+      fontSize: 14,
+      color: theme.text,
+    },
+    noteText: {
+      fontSize: 14,
+      color: theme.secondaryText,
+      lineHeight: 20,
+      fontStyle: 'italic',
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.background,
+    },
+    loadingText: {
+      marginTop: 16,
+      fontSize: 16,
+      color: theme.secondaryText,
+    },
+    errorContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.background,
+      padding: 20,
+    },
+    errorText: {
+      fontSize: 16,
+      color: '#EF4444',
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    retryButton: {
+      backgroundColor: theme.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    retryButtonText: {
+      color: theme.background,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1E3A8A" />
+        <ActivityIndicator size="large" color={theme.primary} />
         <Text style={styles.loadingText}>Loading report details...</Text>
       </View>
     );
@@ -213,142 +353,5 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  backButton: {
-    padding: 8,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#1E3A8A',
-    fontWeight: '600',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
-  },
-  headerSpacer: {
-    width: 60,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  statusBanner: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  statusBannerText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  statusDescription: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.9,
-  },
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
-    marginBottom: 16,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-    alignItems: 'flex-start',
-  },
-  infoLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    width: 100,
-    flexShrink: 0,
-  },
-  infoValue: {
-    fontSize: 16,
-    color: '#6B7280',
-    flex: 1,
-    lineHeight: 22,
-  },
-  multimediaItem: {
-    backgroundColor: '#F3F4F6',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  multimediaText: {
-    fontSize: 14,
-    color: '#374151',
-  },
-  noteText: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
-    fontStyle: 'italic',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#EF4444',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: '#1E3A8A',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-});
 
 export default CrimeReportDetail;
