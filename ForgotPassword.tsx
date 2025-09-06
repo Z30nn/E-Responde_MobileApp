@@ -9,14 +9,19 @@ import {
   Alert,
   Pressable,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
+import { FirebaseService } from './services/firebaseService';
+import { useLanguage } from './services/languageContext';
 
 const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
   const { width } = useWindowDimensions();
   const logoSize = Math.min(width * 0.8, 360);
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [emailError, setEmailError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const validateEmail = (value: string) => {
     if (!value) return 'Email is required.';
@@ -29,13 +34,42 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
     setEmailError(validateEmail(value));
   };
 
-  const handleResetPassword = () => {
+  const handleResetPassword = async () => {
     if (!email.trim() || emailError) {
-      Alert.alert('Error', emailError || 'Please enter your email');
+      Alert.alert(t('common.error'), emailError || t('message.invalidEmail'));
       return;
     }
-    // TODO: Implement actual password reset logic
-    Alert.alert('Success', 'If an account exists with this email, you will receive password reset instructions.');
+
+    setIsLoading(true);
+    try {
+      await FirebaseService.resetPassword(email.trim());
+      Alert.alert(
+        t('common.success'), 
+        t('message.passwordResetSent'),
+        [
+          {
+            text: t('common.ok'),
+            onPress: () => onGoToLogin()
+          }
+        ]
+      );
+    } catch (error: any) {
+      let errorMessage = 'Failed to send password reset email. Please try again.';
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email address.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please try again later.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      }
+      
+      Alert.alert(t('common.error'), errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -54,33 +88,34 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
           textAlign: 'center',
           marginBottom: 40,
           marginTop: -60,
-          color: '#333',
+          color: '#1E3A8A',
         }}>
-        Reset Password
+        {t('auth.resetPassword')}
       </Text>
       <Text
         style={{
           fontSize: 16,
           textAlign: 'center',
           marginBottom: 30,
-          color: '#666',
+          color: '#000000',
           paddingHorizontal: 20,
           marginTop: -10,
         }}>
-        Enter your email address and we'll send you instructions to reset your password.
+        {t('auth.forgotPasswordDesc')}
       </Text>
       <View style={{ position: 'relative', marginBottom: 15, alignSelf: 'center', width: '80%', marginTop: -40 }}>
         <TextInput
           style={{
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            color: '#FFFFFF',
+            backgroundColor: 'rgba(30, 58, 138, 0.31)',
+            color: '#1E3A8A',
             padding: 15,
             fontSize: 16,
             borderRadius: 8,
             marginTop: 30,
+            fontWeight: '500',
           }}
-          placeholder="Email Address"
-          placeholderTextColor="#DDDDDD"
+          placeholder={t('auth.email')}
+          placeholderTextColor="#1E3A8A"
           value={email}
           onChangeText={handleEmailChange}
           onFocus={() => setFocusedField('email')}
@@ -105,7 +140,7 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
       </View>
       <Pressable
         style={({ pressed }) => ({
-          backgroundColor: pressed ? '#808080' : '#000000',
+          backgroundColor: pressed ? '#aaa' : (email && !emailError && !isLoading ? '#1E3A8A' : '#aaa'),
           borderRadius: 15,
           padding: 15,
           alignItems: 'center',
@@ -114,19 +149,23 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
           marginTop: 60,
         })}
         onPress={handleResetPassword}
-        disabled={!email || !!emailError}
+        disabled={!email || !!emailError || isLoading}
       >
-        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Reset Password</Text>
+        {isLoading ? (
+          <ActivityIndicator color="white" size="small" />
+        ) : (
+          <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{t('auth.resetPassword')}</Text>
+        )}
       </Pressable>
       <Text
-        style={{ textAlign: 'center', marginTop: 20, color: '#666', fontSize: 14 }}
+        style={{ textAlign: 'center', marginTop: 20, color: '#000000', fontSize: 14 }}
       >
-        Remember your password?{' '}
+        {t('auth.rememberPassword')}{' '}
         <Text
           style={{ color: '#1E3A8A', fontWeight: 'bold' }}
           onPress={onGoToLogin}
         >
-          Log In
+          {t('auth.login')}
         </Text>
       </Text>
     </ScrollView>

@@ -110,14 +110,15 @@ const Login = () => {
         <View style={{ position: 'relative', marginBottom: 15, alignSelf: 'center', width: '80%', marginTop: -40 }}>
           <TextInput
             style={{
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              color: '#FFFFFF',
+              backgroundColor: 'rgba(30, 58, 138, 0.31)',
+              color: '#1E3A8A',
               padding: 15,
               fontSize: 16,
               borderRadius: 8,
+              fontWeight: '500',
             }}
             placeholder="Email Address"
-            placeholderTextColor="#DDDDDD"
+            placeholderTextColor="#1E3A8A"
             value={formData.email}
             onChangeText={value => handleInputChange('email', value)}
             onFocus={() => handleFocus('email')}
@@ -143,15 +144,16 @@ const Login = () => {
         <View style={{ position: 'relative', marginBottom: 65, alignSelf: 'center', width: '80%' }}>
           <TextInput
             style={{
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              color: '#FFFFFF',
+              backgroundColor: 'rgba(30, 58, 138, 0.31)',
+              color: '#1E3A8A',
               padding: 15,
               fontSize: 16,
               paddingRight: 50,
               borderRadius: 8,
+              fontWeight: '500',
             }}
             placeholder="Password"
-            placeholderTextColor="#DDDDDD"
+            placeholderTextColor="#1E3A8A"
             value={formData.password}
             onChangeText={value => handleInputChange('password', value)}
             onFocus={() => handleFocus('password')}
@@ -183,7 +185,7 @@ const Login = () => {
         </View>
         <Pressable
           style={({ pressed }) => ({
-            backgroundColor: pressed ? '#808080' : (isFormValid && !isLoading ? '#000000' : '#808080'),
+            backgroundColor: pressed ? '#aaa' : (isFormValid && !isLoading ? '#1E3A8A' : '#aaa'),
             borderRadius: 15,
             padding: 15,
             alignItems: 'center',
@@ -201,7 +203,7 @@ const Login = () => {
           )}
         </Pressable>
         <Text
-          style={{ textAlign: 'center', marginTop: 20, color: '#666', fontSize: 14 }}
+          style={{ textAlign: 'center', marginTop: 20, color: '#000000', fontSize: 14 }}
         >
           Don't have an account?{' '}
           <Text

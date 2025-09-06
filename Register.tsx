@@ -260,7 +260,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
             color: '#1E3A8A',
             fontWeight: '500',
           }}
-          placeholder="Password"
+                      placeholder="Password"
           placeholderTextColor="#1E3A8A"
           value={formData.password}
           onChangeText={value => handleInputChange('password', value)}
@@ -315,7 +315,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
             color: '#1E3A8A',
             fontWeight: '500',
           }}
-          placeholder="Confirm Password"
+                      placeholder="Confirm Password"
           placeholderTextColor="#1E3A8A"
           value={formData.confirmPassword}
           onChangeText={value => handleInputChange('confirmPassword', value)}

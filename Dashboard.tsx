@@ -9,14 +9,17 @@ import {
   Image,
   ScrollView,
   Switch,
+  Modal,
 } from 'react-native';
 import { auth } from './firebaseConfig';
-import { useTheme, colors } from './services/themeContext';
+import { useTheme, colors, fontSizes } from './services/themeContext';
+import { useLanguage } from './services/languageContext';
 import { FirebaseService } from './services/firebaseService';
 import CrimeReportForm from './CrimeReportForm';
 import CrimeReportsList from './CrimeReportsList';
 import CrimeReportDetail from './CrimeReportDetail';
 import CrimeListFromOthers from './CrimeListFromOthers';
+import ChangePassword from './ChangePassword';
 
 interface UserProfile {
   firstName: string;
@@ -29,8 +32,15 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [showCrimeReportForm, setShowCrimeReportForm] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const { isDarkMode, toggleTheme } = useTheme();
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showFontSizeModal, setShowFontSizeModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const { isDarkMode, toggleTheme, fontSize, setFontSize } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
+  const fonts = fontSizes[fontSize];
 
   useEffect(() => {
     if (activeTab === 4) {
@@ -62,11 +72,11 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
   };
 
   const tabs = [
-    { id: 0, name: 'Crime List', icon: require('./assets/reports.png') },
+    { id: 0, name: t('nav.crimeList'), icon: require('./assets/reports.png') },
     { id: 1, name: 'Contacts', icon: require('./assets/contacts.png') },
     { id: 2, name: 'SOS', icon: require('./assets/SOS.png') },
-    { id: 3, name: 'Report', icon: require('./assets/WriteR.png') },
-    { id: 4, name: 'Profile', icon: require('./assets/Profile.png') },
+    { id: 3, name: t('nav.reports'), icon: require('./assets/WriteR.png') },
+    { id: 4, name: t('nav.profile'), icon: require('./assets/Profile.png') },
   ];
 
   const handleTabPress = (tabId: number) => {
@@ -95,18 +105,18 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
     },
     avatarText: {
       color: theme.background,
-      fontSize: 36,
+      fontSize: fonts.title + 14,
       fontWeight: 'bold',
     },
     userName: {
-      fontSize: 24,
+      fontSize: fonts.title,
       fontWeight: 'bold',
       color: theme.primary,
       textAlign: 'center',
       marginBottom: 8,
     },
     userEmail: {
-      fontSize: 16,
+      fontSize: fonts.body,
       color: theme.secondaryText,
       textAlign: 'center',
       marginBottom: 16,
@@ -136,7 +146,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       borderBottomColor: theme.border,
     },
     menuItemText: {
-      fontSize: 16,
+      fontSize: fonts.body,
       color: theme.text,
     },
     chevronRight: {
@@ -315,6 +325,221 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       marginBottom: 16,
       textAlign: 'center',
     },
+    // Font Size Modal Styles
+    fontSizePreview: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    fontSizePreviewText: {
+      fontSize: fonts.caption,
+      color: theme.secondaryText,
+      fontWeight: '500',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    fontSizeModal: {
+      backgroundColor: theme.background,
+      borderRadius: 16,
+      margin: 20,
+      maxWidth: '90%',
+      minWidth: '80%',
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+    },
+    modalTitle: {
+      fontSize: fonts.subtitle,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    closeButton: {
+      padding: 8,
+    },
+    closeButtonText: {
+      fontSize: fonts.subtitle,
+      color: theme.secondaryText,
+      fontWeight: '600',
+    },
+    fontSizeOptions: {
+      padding: 20,
+    },
+    fontSizeOption: {
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.menuBackground,
+      marginBottom: 12,
+    },
+    fontSizeOptionSelected: {
+      backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'rgba(30, 58, 138, 0.1)',
+      borderColor: theme.primary,
+    },
+    fontSizeOptionText: {
+      fontSize: fonts.subtitle,
+      color: theme.text,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    fontSizeOptionTextSelected: {
+      color: theme.primary,
+    },
+    fontSizeDescription: {
+      fontSize: fonts.caption,
+      color: theme.secondaryText,
+      lineHeight: 18,
+    },
+    fontSizeDescriptionSelected: {
+      color: theme.primary,
+      opacity: 0.8,
+    },
+    // Terms of Service Modal Styles
+    termsModal: {
+      backgroundColor: theme.background,
+      borderRadius: 16,
+      margin: 20,
+      maxHeight: '85%',
+      minWidth: '90%',
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    termsContent: {
+      padding: 20,
+      maxHeight: 500,
+    },
+    termsSectionTitle: {
+      fontSize: fonts.subtitle,
+      fontWeight: '600',
+      color: theme.primary,
+      marginTop: 20,
+      marginBottom: 8,
+    },
+    termsText: {
+      fontSize: fonts.body,
+      color: theme.text,
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+    termsLastUpdated: {
+      fontSize: fonts.caption,
+      color: theme.secondaryText,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      marginTop: 20,
+      marginBottom: 10,
+    },
+    // Privacy and Policies Modal Styles
+    privacyModal: {
+      backgroundColor: theme.background,
+      borderRadius: 16,
+      margin: 20,
+      maxHeight: '85%',
+      minWidth: '90%',
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    privacyContent: {
+      padding: 20,
+      maxHeight: 500,
+    },
+    privacySectionTitle: {
+      fontSize: fonts.subtitle,
+      fontWeight: '600',
+      color: theme.primary,
+      marginTop: 20,
+      marginBottom: 8,
+    },
+    privacyText: {
+      fontSize: fonts.body,
+      color: theme.text,
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+    privacyLastUpdated: {
+      fontSize: fonts.caption,
+      color: theme.secondaryText,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      marginTop: 20,
+      marginBottom: 10,
+    },
+    // Language Modal Styles
+    languagePreview: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    languagePreviewText: {
+      fontSize: fonts.caption,
+      color: theme.secondaryText,
+      fontWeight: '500',
+    },
+    languageModal: {
+      backgroundColor: theme.background,
+      borderRadius: 16,
+      margin: 20,
+      maxWidth: '90%',
+      minWidth: '80%',
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    languageOptions: {
+      padding: 20,
+    },
+    languageOption: {
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.menuBackground,
+      marginBottom: 12,
+    },
+    languageOptionSelected: {
+      backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'rgba(30, 58, 138, 0.1)',
+      borderColor: theme.primary,
+    },
+    languageOptionText: {
+      fontSize: fonts.subtitle,
+      color: theme.text,
+      fontWeight: '600',
+      marginBottom: 4,
+    },
+    languageOptionTextSelected: {
+      color: theme.primary,
+    },
+    languageOptionDesc: {
+      fontSize: fonts.caption,
+      color: theme.secondaryText,
+      lineHeight: 18,
+    },
+    languageOptionDescSelected: {
+      color: theme.primary,
+      opacity: 0.8,
+    },
   });
 
   const renderTabContent = () => {
@@ -322,13 +547,13 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       case 0:
         return (
           <View style={styles.crimeListTabContainer}>
-            <Text style={styles.contentTitle}>Crime List</Text>
+            <Text style={styles.contentTitle}>{t('dashboard.crimeList')}</Text>
             <Text style={styles.contentText}>
-              View crime reports from other users in your area.
+              {t('dashboard.crimeListDesc')}
             </Text>
             
             <View style={styles.crimeListSection}>
-              <Text style={styles.crimeListSectionTitle}>Recent Crime Reports</Text>
+              <Text style={styles.crimeListSectionTitle}>{t('dashboard.recentCrimeReports')}</Text>
               <CrimeListFromOthers onViewReport={(reportId) => setSelectedReportId(reportId)} />
             </View>
           </View>
@@ -355,7 +580,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
         return (
           <View style={styles.reportsTabContainer}>
             <View style={styles.reportsSection}>
-              <Text style={styles.reportsSectionTitle}>Your Crime Reports</Text>
+              <Text style={styles.reportsSectionTitle}>{t('dashboard.yourCrimeReports')}</Text>
               <CrimeReportsList onViewReport={(reportId) => setSelectedReportId(reportId)} />
             </View>
             
@@ -364,7 +589,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
               onPress={() => setShowCrimeReportForm(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.reportButtonText}>Report Crime</Text>
+              <Text style={styles.reportButtonText}>{t('crime.reportCrime')}</Text>
             </TouchableOpacity>
           </View>
         );
@@ -390,25 +615,23 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
 
               {/* Settings Menu */}
               <View style={styles.settingsContainer}>
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Change Password</Text>
-                  <Text style={styles.chevronRight}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Help Center</Text>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setShowChangePassword(true)}
+                >
+                  <Text style={styles.menuItemText}>{t('auth.changePassword')}</Text>
                   <Text style={styles.chevronRight}>›</Text>
                 </TouchableOpacity>
 
                 <Text style={styles.sectionTitle}>SETTINGS</Text>
 
                 <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Notifications</Text>
+                  <Text style={styles.menuItemText}>{t('settings.notifications')}</Text>
                   <Text style={styles.chevronRight}>›</Text>
                 </TouchableOpacity>
 
                 <View style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Dark Mode</Text>
+                  <Text style={styles.menuItemText}>{t('settings.darkMode')}</Text>
                   <Switch
                     trackColor={{ false: '#767577', true: '#81b0ff' }}
                     thumbColor={isDarkMode ? '#1E3A8A' : '#f4f3f4'}
@@ -419,24 +642,45 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
                   />
                 </View>
 
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Fonts</Text>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setShowFontSizeModal(true)}
+                >
+                  <Text style={styles.menuItemText}>{t('settings.fontSize')}</Text>
+                  <View style={styles.fontSizePreview}>
+                    <Text style={styles.fontSizePreviewText}>
+                      {fontSize.charAt(0).toUpperCase() + fontSize.slice(1)}
+                    </Text>
+                    <Text style={styles.chevronRight}>›</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setShowLanguageModal(true)}
+                >
+                  <Text style={styles.menuItemText}>{t('settings.language')}</Text>
+                  <View style={styles.languagePreview}>
+                    <Text style={styles.languagePreviewText}>
+                      {language === 'en' ? 'English' : 'Filipino'}
+                    </Text>
+                    <Text style={styles.chevronRight}>›</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setShowTermsModal(true)}
+                >
+                  <Text style={styles.menuItemText}>{t('settings.termsOfService')}</Text>
                   <Text style={styles.chevronRight}>›</Text>
                 </TouchableOpacity>
 
-
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Language</Text>
-                  <Text style={styles.chevronRight}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Terms of Services</Text>
-                  <Text style={styles.chevronRight}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Privacy and Policies</Text>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setShowPrivacyModal(true)}
+                >
+                  <Text style={styles.menuItemText}>{t('settings.privacyPolicies')}</Text>
                   <Text style={styles.chevronRight}>›</Text>
                 </TouchableOpacity>
 
@@ -532,6 +776,323 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
           </View>
         </>
       )}
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <ChangePassword
+          onClose={() => setShowChangePassword(false)}
+        />
+      )}
+
+      {/* Font Size Modal */}
+      <Modal
+        visible={showFontSizeModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFontSizeModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFontSizeModal(false)}
+        >
+          <View style={styles.fontSizeModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('settings.fontSize')}</Text>
+              <TouchableOpacity 
+                onPress={() => setShowFontSizeModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.fontSizeOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.fontSizeOption,
+                  fontSize === 'small' && styles.fontSizeOptionSelected
+                ]}
+                onPress={() => {
+                  setFontSize('small');
+                  setShowFontSizeModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.fontSizeOptionText,
+                  fontSize === 'small' && styles.fontSizeOptionTextSelected
+                ]}>{t('settings.fontSize.small')}</Text>
+                <Text style={[
+                  styles.fontSizeDescription,
+                  fontSize === 'small' && styles.fontSizeDescriptionSelected
+                ]}>{t('settings.fontSize.smallDesc')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.fontSizeOption,
+                  fontSize === 'medium' && styles.fontSizeOptionSelected
+                ]}
+                onPress={() => {
+                  setFontSize('medium');
+                  setShowFontSizeModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.fontSizeOptionText,
+                  fontSize === 'medium' && styles.fontSizeOptionTextSelected
+                ]}>{t('settings.fontSize.medium')}</Text>
+                <Text style={[
+                  styles.fontSizeDescription,
+                  fontSize === 'medium' && styles.fontSizeDescriptionSelected
+                ]}>{t('settings.fontSize.mediumDesc')}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.fontSizeOption,
+                  fontSize === 'large' && styles.fontSizeOptionSelected
+                ]}
+                onPress={() => {
+                  setFontSize('large');
+                  setShowFontSizeModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.fontSizeOptionText,
+                  fontSize === 'large' && styles.fontSizeOptionTextSelected
+                ]}>{t('settings.fontSize.large')}</Text>
+                <Text style={[
+                  styles.fontSizeDescription,
+                  fontSize === 'large' && styles.fontSizeDescriptionSelected
+                ]}>{t('settings.fontSize.largeDesc')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Terms of Service Modal */}
+      <Modal
+        visible={showTermsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowTermsModal(false)}
+        >
+          <View style={styles.termsModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('terms.title')}</Text>
+              <TouchableOpacity 
+                onPress={() => setShowTermsModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.termsContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.termsSectionTitle}>{t('terms.acceptance')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.acceptanceDesc')}
+              </Text>
+
+              <Text style={styles.termsSectionTitle}>{t('terms.description')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.descriptionDesc')}
+              </Text>
+
+              <Text style={styles.termsSectionTitle}>{t('terms.responsibilities')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.responsibilitiesDesc')}
+              </Text>
+
+              <Text style={styles.termsSectionTitle}>{t('terms.privacy')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.privacyDesc')}
+              </Text>
+
+              <Text style={styles.termsSectionTitle}>{t('terms.emergency')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.emergencyDesc')}
+              </Text>
+
+              <Text style={styles.termsSectionTitle}>{t('terms.liability')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.liabilityDesc')}
+              </Text>
+
+              <Text style={styles.termsSectionTitle}>{t('terms.modifications')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.modificationsDesc')}
+              </Text>
+
+              <Text style={styles.termsSectionTitle}>{t('terms.contact')}</Text>
+              <Text style={styles.termsText}>
+                {t('terms.contactDesc')}
+              </Text>
+
+              <Text style={styles.termsLastUpdated}>
+                {t('terms.lastUpdated')} {new Date().toLocaleDateString()}
+              </Text>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Privacy and Policies Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPrivacyModal(false)}
+        >
+          <View style={styles.privacyModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('privacy.title')}</Text>
+              <TouchableOpacity 
+                onPress={() => setShowPrivacyModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.privacyContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.privacySectionTitle}>{t('privacy.informationCollected')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.informationCollectedDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.howWeUse')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.howWeUseDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.informationSharing')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.informationSharingDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.dataSecurity')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.dataSecurityDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.dataRetention')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.dataRetentionDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.yourRights')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.yourRightsDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.locationServices')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.locationServicesDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.childrensPrivacy')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.childrensPrivacyDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.changesToPolicy')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.changesToPolicyDesc')}
+              </Text>
+
+              <Text style={styles.privacySectionTitle}>{t('privacy.contactUs')}</Text>
+              <Text style={styles.privacyText}>
+                {t('privacy.contactUsDesc')}
+              </Text>
+
+              <Text style={styles.privacyLastUpdated}>
+                {t('privacy.lastUpdated')} {new Date().toLocaleDateString()}
+              </Text>
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Language Modal */}
+      <Modal
+        visible={showLanguageModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLanguageModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLanguageModal(false)}
+        >
+          <View style={styles.languageModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('settings.language')}</Text>
+              <TouchableOpacity 
+                onPress={() => setShowLanguageModal(false)}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.languageOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.languageOption,
+                  language === 'en' && styles.languageOptionSelected
+                ]}
+                onPress={() => {
+                  setLanguage('en');
+                  setShowLanguageModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.languageOptionText,
+                  language === 'en' && styles.languageOptionTextSelected
+                ]}>English</Text>
+                <Text style={[
+                  styles.languageOptionDesc,
+                  language === 'en' && styles.languageOptionDescSelected
+                ]}>English language</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.languageOption,
+                  language === 'fil' && styles.languageOptionSelected
+                ]}
+                onPress={() => {
+                  setLanguage('fil');
+                  setShowLanguageModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.languageOptionText,
+                  language === 'fil' && styles.languageOptionTextSelected
+                ]}>Filipino</Text>
+                <Text style={[
+                  styles.languageOptionDesc,
+                  language === 'fil' && styles.languageOptionDescSelected
+                ]}>Wikang Filipino</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 };
