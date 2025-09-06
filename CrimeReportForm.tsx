@@ -12,26 +12,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { FirebaseService } from './services/firebaseService';
+import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 
-interface CrimeReport {
-  crimeType: string;
-  dateTime: Date;
-  description: string;
-  multimedia: string[];
-  location: {
-    latitude: number;
-    longitude: number;
-    address: string;
-  };
-  anonymous: boolean;
-  reporterName: string;
-  reporterUid: string;
-  status: string;
-  createdAt: string;
-}
 
 const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) => {
   const { isDarkMode, fontSize } = useTheme();
@@ -58,6 +42,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [showCrimeTypeDropdown, setShowCrimeTypeDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
 
   const crimeTypes = [
     t('crime.crimeTypes.theft'),
@@ -141,6 +126,21 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       newDateTime.setHours(selectedTime.getHours());
       newDateTime.setMinutes(selectedTime.getMinutes());
       setFormData(prev => ({ ...prev, dateTime: newDateTime }));
+    }
+  };
+
+  const handleFileUpload = async () => {
+    setIsUploading(true);
+    try {
+      // TODO: Implement actual file upload functionality
+      // This would typically use a library like react-native-image-picker
+      // or expo-image-picker for selecting and uploading files
+      Alert.alert('File Upload', 'File upload functionality will be implemented here');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      Alert.alert('Error', 'Failed to upload file. Please try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -354,6 +354,9 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       borderColor: theme.border,
       marginBottom: 8,
     },
+    multimediaButtonDisabled: {
+      opacity: 0.6,
+    },
     multimediaButtonText: {
       textAlign: 'center',
       color: theme.text,
@@ -564,10 +567,22 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         {/* Multimedia */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>{t('crime.multimediaEvidence')}</Text>
-          <TouchableOpacity style={styles.multimediaButton}>
-            <Text style={styles.multimediaButtonText}>📷 {t('crime.addPhotoVideo')}</Text>
+          <TouchableOpacity 
+            style={[styles.multimediaButton, isUploading && styles.multimediaButtonDisabled]}
+            onPress={handleFileUpload}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator color={theme.text} size="small" />
+            ) : (
+              <Text style={styles.multimediaButtonText}>📁 {t('crime.addPhotoVideo')}</Text>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.multimediaButton}>
+          <TouchableOpacity 
+            style={[styles.multimediaButton, isUploading && styles.multimediaButtonDisabled]}
+            onPress={handleFileUpload}
+            disabled={isUploading}
+          >
             <Text style={styles.multimediaButtonText}>🎤 {t('crime.addAudio')}</Text>
           </TouchableOpacity>
         </View>

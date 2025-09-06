@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
+import { useLanguage } from './services/languageContext';
 
 interface CrimeReportDetailProps {
   reportId: string;
@@ -18,6 +19,7 @@ interface CrimeReportDetailProps {
 
 const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
   const { isDarkMode, fontSize } = useTheme();
+  const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const [report, setReport] = useState<CrimeReport | null>(null);
