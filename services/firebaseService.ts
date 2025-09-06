@@ -1,6 +1,10 @@
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
   UserCredential 
 } from 'firebase/auth';
 import { 
@@ -103,6 +107,36 @@ export class FirebaseService {
     } catch (error) {
       console.error('Check user error:', error);
       return false;
+    }
+  }
+
+  // Send password reset email
+  static async resetPassword(email: string): Promise<void> {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw error;
+    }
+  }
+
+  // Update user password
+  static async updateUserPassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      const user = auth.currentUser;
+      if (!user || !user.email) {
+        throw new Error('No authenticated user found');
+      }
+
+      // Re-authenticate user with current password
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+
+      // Update password
+      await updatePassword(user, newPassword);
+    } catch (error) {
+      console.error('Update password error:', error);
+      throw error;
     }
   }
 

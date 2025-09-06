@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
-import { useTheme, colors } from './services/themeContext';
+import { useTheme, colors, fontSizes } from './services/themeContext';
 
 interface CrimeReportDetailProps {
   reportId: string;
@@ -17,8 +17,9 @@ interface CrimeReportDetailProps {
 }
 
 const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, fontSize } = useTheme();
   const theme = isDarkMode ? colors.dark : colors.light;
+  const fonts = fontSizes[fontSize];
   const [report, setReport] = useState<CrimeReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,12 +107,12 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       padding: 8,
     },
     backButtonText: {
-      fontSize: 16,
+      fontSize: fonts.body,
       color: theme.primary,
       fontWeight: '600',
     },
     headerTitle: {
-      fontSize: 20,
+      fontSize: fonts.subtitle,
       fontWeight: 'bold',
       color: theme.primary,
     },
@@ -129,13 +130,13 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     },
     statusBannerText: {
       color: '#FFFFFF',
-      fontSize: 18,
+      fontSize: fonts.subtitle,
       fontWeight: 'bold',
       marginBottom: 8,
     },
     statusDescription: {
       color: '#FFFFFF',
-      fontSize: 14,
+      fontSize: fonts.caption,
       lineHeight: 20,
       opacity: 0.9,
     },
@@ -148,7 +149,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       borderColor: theme.border,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: fonts.subtitle,
       fontWeight: 'bold',
       color: theme.primary,
       marginBottom: 16,
@@ -159,14 +160,14 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       alignItems: 'flex-start',
     },
     infoLabel: {
-      fontSize: 16,
+      fontSize: fonts.body,
       fontWeight: '600',
       color: theme.text,
       width: 100,
       flexShrink: 0,
     },
     infoValue: {
-      fontSize: 16,
+      fontSize: fonts.body,
       color: theme.secondaryText,
       flex: 1,
       lineHeight: 22,
@@ -178,11 +179,11 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       marginBottom: 8,
     },
     multimediaText: {
-      fontSize: 14,
+      fontSize: fonts.caption,
       color: theme.text,
     },
     noteText: {
-      fontSize: 14,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       lineHeight: 20,
       fontStyle: 'italic',
@@ -195,7 +196,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     },
     loadingText: {
       marginTop: 16,
-      fontSize: 16,
+      fontSize: fonts.body,
       color: theme.secondaryText,
     },
     errorContainer: {
@@ -206,7 +207,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       padding: 20,
     },
     errorText: {
-      fontSize: 16,
+      fontSize: fonts.body,
       color: '#EF4444',
       textAlign: 'center',
       marginBottom: 20,
@@ -220,7 +221,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     },
     retryButtonText: {
       color: theme.background,
-      fontSize: 14,
+      fontSize: fonts.caption,
       fontWeight: '600',
     },
   });

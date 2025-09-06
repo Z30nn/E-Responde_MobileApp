@@ -11,10 +11,10 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { FirebaseService } from './services/firebaseService';
-import { useTheme, colors } from './services/themeContext';
+import { useTheme, colors, fontSizes } from './services/themeContext';
+import { useLanguage } from './services/languageContext';
 
 interface CrimeReport {
   crimeType: string;
@@ -34,8 +34,10 @@ interface CrimeReport {
 }
 
 const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, fontSize } = useTheme();
+  const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
+  const fonts = fontSizes[fontSize];
   const [formData, setFormData] = useState<Partial<CrimeReport>>({
     crimeType: '',
     dateTime: new Date(),
@@ -53,20 +55,21 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showCrimeTypeDropdown, setShowCrimeTypeDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
 
   const crimeTypes = [
-    'Theft',
-    'Assault',
-    'Vandalism',
-    'Fraud',
-    'Harassment',
-    'Breaking and Entering',
-    'Vehicle Theft',
-    'Drug-related',
-    'Domestic Violence',
-    'Other',
+    t('crime.crimeTypes.theft'),
+    t('crime.crimeTypes.assault'),
+    t('crime.crimeTypes.vandalism'),
+    t('crime.crimeTypes.fraud'),
+    t('crime.crimeTypes.harassment'),
+    t('crime.crimeTypes.breakingEntering'),
+    t('crime.crimeTypes.vehicleTheft'),
+    t('crime.crimeTypes.drugRelated'),
+    t('crime.crimeTypes.domesticViolence'),
+    t('crime.crimeTypes.other'),
   ];
 
   useEffect(() => {
@@ -238,7 +241,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       backgroundColor: theme.menuBackground,
     },
     headerTitle: {
-      fontSize: 24,
+      fontSize: fonts.title,
       fontWeight: 'bold',
       color: theme.primary,
     },
@@ -246,7 +249,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       padding: 8,
     },
     closeButtonText: {
-      fontSize: 20,
+      fontSize: fonts.subtitle,
       color: theme.secondaryText,
     },
     form: {
@@ -256,20 +259,30 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       marginBottom: 24,
     },
     label: {
-      fontSize: 16,
+      fontSize: fonts.label,
       fontWeight: '600',
       color: theme.text,
       marginBottom: 8,
     },
     pickerContainer: {
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.3)' : theme.border,
       borderRadius: 8,
-      backgroundColor: theme.menuBackground,
+      backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.2)' : theme.menuBackground,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      minHeight: 50,
     },
-    picker: {
-      height: 50,
-      color: theme.text,
+    pickerText: {
+      fontSize: fonts.body,
+      flex: 1,
+    },
+    dropdownArrow: {
+      fontSize: fonts.caption,
+      marginLeft: 8,
     },
     dateTimeContainer: {
       flexDirection: 'row',
@@ -289,7 +302,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       fontWeight: '500',
     },
     currentDateTime: {
-      fontSize: 12,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       marginTop: 8,
       fontStyle: 'italic',
@@ -300,7 +313,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       borderRadius: 8,
       padding: 12,
       backgroundColor: theme.menuBackground,
-      fontSize: 16,
+      fontSize: fonts.body,
       minHeight: 100,
       color: theme.text,
     },
@@ -325,10 +338,10 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     },
     refreshLocationButtonText: {
       color: theme.background,
-      fontSize: 16,
+      fontSize: fonts.button,
     },
     locationCoords: {
-      fontSize: 12,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       marginTop: 8,
       fontFamily: 'monospace',
@@ -353,7 +366,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       marginBottom: 8,
     },
     switchDescription: {
-      fontSize: 12,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       fontStyle: 'italic',
     },
@@ -371,7 +384,54 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     },
     submitButtonText: {
       color: 'white',
-      fontSize: 18,
+      fontSize: fonts.button,
+      fontWeight: '600',
+    },
+    // Dropdown Container and List Styles
+    dropdownContainer: {
+      position: 'relative',
+      zIndex: 1,
+    },
+    dropdownList: {
+      position: 'absolute',
+      top: 50, // Position below the picker container
+      left: 0,
+      right: 0,
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.3)' : theme.border,
+      borderTopWidth: 0,
+      borderBottomLeftRadius: 8,
+      borderBottomRightRadius: 8,
+      zIndex: 1000,
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    dropdownOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: -1000,
+      right: -1000,
+      bottom: -1000,
+      zIndex: 999,
+    },
+    dropdownItem: {
+      padding: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+    },
+    selectedDropdownItem: {
+      backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'rgba(30, 58, 138, 0.1)',
+    },
+    dropdownItemText: {
+      fontSize: fonts.body,
+      color: theme.text,
+    },
+    selectedDropdownItemText: {
+      color: theme.primary,
       fontWeight: '600',
     },
   });
@@ -379,7 +439,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Report a Crime</Text>
+        <Text style={styles.headerTitle}>{t('crime.reportCrime')}</Text>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Text style={styles.closeButtonText}>✕</Text>
         </TouchableOpacity>
@@ -388,25 +448,61 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       <View style={styles.form}>
         {/* Crime Type */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Type of Crime *</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.crimeType}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, crimeType: value }))}
-              style={styles.picker}
-              dropdownIconColor={theme.text}
+          <Text style={styles.label}>{t('crime.crimeType')} *</Text>
+          <View style={styles.dropdownContainer}>
+            <TouchableOpacity 
+              style={styles.pickerContainer}
+              onPress={() => setShowCrimeTypeDropdown(!showCrimeTypeDropdown)}
             >
-              <Picker.Item label="Select crime type" value="" color={theme.text} />
-              {crimeTypes.map((type) => (
-                <Picker.Item key={type} label={type} value={type} color={theme.text} />
-              ))}
-            </Picker>
+              <Text style={[
+                styles.pickerText,
+                { color: formData.crimeType ? theme.text : theme.placeholder }
+              ]}>
+                {formData.crimeType || t('crime.selectCrimeType')}
+              </Text>
+              <Text style={[styles.dropdownArrow, { color: theme.text }]}>
+                {showCrimeTypeDropdown ? '▲' : '▼'}
+              </Text>
+            </TouchableOpacity>
+            
+            {/* Dropdown List */}
+            {showCrimeTypeDropdown && (
+              <>
+                <TouchableOpacity 
+                  style={styles.dropdownOverlay}
+                  activeOpacity={1}
+                  onPress={() => setShowCrimeTypeDropdown(false)}
+                />
+                <View style={styles.dropdownList}>
+                  {crimeTypes.map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[
+                        styles.dropdownItem,
+                        formData.crimeType === type && styles.selectedDropdownItem
+                      ]}
+                      onPress={() => {
+                        setFormData(prev => ({ ...prev, crimeType: type }));
+                        setShowCrimeTypeDropdown(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        formData.crimeType === type && styles.selectedDropdownItemText
+                      ]}>
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
           </View>
         </View>
 
         {/* Date and Time */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Date and Time *</Text>
+          <Text style={styles.label}>{t('crime.dateTime')} *</Text>
           <View style={styles.dateTimeContainer}>
             <TouchableOpacity
               style={styles.dateTimeButton}
@@ -432,12 +528,12 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
         {/* Description */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Description *</Text>
+          <Text style={styles.label}>{t('crime.description')} *</Text>
           <TextInput
             style={styles.textArea}
             multiline
             numberOfLines={4}
-            placeholder="Describe what happened in detail..."
+            placeholder={t('crime.descriptionPlaceholder')}
             placeholderTextColor={theme.secondaryText}
             value={formData.description}
             onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
@@ -447,7 +543,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
         {/* Location */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Location</Text>
+          <Text style={styles.label}>{t('crime.location')}</Text>
           <View style={styles.locationContainer}>
             <Text style={styles.locationText}>
               {isLocationLoading ? 'Getting location...' : formData.location?.address}
@@ -467,19 +563,19 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
         {/* Multimedia */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Multimedia Evidence</Text>
+          <Text style={styles.label}>{t('crime.multimediaEvidence')}</Text>
           <TouchableOpacity style={styles.multimediaButton}>
-            <Text style={styles.multimediaButtonText}>📷 Add Photo/Video</Text>
+            <Text style={styles.multimediaButtonText}>📷 {t('crime.addPhotoVideo')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.multimediaButton}>
-            <Text style={styles.multimediaButtonText}>🎤 Add Audio</Text>
+            <Text style={styles.multimediaButtonText}>🎤 {t('crime.addAudio')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Anonymous Reporting */}
         <View style={styles.fieldContainer}>
           <View style={styles.switchContainer}>
-            <Text style={styles.label}>Anonymous Reporting</Text>
+            <Text style={styles.label}>{t('crime.anonymous')}</Text>
             <Switch
               value={formData.anonymous}
               onValueChange={(value) => setFormData(prev => ({ ...prev, anonymous: value }))}
@@ -488,10 +584,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
             />
           </View>
           <Text style={styles.switchDescription}>
-            {formData.anonymous 
-              ? 'Your identity will be hidden from other users'
-              : 'Your name will be included in the report'
-            }
+            {t('crime.anonymousDesc')}
           </Text>
         </View>
 
@@ -504,7 +597,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           {isLoading ? (
             <ActivityIndicator color="white" size="small" />
           ) : (
-            <Text style={styles.submitButtonText}>Submit Report</Text>
+            <Text style={styles.submitButtonText}>{t('crime.submitReport')}</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -528,6 +621,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           themeVariant={isDarkMode ? 'dark' : 'light'}
         />
       )}
+
     </ScrollView>
   );
 };

@@ -11,6 +11,7 @@ import {
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { auth } from './firebaseConfig';
 import { useTheme, colors } from './services/themeContext';
+import { useLanguage } from './services/languageContext';
 
 interface CrimeListFromOthersProps {
   onViewReport?: (reportId: string) => void;
@@ -18,6 +19,7 @@ interface CrimeListFromOthersProps {
 
 const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
   const { isDarkMode } = useTheme();
+  const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
   const [reports, setReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +37,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
       const currentUser = auth.currentUser;
       console.log('Current user for crime list:', currentUser);
       if (!currentUser) {
-        setError('User not authenticated');
+        setError(t('crimeList.userNotAuthenticated'));
         return;
       }
 
@@ -50,7 +52,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
       setReports(otherUsersReports);
     } catch (error) {
       console.error('Error loading other users crime reports:', error);
-      setError('Failed to load crime reports');
+      setError(t('crimeList.failedToLoad'));
     } finally {
       setIsLoading(false);
     }
@@ -255,7 +257,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={styles.loadingText}>Loading crime reports...</Text>
+        <Text style={styles.loadingText}>{t('crimeList.loading')}</Text>
       </View>
     );
   }
@@ -265,7 +267,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadOtherUsersReports}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Text style={styles.retryButtonText}>{t('crimeList.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -274,9 +276,9 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
   if (reports.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No crime reports from others</Text>
+        <Text style={styles.emptyText}>{t('crimeList.noReports')}</Text>
         <Text style={styles.emptySubtext}>
-          Be the first to report a crime in your area
+          {t('crimeList.beFirstToReport')}
         </Text>
       </View>
     );
