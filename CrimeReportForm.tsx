@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,15 @@ import {
   StyleSheet,
   Alert,
   Switch,
-  Platform,
   ActivityIndicator,
+  Modal,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import Geolocation from '@react-native-community/geolocation';
+import {launchCamera, launchImageLibrary, ImagePickerResponse, MediaType} from 'react-native-image-picker';
 import { FirebaseService } from './services/firebaseService';
 import { useTheme, colors } from './services/themeContext';
 
@@ -55,6 +59,10 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [manualAddress, setManualAddress] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const crimeTypes = [
     'Theft',
@@ -72,9 +80,9 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   useEffect(() => {
     getCurrentLocation();
     checkAuthentication();
-  }, []);
+  }, [checkAuthentication]);
 
-  const checkAuthentication = () => {
+  const checkAuthentication = useCallback(() => {
     const { auth } = require('./firebaseConfig');
     if (!auth.currentUser) {
       Alert.alert('Authentication Required', 'You must be logged in to submit a crime report.', [
@@ -84,39 +92,373 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         },
       ]);
     }
+  }, [onClose]);
+
+  const reverseGeocode = async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      // Using a free reverse geocoding service (Nominatim)
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'E-Responde-MobileApp/1.0',
+            'Accept': 'application/json',
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const text = await response.text();
+      console.log('Geocoding response:', text.substring(0, 200)); // Log first 200 chars for debugging
+      
+      const data = JSON.parse(text);
+      
+      if (data && data.display_name) {
+        // Format the address nicely
+        const address = data.display_name;
+        return address;
+      }
+      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    }
+  };
+
+  const forwardGeocode = async (address: string): Promise<{latitude: number, longitude: number} | null> => {
+    try {
+      // Using a free forward geocoding service (Nominatim)
+      const encodedAddress = encodeURIComponent(address);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
+        {
+          headers: {
+            'User-Agent': 'E-Responde-MobileApp/1.0',
+            'Accept': 'application/json',
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const text = await response.text();
+      console.log('Forward geocoding response:', text.substring(0, 200)); // Log first 200 chars for debugging
+      
+      const data = JSON.parse(text);
+      
+      if (data && data.length > 0) {
+        return {
+          latitude: parseFloat(data[0].lat),
+          longitude: parseFloat(data[0].lon)
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Forward geocoding error:', error);
+      return null;
+    }
   };
 
   const getCurrentLocation = async () => {
     try {
       setIsLocationLoading(true);
-      // In a real app, you would use a location service like:
-      // import * as Location from 'expo-location';
-      // const location = await Location.getCurrentPositionAsync({});
       
-      // For now, using mock coordinates (Manila coordinates)
-      const mockLocation = {
-        latitude: 14.5995,
-        longitude: 120.9842,
-        address: 'Manila, Philippines',
-      };
-      
-      setFormData(prev => ({
-        ...prev,
-        location: mockLocation,
-      }));
+      // Get current position using React Native Geolocation
+      Geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          // Use reverse geocoding to get the actual address
+          const address = await reverseGeocode(latitude, longitude);
+          
+          setFormData(prev => ({
+            ...prev,
+            location: {
+              latitude,
+              longitude,
+              address: address,
+            },
+          }));
+          setIsLocationLoading(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          Alert.alert(
+            'Location Error',
+            'Unable to get your current location. You can manually enter an address instead.',
+            [
+              { text: 'Enter Address', onPress: () => setShowAddressModal(true) },
+              { text: 'Cancel', style: 'cancel' }
+            ]
+          );
+          setFormData(prev => ({
+            ...prev,
+            location: {
+              latitude: 0,
+              longitude: 0,
+              address: 'Location unavailable',
+            },
+          }));
+          setIsLocationLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000,
+        }
+      );
     } catch (error) {
       console.error('Error getting location:', error);
-      setFormData(prev => ({
-        ...prev,
-        location: {
-          latitude: 0,
-          longitude: 0,
-          address: 'Location unavailable',
-        },
-      }));
+      setIsLocationLoading(false);
+    }
+  };
+
+  const handleManualAddressSubmit = async () => {
+    if (!manualAddress.trim()) {
+      Alert.alert('Error', 'Please enter a valid address');
+      return;
+    }
+
+    try {
+      setIsLocationLoading(true);
+      
+      // Use forward geocoding to get coordinates from address
+      const coordinates = await forwardGeocode(manualAddress);
+      
+      if (coordinates) {
+        setFormData(prev => ({
+          ...prev,
+          location: {
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+            address: manualAddress,
+          },
+        }));
+        setShowAddressModal(false);
+        setManualAddress('');
+      } else {
+        Alert.alert('Error', 'Could not find coordinates for the entered address. Please try a different address.');
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+      Alert.alert('Error', 'Could not process the entered address. Please try again.');
     } finally {
       setIsLocationLoading(false);
     }
+  };
+
+  const handleFileUpload = async () => {
+    try {
+      setIsUploading(true);
+      
+      // Show action sheet for file selection
+      Alert.alert(
+        'Select File Type',
+        'Choose how you want to select your file',
+        [
+          {
+            text: 'Camera',
+            onPress: () => openCamera(),
+          },
+          {
+            text: 'Photo Library',
+            onPress: () => openImagePicker(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error opening file picker:', error);
+      Alert.alert('Error', 'Failed to open file picker. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const requestCameraPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Camera Permission',
+            message: 'This app needs access to camera to take photos.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        console.log('Camera permission result:', granted);
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn('Camera permission error:', err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const openCamera = async () => {
+    try {
+      const hasPermission = await requestCameraPermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Required', 'Camera permission is required to take photos.');
+        return;
+      }
+
+      const options = {
+        mediaType: 'photo' as MediaType,
+        quality: 0.8,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        storageOptions: {
+          skipBackup: true,
+        },
+      };
+
+      launchCamera(options, (response: ImagePickerResponse) => {
+        if (response.didCancel) {
+          console.log('Camera cancelled');
+        } else if (response.error) {
+          console.log('Camera error:', response.error);
+          Alert.alert('Error', 'Failed to open camera. Please check permissions.');
+        } else if (response.assets && response.assets[0]) {
+          const asset = response.assets[0];
+          const fileInfo = {
+            uri: asset.uri,
+            name: `photo_${Date.now()}.${asset.type?.split('/')[1] || 'jpg'}`,
+            type: asset.type || 'image/jpeg',
+            size: asset.fileSize || 0,
+          };
+          setUploadedFiles(prev => [...prev, fileInfo]);
+          setFormData(prev => ({
+            ...prev,
+            multimedia: [...(prev.multimedia || []), asset.uri],
+          }));
+        } else if (response.uri) {
+          // Fallback for older API versions
+          const fileInfo = {
+            uri: response.uri,
+            name: `photo_${Date.now()}.jpg`,
+            type: 'image/jpeg',
+            size: response.fileSize || 0,
+          };
+          setUploadedFiles(prev => [...prev, fileInfo]);
+          setFormData(prev => ({
+            ...prev,
+            multimedia: [...(prev.multimedia || []), response.uri],
+          }));
+        }
+      });
+    } catch (error) {
+      console.error('Error opening camera:', error);
+      Alert.alert('Error', 'Failed to open camera. Please try again.');
+    }
+  };
+
+  const requestStoragePermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        // For Android 13+ (API 33+), we need different permissions
+        const androidVersion = Platform.Version;
+        let permission;
+        
+        if (androidVersion >= 33) {
+          permission = PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES;
+        } else {
+          permission = PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+        }
+        
+        const granted = await PermissionsAndroid.request(permission, {
+          title: 'Storage Permission',
+          message: 'This app needs access to storage to select images.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        });
+        console.log('Storage permission result:', granted);
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn('Storage permission error:', err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const openImagePicker = async () => {
+    try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Required', 'Storage permission is required to select images.');
+        return;
+      }
+
+      const options = {
+        mediaType: 'photo' as MediaType,
+        quality: 0.8,
+        maxWidth: 1000,
+        maxHeight: 1000,
+        storageOptions: {
+          skipBackup: true,
+        },
+      };
+
+      launchImageLibrary(options, (response: ImagePickerResponse) => {
+        if (response.didCancel) {
+          console.log('Image picker cancelled');
+        } else if (response.error) {
+          console.log('Image picker error:', response.error);
+          Alert.alert('Error', 'Failed to open photo library. Please check permissions.');
+        } else if (response.assets && response.assets[0]) {
+          const asset = response.assets[0];
+          const fileInfo = {
+            uri: asset.uri,
+            name: `media_${Date.now()}.${asset.type?.split('/')[1] || 'jpg'}`,
+            type: asset.type || 'image/jpeg',
+            size: asset.fileSize || 0,
+          };
+          setUploadedFiles(prev => [...prev, fileInfo]);
+          setFormData(prev => ({
+            ...prev,
+            multimedia: [...(prev.multimedia || []), asset.uri],
+          }));
+        } else if (response.uri) {
+          // Fallback for older API versions
+          const fileInfo = {
+            uri: response.uri,
+            name: `media_${Date.now()}.jpg`,
+            type: 'image/jpeg',
+            size: response.fileSize || 0,
+          };
+          setUploadedFiles(prev => [...prev, fileInfo]);
+          setFormData(prev => ({
+            ...prev,
+            multimedia: [...(prev.multimedia || []), response.uri],
+          }));
+        }
+      });
+    } catch (error) {
+      console.error('Error opening image picker:', error);
+      Alert.alert('Error', 'Failed to open image picker. Please try again.');
+    }
+  };
+
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setFormData(prev => ({
+      ...prev,
+      multimedia: prev.multimedia?.filter((_, i) => i !== index) || [],
+    }));
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -374,6 +716,122 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       fontSize: 18,
       fontWeight: '600',
     },
+    manualAddressButton: {
+      backgroundColor: theme.menuBackground,
+      padding: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+      marginTop: 8,
+    },
+    manualAddressButtonText: {
+      textAlign: 'center',
+      color: theme.primary,
+      fontWeight: '500',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: theme.menuBackground,
+      borderRadius: 12,
+      padding: 20,
+      width: '90%',
+      maxWidth: 400,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.primary,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    addressInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 8,
+      padding: 12,
+      backgroundColor: theme.background,
+      fontSize: 16,
+      minHeight: 80,
+      color: theme.text,
+      marginBottom: 20,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    modalCancelButton: {
+      flex: 1,
+      backgroundColor: theme.border,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    modalCancelButtonText: {
+      color: theme.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    modalSubmitButton: {
+      flex: 1,
+      backgroundColor: theme.primary,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    modalSubmitButtonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    multimediaButtonDisabled: {
+      opacity: 0.6,
+    },
+    uploadedFilesContainer: {
+      marginTop: 12,
+      padding: 12,
+      backgroundColor: theme.background,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    uploadedFilesTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.text,
+      marginBottom: 8,
+    },
+    uploadedFileItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: theme.menuBackground,
+      borderRadius: 6,
+      marginBottom: 6,
+    },
+    uploadedFileName: {
+      flex: 1,
+      fontSize: 14,
+      color: theme.text,
+    },
+    removeFileButton: {
+      padding: 4,
+      marginLeft: 8,
+    },
+    removeFileButtonText: {
+      color: '#EF4444',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
   });
 
   return (
@@ -460,6 +918,12 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               <Text style={styles.refreshLocationButtonText}>🔄</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity
+            style={styles.manualAddressButton}
+            onPress={() => setShowAddressModal(true)}
+          >
+            <Text style={styles.manualAddressButtonText}>📍 Enter Address Manually</Text>
+          </TouchableOpacity>
           <Text style={styles.locationCoords}>
             Coordinates: {formData.location?.latitude.toFixed(6)}, {formData.location?.longitude.toFixed(6)}
           </Text>
@@ -468,12 +932,37 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         {/* Multimedia */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>Multimedia Evidence</Text>
-          <TouchableOpacity style={styles.multimediaButton}>
-            <Text style={styles.multimediaButtonText}>📷 Add Photo/Video</Text>
+          <TouchableOpacity 
+            style={[styles.multimediaButton, isUploading && styles.multimediaButtonDisabled]}
+            onPress={handleFileUpload}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator color={theme.text} size="small" />
+            ) : (
+              <Text style={styles.multimediaButtonText}>📁 Add Photo/Video</Text>
+            )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.multimediaButton}>
-            <Text style={styles.multimediaButtonText}>🎤 Add Audio</Text>
-          </TouchableOpacity>
+          
+          {/* Show uploaded files */}
+          {uploadedFiles.length > 0 && (
+            <View style={styles.uploadedFilesContainer}>
+              <Text style={styles.uploadedFilesTitle}>Uploaded Files:</Text>
+              {uploadedFiles.map((file, index) => (
+                <View key={index} style={styles.uploadedFileItem}>
+                  <Text style={styles.uploadedFileName}>
+                    {file.type === 'image' ? '🖼️' : '🎥'} {file.name}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.removeFileButton}
+                    onPress={() => removeFile(index)}
+                  >
+                    <Text style={styles.removeFileButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Anonymous Reporting */}
@@ -528,6 +1017,52 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           themeVariant={isDarkMode ? 'dark' : 'light'}
         />
       )}
+
+      {/* Manual Address Modal */}
+      <Modal
+        visible={showAddressModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddressModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Enter Address Manually</Text>
+            <TextInput
+              style={styles.addressInput}
+              placeholder="Enter the exact address where the crime occurred..."
+              placeholderTextColor={theme.secondaryText}
+              value={manualAddress}
+              onChangeText={setManualAddress}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowAddressModal(false);
+                  setManualAddress('');
+                }}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSubmitButton}
+                onPress={handleManualAddressSubmit}
+                disabled={isLocationLoading}
+              >
+                {isLocationLoading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.modalSubmitButtonText}>Use Address</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };

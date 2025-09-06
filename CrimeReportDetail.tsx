@@ -7,9 +7,12 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
+  Modal,
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors } from './services/themeContext';
+import CrimeReportMap from './CrimeReportMap';
 
 interface CrimeReportDetailProps {
   reportId: string;
@@ -22,6 +25,9 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
   const [report, setReport] = useState<CrimeReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadReportDetails();
@@ -44,6 +50,26 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleImagePress = (imageUri: string) => {
+    setSelectedImage(imageUri);
+    setShowImageModal(true);
+  };
+
+  const closeImageModal = () => {
+    setShowImageModal(false);
+    setSelectedImage(null);
+  };
+
+  const openMap = () => {
+    if (report && report.location) {
+      setShowMap(true);
+    }
+  };
+
+  const closeMap = () => {
+    setShowMap(false);
   };
 
   const formatDateTime = (dateString: string) => {
@@ -223,6 +249,96 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       fontSize: 14,
       fontWeight: '600',
     },
+    mediaGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+    },
+    mediaItem: {
+      width: '30%',
+      aspectRatio: 1,
+      borderRadius: 8,
+      overflow: 'hidden',
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    mediaImage: {
+      width: '100%',
+      height: '100%',
+      resizeMode: 'cover',
+    },
+    videoPlaceholder: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.background,
+    },
+    videoIcon: {
+      fontSize: 24,
+      marginBottom: 4,
+    },
+    videoText: {
+      fontSize: 10,
+      color: theme.secondaryText,
+      textAlign: 'center',
+    },
+    filePlaceholder: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.background,
+    },
+    fileIcon: {
+      fontSize: 24,
+      marginBottom: 4,
+    },
+    fileText: {
+      fontSize: 10,
+      color: theme.secondaryText,
+      textAlign: 'center',
+    },
+    mapButton: {
+      backgroundColor: theme.primary,
+      padding: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      margin: 20,
+      marginTop: 0,
+    },
+    mapButtonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    imageModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    imageModalClose: {
+      position: 'absolute',
+      top: 50,
+      right: 20,
+      zIndex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 20,
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    imageModalCloseText: {
+      color: 'white',
+      fontSize: 20,
+      fontWeight: 'bold',
+    },
+    fullScreenImage: {
+      width: '90%',
+      height: '80%',
+      resizeMode: 'contain',
+    },
   });
 
   if (isLoading) {
@@ -333,11 +449,34 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
         {report.multimedia && report.multimedia.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Evidence Attached</Text>
-            {report.multimedia.map((item, index) => (
-              <View key={index} style={styles.multimediaItem}>
-                <Text style={styles.multimediaText}>📎 {item}</Text>
-              </View>
-            ))}
+            <View style={styles.mediaGrid}>
+              {report.multimedia.map((item, index) => {
+                const isImage = item.match(/\.(jpg|jpeg|png|gif)$/i);
+                const isVideo = item.match(/\.(mp4|mov)$/i);
+                
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.mediaItem}
+                    onPress={() => isImage ? handleImagePress(item) : null}
+                  >
+                    {isImage ? (
+                      <Image source={{ uri: item }} style={styles.mediaImage} />
+                    ) : isVideo ? (
+                      <View style={styles.videoPlaceholder}>
+                        <Text style={styles.videoIcon}>🎥</Text>
+                        <Text style={styles.videoText}>Video File</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.filePlaceholder}>
+                        <Text style={styles.fileIcon}>📎</Text>
+                        <Text style={styles.fileText}>File</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         )}
 
@@ -349,7 +488,44 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
             please contact local authorities or submit a new report with the updated information.
           </Text>
         </View>
+
+        {/* Map Button */}
+        <TouchableOpacity style={styles.mapButton} onPress={openMap}>
+          <Text style={styles.mapButtonText}>🗺️ View Location on Map</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Map Modal */}
+      {showMap && report && (
+        <Modal
+          visible={showMap}
+          animationType="slide"
+          onRequestClose={closeMap}
+        >
+          <CrimeReportMap
+            reportId={reportId}
+            crimeLocation={report.location}
+            onClose={closeMap}
+          />
+        </Modal>
+      )}
+
+      {/* Image Modal */}
+      {showImageModal && selectedImage && (
+        <Modal
+          visible={showImageModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeImageModal}
+        >
+          <View style={styles.imageModalOverlay}>
+            <TouchableOpacity style={styles.imageModalClose} onPress={closeImageModal}>
+              <Text style={styles.imageModalCloseText}>✕</Text>
+            </TouchableOpacity>
+            <Image source={{ uri: selectedImage }} style={styles.fullScreenImage} />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
