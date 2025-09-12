@@ -71,6 +71,18 @@ export class FirebaseService {
         uid: userCredential.user.uid
       });
 
+      // Create phone number to user ID mapping for emergency contacts
+      if (userData.contactNumber) {
+        const phoneMappingRef = ref(database, `phone_mappings/${userData.contactNumber}`);
+        await set(phoneMappingRef, {
+          userId: userCredential.user.uid,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          createdAt: new Date().toISOString()
+        });
+      }
+
       return userCredential;
     } catch (error) {
       console.error('Registration error:', error);
@@ -109,6 +121,47 @@ export class FirebaseService {
     } catch (error) {
       console.error('Check user error:', error);
       return false;
+    }
+  }
+
+  // Find user by phone number
+  static async getUserByPhoneNumber(phoneNumber: string): Promise<{ userId: string; firstName: string; lastName: string; email: string } | null> {
+    try {
+      const phoneMappingRef = ref(database, `phone_mappings/${phoneNumber}`);
+      const snapshot = await get(phoneMappingRef);
+      
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        return {
+          userId: data.userId,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error finding user by phone number:', error);
+      return null;
+    }
+  }
+
+  // Debug function to manually create phone mapping (for testing)
+  static async createTestPhoneMapping(phoneNumber: string, userId: string, firstName: string, lastName: string, email: string): Promise<void> {
+    try {
+      const phoneMappingRef = ref(database, `phone_mappings/${phoneNumber}`);
+      await set(phoneMappingRef, {
+        userId,
+        firstName,
+        lastName,
+        email,
+        createdAt: new Date().toISOString(),
+        isTest: true
+      });
+      console.log('Test phone mapping created for:', phoneNumber);
+    } catch (error) {
+      console.error('Error creating test phone mapping:', error);
+      throw error;
     }
   }
 

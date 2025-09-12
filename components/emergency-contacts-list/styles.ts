@@ -7,7 +7,7 @@ export const styles = StyleSheet.create({
     paddingTop: 0,
   },
   header: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -19,6 +19,10 @@ export const styles = StyleSheet.create({
   title: {
     fontWeight: '700',
     color: '#1A1A1A',
+  },
+  primaryCounter: {
+    marginTop: 4,
+    opacity: 0.7,
   },
   addButton: {
     backgroundColor: '#1E3A8A',
@@ -186,7 +190,7 @@ export const styles = StyleSheet.create({
   },
   floatingAddButton: {
     position: 'absolute',
-    bottom: 20,
+    bottom: 60,
     right: 20,
     width: 56,
     height: 56,

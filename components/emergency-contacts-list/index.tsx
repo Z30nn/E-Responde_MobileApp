@@ -150,6 +150,7 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
     }
   };
 
+
   const renderContactItem = ({ item }: { item: EmergencyContact }) => (
     <TouchableOpacity 
       style={[styles.contactItem, { backgroundColor: theme.menuBackground, borderColor: theme.border }]}
@@ -225,6 +226,9 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: isDarkMode ? 'transparent' : theme.menuBackground, borderBottomColor: theme.border }]}>
         <Text style={[styles.title, { color: theme.text, fontSize: fonts.subtitle }]}>{t('emergency.title')}</Text>
+        <Text style={[styles.primaryCounter, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+          Primary contacts: {contacts.filter(c => c.isPrimary).length}/3
+        </Text>
       </View>
 
       <ScrollView 
@@ -259,6 +263,7 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
       >
         <Text style={[styles.floatingAddButtonText, { color: '#FFFFFF' }]}>+</Text>
       </TouchableOpacity>
+
 
       <EmergencyContactForm
         visible={showForm}

@@ -17,6 +17,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
+import { useNotification } from './services/notificationContext';
 import Geolocation from '@react-native-community/geolocation';
 import {launchCamera, launchImageLibrary, ImagePickerResponse, MediaType} from 'react-native-image-picker';
 
@@ -24,6 +25,7 @@ import {launchCamera, launchImageLibrary, ImagePickerResponse, MediaType} from '
 const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) => {
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
+  const { sendNotification } = useNotification();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const [formData, setFormData] = useState<Partial<CrimeReport>>({
@@ -514,6 +516,14 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
       // Submit to Firebase
       await FirebaseService.submitCrimeReport(crimeReport);
+
+      // Send confirmation notification to the user
+      await sendNotification(
+        'crime_report_new',
+        t('notifications.reportSubmitted') || 'Crime Report Submitted',
+        t('notifications.reportSubmittedDesc') || 'Your crime report has been submitted successfully and is under review.',
+        { reportId: crimeReport.reporterUid, crimeType: crimeReport.crimeType }
+      );
 
       Alert.alert('Success', 'Crime report submitted successfully!', [
         {

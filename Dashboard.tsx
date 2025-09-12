@@ -10,6 +10,8 @@ import {
   ScrollView,
   Switch,
   Modal,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { auth } from './firebaseConfig';
 import { useTheme, colors, fontSizes } from './services/themeContext';
@@ -22,6 +24,10 @@ import CrimeReportDetail from './CrimeReportDetail';
 import CrimeListFromOthers from './CrimeListFromOthers';
 import ChangePassword from './ChangePassword';
 import EmergencyContactsList from './components/emergency-contacts-list';
+import NotificationSettings from './components/notification-settings';
+import SOSAlertsHistory from './components/sos-alerts-history';
+import { EmergencyContactsService } from './services/emergencyContactsService';
+import { useNotification } from './services/notificationContext';
 
 interface UserProfile {
   firstName: string;
@@ -40,9 +46,12 @@ const Dashboard = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [sosLoading, setSosLoading] = useState(false);
   const { isDarkMode, toggleTheme, fontSize, setFontSize } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { logout, user } = useAuth();
+  const { sendNotification } = useNotification();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
 
@@ -87,6 +96,78 @@ const Dashboard = () => {
   const handleTabPress = (tabId: number) => {
     setActiveTab(tabId);
   };
+
+  const handleSOSPress = async () => {
+    try {
+      setSosLoading(true);
+      
+      if (!user) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
+      }
+
+      // Check if user has primary contacts
+      const contacts = await EmergencyContactsService.getUserEmergencyContacts(user.uid);
+      const primaryContacts = contacts.filter(contact => contact.isPrimary);
+      
+      if (primaryContacts.length === 0) {
+        Alert.alert(
+          t('emergency.noPrimaryContacts') || 'No Primary Contacts',
+          t('emergency.noPrimaryContactsDesc') || 'You need at least one primary emergency contact to send SOS alerts. Please add emergency contacts first.',
+          [{ text: t('common.ok') || 'OK' }]
+        );
+        return;
+      }
+
+      // Show confirmation dialog
+      Alert.alert(
+        t('emergency.sosAlert') || 'SOS Alert',
+        t('emergency.sosConfirm') || `This will send an SOS alert to ${primaryContacts.length} primary emergency contact(s). This is for real emergencies only. Continue?`,
+        [
+          { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+          {
+            text: t('emergency.sendSOS') || 'Send SOS',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const result = await EmergencyContactsService.sendSOSAlert(
+                  user.uid,
+                  'EMERGENCY: I need immediate assistance!'
+                );
+
+                if (result.success) {
+                  Alert.alert(
+                    t('emergency.sosSent') || 'SOS Alert Sent',
+                    t('emergency.sosSentDesc') || `SOS alert sent to ${result.sentTo} emergency contact(s).`,
+                    [{ text: t('common.ok') || 'OK' }]
+                  );
+                } else {
+                  Alert.alert(
+                    t('common.error') || 'Error',
+                    t('emergency.sosError') || 'Failed to send SOS alert.',
+                    [{ text: t('common.ok') || 'OK' }]
+                  );
+                }
+              } catch (error) {
+                console.error('Error sending SOS:', error);
+                Alert.alert(
+                  t('common.error') || 'Error',
+                  error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
+                  [{ text: t('common.ok') || 'OK' }]
+                );
+              }
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      console.error('Error in handleSOSPress:', error);
+      Alert.alert(t('common.error') || 'Error', error.message);
+    } finally {
+      setSosLoading(false);
+    }
+  };
+
 
   const styles = StyleSheet.create({
     profileScrollView: {
@@ -213,7 +294,7 @@ const Dashboard = () => {
       backgroundColor: theme.primary,
       borderTopWidth: 1,
       borderTopColor: theme.border,
-      paddingVertical: 12,
+      paddingVertical: 2,
       paddingHorizontal: 8,
       shadowColor: '#000',
       shadowOffset: {
@@ -223,13 +304,13 @@ const Dashboard = () => {
       shadowOpacity: 0.1,
       shadowRadius: 3,
       elevation: 8,
-      minHeight: 80,
+      minHeight: 35,
     },
     tabButton: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
+      paddingVertical: 2,
       paddingHorizontal: 8,
       borderRadius: 12,
       marginHorizontal: 2,
@@ -596,6 +677,64 @@ const Dashboard = () => {
       flex: 1,
       backgroundColor: theme.background,
     },
+    // Notification Settings Modal Styles
+    modalContainer: {
+      flex: 1,
+    },
+    modalHeaderSpacer: {
+      width: 60, // Same width as close button to center title
+    },
+    modalCloseButton: {
+      padding: 8,
+    },
+    modalCloseText: {
+      fontSize: 16,
+      fontWeight: '500',
+    },
+    sosButton: {
+      width: 280,
+      height: 280,
+      borderRadius: 140,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: 40,
+      elevation: 15,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 8,
+      },
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+    },
+    sosButtonIcon: {
+      fontSize: 70,
+      marginBottom: 15,
+    },
+    sosButtonText: {
+      color: '#FFFFFF',
+      fontSize: 26,
+      fontWeight: 'bold',
+      marginBottom: 8,
+    },
+    sosButtonSubtext: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      opacity: 0.9,
+    },
+    sosHistoryContainer: {
+      marginTop: 30,
+      width: '100%',
+      maxWidth: 400,
+      height: 350, // Fixed height to make it scrollable
+    },
+    sosHistoryTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: theme.primary,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
   });
 
   const renderTabContent = () => {
@@ -637,6 +776,35 @@ const Dashboard = () => {
             <Text style={styles.contentText}>
               Quick access to emergency services and contacts.
             </Text>
+            
+            {/* SOS Button */}
+            {user && (
+              <TouchableOpacity
+                style={[styles.sosButton, { backgroundColor: '#FF4444' }]}
+                onPress={handleSOSPress}
+                activeOpacity={0.8}
+                disabled={sosLoading}
+              >
+                {sosLoading ? (
+                  <ActivityIndicator size="large" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Text style={styles.sosButtonIcon}>🚨</Text>
+                    <Text style={styles.sosButtonText}>SOS ALERT</Text>
+                    <Text style={styles.sosButtonSubtext}>Press for Emergency</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* SOS Alerts History */}
+            {user && (
+              <View style={styles.sosHistoryContainer}>
+                <Text style={styles.sosHistoryTitle}>Recent SOS Alerts</Text>
+                <SOSAlertsHistory userId={user.uid} />
+              </View>
+            )}
+
           </View>
         );
       case 3:
@@ -708,7 +876,10 @@ const Dashboard = () => {
 
                 <Text style={styles.sectionTitle}>SETTINGS</Text>
 
-                <TouchableOpacity style={styles.menuItem}>
+                <TouchableOpacity 
+                  style={styles.menuItem}
+                  onPress={() => setShowNotificationModal(true)}
+                >
                   <Text style={styles.menuItemText}>{t('settings.notifications')}</Text>
                   <Text style={styles.chevronRight}>›</Text>
                 </TouchableOpacity>
@@ -1191,6 +1362,32 @@ const Dashboard = () => {
             </View>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Notification Settings Modal */}
+      <Modal
+        visible={showNotificationModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotificationModal(false)}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF' }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? '#333' : '#E0E0E0' }]}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowNotificationModal(false)}
+            >
+              <Text style={[styles.modalCloseText, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+                {t('common.close')}
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              {t('notifications.settings')}
+            </Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+          <NotificationSettings />
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );

@@ -173,7 +173,7 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
             <View style={styles.switchContainer}>
               <Text style={[styles.switchLabel, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.setPrimary')}</Text>
               <Text style={[styles.switchDescription, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                {t('emergency.primaryDesc')}
+                {t('emergency.primaryDesc')} (Maximum 3 primary contacts)
               </Text>
             </View>
             <Switch
