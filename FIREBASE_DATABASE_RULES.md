@@ -24,6 +24,12 @@ Go to your Firebase Console → Realtime Database → Rules and replace the curr
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "emergency_contacts": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
     }
   }
 }

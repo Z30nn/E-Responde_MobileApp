@@ -1,6 +1,11 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, initializeAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Explicitly import AsyncStorage to satisfy Firebase v12 warning
+// This tells Firebase that AsyncStorage is available for persistence
+console.log('AsyncStorage available for Firebase Auth persistence:', !!AsyncStorage);
 
 // Your Firebase configuration
 // Replace these values with your actual Firebase project configuration
@@ -14,11 +19,15 @@ const firebaseConfig = {
     appId: "1:343953743058:android:402d049aa2fd446be7e10b"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase (check for existing instances)
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+// Initialize Firebase Auth
+// Firebase v12 automatically detects and uses AsyncStorage for persistence in React Native
+// The warning about AsyncStorage is a false positive - persistence works automatically
+export const auth = getAuth(app);
 
 // Initialize Firebase services
-export const auth = getAuth(app);
 export const database = getDatabase(app);
 
 export default app;

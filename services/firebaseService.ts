@@ -5,7 +5,7 @@ import {
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  UserCredential 
+  UserCredential
 } from 'firebase/auth';
 import { 
   ref, 
@@ -22,6 +22,7 @@ export interface CivilianUser {
   lastName: string;
   email: string;
   password: string;
+  contactNumber: string;
   createdAt: string;
 }
 
@@ -65,6 +66,7 @@ export class FirebaseService {
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,
+        contactNumber: userData.contactNumber,
         createdAt: new Date().toISOString(),
         uid: userCredential.user.uid
       });

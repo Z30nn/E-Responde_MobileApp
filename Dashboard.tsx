@@ -15,19 +15,22 @@ import { auth } from './firebaseConfig';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 import { FirebaseService } from './services/firebaseService';
+import { useAuth } from './services/authContext';
 import CrimeReportForm from './CrimeReportForm';
 import CrimeReportsList from './CrimeReportsList';
 import CrimeReportDetail from './CrimeReportDetail';
 import CrimeListFromOthers from './CrimeListFromOthers';
 import ChangePassword from './ChangePassword';
+import EmergencyContactsList from './components/emergency-contacts-list';
 
 interface UserProfile {
   firstName: string;
   lastName: string;
   email: string;
+  contactNumber: string;
 }
 
-const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
+const Dashboard = () => {
   const [activeTab, setActiveTab] = useState(2);
   const [showCrimeReportForm, setShowCrimeReportForm] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -39,6 +42,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const { isDarkMode, toggleTheme, fontSize, setFontSize } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const { logout, user } = useAuth();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
 
@@ -59,6 +63,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
           firstName: userData.firstName,
           lastName: userData.lastName,
           email: userData.email,
+          contactNumber: userData.contactNumber || '',
         });
       }
     } catch (error) {
@@ -120,6 +125,27 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       color: theme.secondaryText,
       textAlign: 'center',
       marginBottom: 16,
+    },
+    contactInfoBox: {
+      backgroundColor: '#F8F9FA',
+      borderWidth: 1,
+      borderColor: '#E5E5E5',
+      borderRadius: 8,
+      padding: 8,
+      marginHorizontal: 20,
+      marginBottom: 12,
+    },
+    contactInfoItem: {
+      marginBottom: 6,
+    },
+    contactInfoLabel: {
+      color: '#6B7280',
+      marginBottom: 4,
+      fontWeight: '500',
+    },
+    contactInfoText: {
+      color: '#1A1A1A',
+      fontWeight: '600',
     },
 
     settingsContainer: {
@@ -325,6 +351,21 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       marginBottom: 16,
       textAlign: 'center',
     },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      backgroundColor: '#F8F9FA',
+      marginTop: 0,
+    },
+    sectionHeaderTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: '#1A1A1A',
+    },
     // Font Size Modal Styles
     fontSizePreview: {
       flexDirection: 'row',
@@ -413,7 +454,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       backgroundColor: theme.background,
       borderRadius: 16,
       margin: 20,
-      maxHeight: '85%',
+      maxHeight: fontSize === 'large' ? '90%' : fontSize === 'medium' ? '88%' : '85%',
       minWidth: '90%',
       elevation: 5,
       shadowColor: '#000',
@@ -422,21 +463,21 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       shadowRadius: 3.84,
     },
     termsContent: {
-      padding: 20,
-      maxHeight: 500,
+      padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
+      flex: 1,
     },
     termsSectionTitle: {
       fontSize: fonts.subtitle,
       fontWeight: '600',
       color: theme.primary,
-      marginTop: 20,
-      marginBottom: 8,
+      marginTop: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
+      marginBottom: fontSize === 'large' ? 12 : fontSize === 'medium' ? 10 : 8,
     },
     termsText: {
       fontSize: fonts.body,
       color: theme.text,
-      lineHeight: 22,
-      marginBottom: 16,
+      lineHeight: fontSize === 'large' ? 28 : fontSize === 'medium' ? 25 : 22,
+      marginBottom: fontSize === 'large' ? 20 : fontSize === 'medium' ? 18 : 16,
     },
     termsLastUpdated: {
       fontSize: fonts.caption,
@@ -451,7 +492,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       backgroundColor: theme.background,
       borderRadius: 16,
       margin: 20,
-      maxHeight: '85%',
+      maxHeight: fontSize === 'large' ? '90%' : fontSize === 'medium' ? '88%' : '85%',
       minWidth: '90%',
       elevation: 5,
       shadowColor: '#000',
@@ -460,21 +501,21 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       shadowRadius: 3.84,
     },
     privacyContent: {
-      padding: 20,
-      maxHeight: 500,
+      padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
+      flex: 1,
     },
     privacySectionTitle: {
       fontSize: fonts.subtitle,
       fontWeight: '600',
       color: theme.primary,
-      marginTop: 20,
-      marginBottom: 8,
+      marginTop: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
+      marginBottom: fontSize === 'large' ? 12 : fontSize === 'medium' ? 10 : 8,
     },
     privacyText: {
       fontSize: fonts.body,
       color: theme.text,
-      lineHeight: 22,
-      marginBottom: 16,
+      lineHeight: fontSize === 'large' ? 28 : fontSize === 'medium' ? 25 : 22,
+      marginBottom: fontSize === 'large' ? 20 : fontSize === 'medium' ? 18 : 16,
     },
     privacyLastUpdated: {
       fontSize: fonts.caption,
@@ -540,6 +581,21 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       color: theme.primary,
       opacity: 0.8,
     },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: theme.background,
+    },
+    loadingText: {
+      fontSize: 16,
+      color: theme.text,
+      marginTop: 16,
+    },
+    emergencyContactsContainer: {
+      flex: 1,
+      backgroundColor: theme.background,
+    },
   });
 
   const renderTabContent = () => {
@@ -547,24 +603,31 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
       case 0:
         return (
           <View style={styles.crimeListTabContainer}>
-            <Text style={styles.contentTitle}>{t('dashboard.crimeList')}</Text>
+            <View style={[styles.sectionHeader, { backgroundColor: isDarkMode ? 'transparent' : theme.menuBackground, borderBottomColor: theme.border }]}>
+              <Text style={[styles.sectionHeaderTitle, { color: theme.text, fontSize: fonts.subtitle }]}>{t('dashboard.crimeList')}</Text>
+            </View>
             <Text style={styles.contentText}>
               {t('dashboard.crimeListDesc')}
             </Text>
             
             <View style={styles.crimeListSection}>
-              <Text style={styles.crimeListSectionTitle}>{t('dashboard.recentCrimeReports')}</Text>
+              <View style={[styles.sectionHeader, { backgroundColor: isDarkMode ? 'transparent' : theme.menuBackground, borderBottomColor: theme.border }]}>
+                <Text style={[styles.sectionHeaderTitle, { color: theme.text, fontSize: fonts.subtitle }]}>{t('dashboard.recentCrimeReports')}</Text>
+              </View>
               <CrimeListFromOthers onViewReport={(reportId) => setSelectedReportId(reportId)} />
             </View>
           </View>
         );
       case 1:
         return (
-          <View style={styles.contentContainer}>
-            <Text style={styles.contentTitle}>Emergency Contacts</Text>
-            <Text style={styles.contentText}>
-              View and edit your profile information here.
-            </Text>
+          <View style={styles.emergencyContactsContainer}>
+            {user ? (
+              <EmergencyContactsList userId={user.uid} />
+            ) : (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Loading...</Text>
+              </View>
+            )}
           </View>
         );
       case 2:
@@ -580,7 +643,9 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
         return (
           <View style={styles.reportsTabContainer}>
             <View style={styles.reportsSection}>
-              <Text style={styles.reportsSectionTitle}>{t('dashboard.yourCrimeReports')}</Text>
+              <View style={[styles.sectionHeader, { backgroundColor: isDarkMode ? 'transparent' : theme.menuBackground, borderBottomColor: theme.border }]}>
+                <Text style={[styles.sectionHeaderTitle, { color: theme.text, fontSize: fonts.subtitle }]}>{t('dashboard.yourCrimeReports')}</Text>
+              </View>
               <CrimeReportsList onViewReport={(reportId) => setSelectedReportId(reportId)} />
             </View>
             
@@ -608,10 +673,28 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
               <Text style={styles.userName}>
                 {userProfile ? `${userProfile.firstName} ${userProfile.lastName}` : 'John Doe'}
               </Text>
-              <Text style={styles.userEmail}>
-                {userProfile?.email || 'JohnDoe@gmail.com'}
-              </Text>
-
+              {/* Contact Information Box */}
+              <View style={[styles.contactInfoBox, { backgroundColor: theme.menuBackground, borderColor: theme.border }]}>
+                <View style={styles.contactInfoItem}>
+                  <Text style={[styles.contactInfoLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                    {t('profile.email')}
+                  </Text>
+                  <Text style={[styles.contactInfoText, { color: theme.text, fontSize: fonts.body }]}>
+                    {userProfile?.email || 'JohnDoe@gmail.com'}
+                  </Text>
+                </View>
+                
+                {userProfile?.contactNumber && (
+                  <View style={styles.contactInfoItem}>
+                    <Text style={[styles.contactInfoLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                      {t('profile.contactNumber')}
+                    </Text>
+                    <Text style={[styles.contactInfoText, { color: theme.text, fontSize: fonts.body }]}>
+                      {userProfile.contactNumber}
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               {/* Settings Menu */}
               <View style={styles.settingsContainer}>
@@ -690,21 +773,19 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 </TouchableOpacity>
 
                 {/* Logout Button */}
-                {onLogout && (
-                  <TouchableOpacity
-                    style={styles.logoutButtonContainer}
-                    onPress={onLogout}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.logoutButton}>
-                      <Image 
-                        source={require('./assets/logout.png')} 
-                        style={styles.logoutIcon}
-                      />
-                      <Text style={styles.logoutButtonText}>Logout</Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity
+                  style={styles.logoutButtonContainer}
+                  onPress={logout}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.logoutButton}>
+                    <Image 
+                      source={require('./assets/logout.png')} 
+                      style={styles.logoutIcon}
+                    />
+                    <Text style={styles.logoutButtonText}>Logout</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
             </View>
           </ScrollView>
@@ -884,7 +965,11 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
           activeOpacity={1}
           onPress={() => setShowTermsModal(false)}
         >
-          <View style={styles.termsModal}>
+          <TouchableOpacity 
+            style={styles.termsModal}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('terms.title')}</Text>
               <TouchableOpacity 
@@ -895,7 +980,12 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.termsContent} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              style={styles.termsContent} 
+              contentContainerStyle={{ flexGrow: 1 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
               <Text style={styles.termsSectionTitle}>{t('terms.acceptance')}</Text>
               <Text style={styles.termsText}>
                 {t('terms.acceptanceDesc')}
@@ -940,7 +1030,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 {t('terms.lastUpdated')} {new Date().toLocaleDateString()}
               </Text>
             </ScrollView>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
@@ -956,7 +1046,11 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
           activeOpacity={1}
           onPress={() => setShowPrivacyModal(false)}
         >
-          <View style={styles.privacyModal}>
+          <TouchableOpacity 
+            style={styles.privacyModal}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('privacy.title')}</Text>
               <TouchableOpacity 
@@ -967,7 +1061,12 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
               </TouchableOpacity>
             </View>
             
-            <ScrollView style={styles.privacyContent} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+              style={styles.privacyContent} 
+              contentContainerStyle={{ flexGrow: 1 }}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
               <Text style={styles.privacySectionTitle}>{t('privacy.informationCollected')}</Text>
               <Text style={styles.privacyText}>
                 {t('privacy.informationCollectedDesc')}
@@ -1022,7 +1121,7 @@ const Dashboard = ({ onLogout }: { onLogout?: () => void }) => {
                 {t('privacy.lastUpdated')} {new Date().toLocaleDateString()}
               </Text>
             </ScrollView>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 
