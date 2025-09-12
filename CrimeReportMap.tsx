@@ -246,7 +246,7 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
           region={mapRegion}
           showsUserLocation={true}
           showsMyLocationButton={true}
-          mapType={isDarkMode ? 'dark' : 'standard'}
+          mapType={isDarkMode ? 'satellite' : 'standard'}
         >
           {/* Crime Location Marker */}
           <Marker

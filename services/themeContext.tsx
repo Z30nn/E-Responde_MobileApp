@@ -10,6 +10,7 @@ interface ThemeContextType {
   toggleTheme: () => void;
   fontSize: FontSizeType;
   setFontSize: (size: FontSizeType) => void;
+  setCurrentUserId: (userId: string | null) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextType>({
@@ -18,6 +19,7 @@ export const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
   fontSize: 'medium',
   setFontSize: () => {},
+  setCurrentUserId: () => {},
 });
 
 export const useTheme = () => useContext(ThemeContext);
@@ -25,15 +27,20 @@ export const useTheme = () => useContext(ThemeContext);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<ThemeType>('light');
   const [fontSize, setFontSizeState] = useState<FontSizeType>('medium');
+  const [currentUserId, setCurrentUserIdState] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadTheme();
-    loadFontSize();
-  }, []);
+  const setCurrentUserId = (userId: string | null) => {
+    setCurrentUserIdState(userId);
+    if (userId) {
+      loadTheme(userId);
+      loadFontSize(userId);
+    }
+    // Don't reset to defaults when user logs out - keep current settings
+  };
 
-  const loadTheme = async () => {
+  const loadTheme = async (userId: string) => {
     try {
-      const savedTheme = await AsyncStorage.getItem('theme');
+      const savedTheme = await AsyncStorage.getItem(`theme_${userId}`);
       if (savedTheme) {
         setTheme(savedTheme as ThemeType);
       }
@@ -42,9 +49,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const loadFontSize = async () => {
+  const loadFontSize = async (userId: string) => {
     try {
-      const savedFontSize = await AsyncStorage.getItem('fontSize');
+      const savedFontSize = await AsyncStorage.getItem(`fontSize_${userId}`);
       if (savedFontSize) {
         setFontSizeState(savedFontSize as FontSizeType);
       }
@@ -54,19 +61,23 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toggleTheme = async () => {
+    if (!currentUserId) return;
+    
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     try {
-      await AsyncStorage.setItem('theme', newTheme);
+      await AsyncStorage.setItem(`theme_${currentUserId}`, newTheme);
     } catch (error) {
       console.error('Error saving theme:', error);
     }
   };
 
   const setFontSize = async (newFontSize: FontSizeType) => {
+    if (!currentUserId) return;
+    
     setFontSizeState(newFontSize);
     try {
-      await AsyncStorage.setItem('fontSize', newFontSize);
+      await AsyncStorage.setItem(`fontSize_${currentUserId}`, newFontSize);
     } catch (error) {
       console.error('Error saving font size:', error);
     }
@@ -80,6 +91,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleTheme,
         fontSize,
         setFontSize,
+        setCurrentUserId,
       }}
     >
       {children}

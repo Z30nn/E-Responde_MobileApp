@@ -19,6 +19,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
     firstName: '',
     lastName: '',
     email: '',
+    contactNumber: '',
     password: '',
     confirmPassword: '',
   });
@@ -26,17 +27,29 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [contactNumberError, setContactNumberError] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     setEmailError(validateEmail(formData.email));
+    setContactNumberError(validateContactNumber(formData.contactNumber));
     setPasswordErrors(getPasswordErrors(formData.password));
-  }, [formData.email, formData.password]);
+  }, [formData.email, formData.contactNumber, formData.password]);
 
   const validateEmail = (email: string) => {
     if (!email) return 'Email is required.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address.';
+    return '';
+  };
+
+  const validateContactNumber = (contactNumber: string) => {
+    if (!contactNumber) return 'Contact number is required.';
+    const trimmedNumber = contactNumber.trim();
+    // Philippine phone number: +63 followed by 10 digits (total 13 characters)
+    if (!/^\+63[0-9]{10}$/.test(trimmedNumber)) {
+      return 'Please enter a valid Philippine phone number (+63 followed by 10 digits).';
+    }
     return '';
   };
 
@@ -74,6 +87,10 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
       Alert.alert('Error', emailError);
       return;
     }
+    if (contactNumberError) {
+      Alert.alert('Error', contactNumberError);
+      return;
+    }
     if (passwordErrors.length > 0) {
       Alert.alert('Error', 'Password must have: ' + passwordErrors.join(', '));
       return;
@@ -97,6 +114,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
+        contactNumber: formData.contactNumber.trim(),
         password: formData.password,
       });
 
@@ -108,6 +126,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
               firstName: '',
               lastName: '',
               email: '',
+              contactNumber: '',
               password: '',
               confirmPassword: '',
             });
@@ -143,6 +162,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
     formData.firstName.trim() &&
     formData.lastName.trim() &&
     !emailError &&
+    !contactNumberError &&
     !passwordErrors.length &&
     formData.password === formData.confirmPassword;
 
@@ -209,6 +229,56 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         onBlur={handleBlur}
         autoCapitalize="words"
       />
+
+      <View style={{ position: 'relative', marginBottom: 15 }}>
+        <TextInput
+          style={{
+            backgroundColor: 'rgba(30, 58, 138, 0.31)',
+            padding: 15,
+            fontSize: 16,
+            borderRadius: 8,
+            width: '80%',
+            alignSelf: 'center',
+            color: '#1E3A8A',
+            fontWeight: '500',
+          }}
+          placeholder="+63XXXXXXXXXX"
+          placeholderTextColor="#1E3A8A"
+          value={formData.contactNumber}
+          onChangeText={value => handleInputChange('contactNumber', value)}
+          onFocus={() => handleFocus('contactNumber')}
+          onBlur={handleBlur}
+          keyboardType="phone-pad"
+        />
+        {focusedField === 'contactNumber' && contactNumberError && (
+          <View style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 60,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            padding: 8,
+            borderRadius: 6,
+            zIndex: 10,
+          }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, textAlign: 'center', fontWeight: 'bold' }}>{contactNumberError}</Text>
+          </View>
+        )}
+        {focusedField === 'contactNumber' && !contactNumberError && (
+          <View style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 60,
+            backgroundColor: 'rgba(30, 58, 138, 0.9)',
+            padding: 8,
+            borderRadius: 6,
+            zIndex: 10,
+          }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 12, textAlign: 'center' }}>Enter your Philippine mobile number (e.g., +639123456789)</Text>
+          </View>
+        )}
+      </View>
 
       <View style={{ position: 'relative', marginBottom: 15 }}>
         <TextInput

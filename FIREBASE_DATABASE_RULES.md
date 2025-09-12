@@ -24,6 +24,30 @@ Go to your Firebase Console → Realtime Database → Rules and replace the curr
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "emergency_contacts": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "notificationSettings": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid || (auth != null && newData.child('type').val() == 'sos_alert')"
+      }
+    },
+    "phone_mappings": {
+      "$phoneNumber": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
     }
   }
 }
@@ -34,6 +58,10 @@ Go to your Firebase Console → Realtime Database → Rules and replace the curr
 1. **`civilian/civilian account/{uid}`** - Users can only read/write their own account data
 2. **`civilian/civilian account/{uid}/crime reports`** - Users can only read/write their own crime reports
 3. **`civilian/civilian crime reports`** - Any authenticated user can read/write to the main crime reports collection
+4. **`emergency_contacts/{uid}`** - Users can only read/write their own emergency contacts
+5. **`notificationSettings/{uid}`** - Users can only read/write their own notification preferences
+6. **`notifications/{uid}`** - Users can only read/write their own notification history (except SOS alerts can be sent by any authenticated user)
+7. **`phone_mappings/{phoneNumber}`** - Maps phone numbers to user IDs for emergency contact notifications
 
 ## Alternative: More Restrictive Rules
 
@@ -62,6 +90,30 @@ If you want more restrictive rules (recommended for production), use these inste
             ".validate": "newData.val() === auth.uid"
           }
         }
+      }
+    },
+    "emergency_contacts": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "notificationSettings": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid || (auth != null && newData.child('type').val() == 'sos_alert')"
+      }
+    },
+    "phone_mappings": {
+      "$phoneNumber": {
+        ".read": "auth != null",
+        ".write": "auth != null"
       }
     }
   }
@@ -101,3 +153,14 @@ If you still get permission errors after updating the rules:
 2. **Check that you're authenticated** in your app
 3. **Verify the user UID** matches between auth and database
 4. **Check Firebase Console** for any rule syntax errors
+
+### Notification System Errors
+
+If you get "Permission denied" errors when accessing notification settings:
+
+1. **Make sure the notification rules are added** to your Firebase database rules
+2. **Check that the user is authenticated** before accessing notification settings
+3. **Verify the notification paths** in Firebase Console:
+   - `notificationSettings/{userId}`
+   - `notifications/{userId}`
+4. **Restart the app** after updating Firebase rules

@@ -17,6 +17,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
+import { useNotification } from './services/notificationContext';
 import Geolocation from '@react-native-community/geolocation';
 import {launchCamera, launchImageLibrary, ImagePickerResponse, MediaType} from 'react-native-image-picker';
 
@@ -24,6 +25,7 @@ import {launchCamera, launchImageLibrary, ImagePickerResponse, MediaType} from '
 const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSuccess?: () => void }) => {
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
+  const { sendNotification } = useNotification();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const [formData, setFormData] = useState<Partial<CrimeReport>>({
@@ -64,11 +66,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     t('crime.crimeTypes.other'),
   ];
 
-  useEffect(() => {
-    getCurrentLocation();
-    checkAuthentication();
-  }, [checkAuthentication]);
-
   const checkAuthentication = useCallback(() => {
     const { auth } = require('./firebaseConfig');
     if (!auth.currentUser) {
@@ -80,6 +77,11 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       ]);
     }
   }, [onClose]);
+
+  useEffect(() => {
+    getCurrentLocation();
+    checkAuthentication();
+  }, [checkAuthentication]);
 
   const reverseGeocode = async (latitude: number, longitude: number): Promise<string> => {
     try {
@@ -303,7 +305,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
       const options = {
         mediaType: 'photo' as MediaType,
-        quality: 0.8,
+        quality: 0.8 as any,
         maxWidth: 1000,
         maxHeight: 1000,
         storageOptions: {
@@ -314,8 +316,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       launchCamera(options, (response: ImagePickerResponse) => {
         if (response.didCancel) {
           console.log('Camera cancelled');
-        } else if (response.error) {
-          console.log('Camera error:', response.error);
+        } else if ((response as any).error) {
+          console.log('Camera error:', (response as any).error);
           Alert.alert('Error', 'Failed to open camera. Please check permissions.');
         } else if (response.assets && response.assets[0]) {
           const asset = response.assets[0];
@@ -328,20 +330,20 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           setUploadedFiles(prev => [...prev, fileInfo]);
           setFormData(prev => ({
             ...prev,
-            multimedia: [...(prev.multimedia || []), asset.uri],
+            multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
           }));
-        } else if (response.uri) {
+        } else if ((response as any).uri) {
           // Fallback for older API versions
           const fileInfo = {
-            uri: response.uri,
+            uri: (response as any).uri,
             name: `photo_${Date.now()}.jpg`,
             type: 'image/jpeg',
-            size: response.fileSize || 0,
+            size: (response as any).fileSize || 0,
           };
           setUploadedFiles(prev => [...prev, fileInfo]);
           setFormData(prev => ({
             ...prev,
-            multimedia: [...(prev.multimedia || []), response.uri],
+            multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
           }));
         }
       });
@@ -391,7 +393,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
       const options = {
         mediaType: 'photo' as MediaType,
-        quality: 0.8,
+        quality: 0.8 as any,
         maxWidth: 1000,
         maxHeight: 1000,
         storageOptions: {
@@ -402,8 +404,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       launchImageLibrary(options, (response: ImagePickerResponse) => {
         if (response.didCancel) {
           console.log('Image picker cancelled');
-        } else if (response.error) {
-          console.log('Image picker error:', response.error);
+        } else if ((response as any).error) {
+          console.log('Image picker error:', (response as any).error);
           Alert.alert('Error', 'Failed to open photo library. Please check permissions.');
         } else if (response.assets && response.assets[0]) {
           const asset = response.assets[0];
@@ -416,20 +418,20 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           setUploadedFiles(prev => [...prev, fileInfo]);
           setFormData(prev => ({
             ...prev,
-            multimedia: [...(prev.multimedia || []), asset.uri],
+            multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
           }));
-        } else if (response.uri) {
+        } else if ((response as any).uri) {
           // Fallback for older API versions
           const fileInfo = {
-            uri: response.uri,
+            uri: (response as any).uri,
             name: `media_${Date.now()}.jpg`,
             type: 'image/jpeg',
-            size: response.fileSize || 0,
+            size: (response as any).fileSize || 0,
           };
           setUploadedFiles(prev => [...prev, fileInfo]);
           setFormData(prev => ({
             ...prev,
-            multimedia: [...(prev.multimedia || []), response.uri],
+            multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
           }));
         }
       });
@@ -470,20 +472,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     }
   };
 
-  const handleFileUpload = async () => {
-    setIsUploading(true);
-    try {
-      // TODO: Implement actual file upload functionality
-      // This would typically use a library like react-native-image-picker
-      // or expo-image-picker for selecting and uploading files
-      Alert.alert('File Upload', 'File upload functionality will be implemented here');
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      Alert.alert('Error', 'Failed to upload file. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!formData.crimeType || !formData.description) {
@@ -528,6 +516,14 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
       // Submit to Firebase
       await FirebaseService.submitCrimeReport(crimeReport);
+
+      // Send confirmation notification to the user
+      await sendNotification(
+        'crime_report_new',
+        t('notifications.reportSubmitted') || 'Crime Report Submitted',
+        t('notifications.reportSubmittedDesc') || 'Your crime report has been submitted successfully and is under review.',
+        { reportId: crimeReport.reporterUid, crimeType: crimeReport.crimeType }
+      );
 
       Alert.alert('Success', 'Crime report submitted successfully!', [
         {
@@ -852,9 +848,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       color: 'white',
       fontSize: 16,
       fontWeight: '600',
-    },
-    multimediaButtonDisabled: {
-      opacity: 0.6,
     },
     uploadedFilesContainer: {
       marginTop: 12,

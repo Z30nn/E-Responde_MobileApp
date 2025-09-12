@@ -16,8 +16,7 @@ import EyeIcon from './assets/eye.svg';
 import EyeOffIcon from './assets/eye-off.svg';
 import Register from './Register';
 import ForgotPassword from './ForgotPassword';
-import { FirebaseService } from './services/firebaseService';
-import Dashboard from './Dashboard';
+import { useAuth } from './services/authContext';
 
 const Login = () => {
   const { width } = useWindowDimensions();
@@ -32,7 +31,7 @@ const Login = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showDashboard, setShowDashboard] = useState(false);
+  const { login } = useAuth();
 
   const validateEmail = (email: string) => {
     if (!email) return 'Email is required.';
@@ -64,14 +63,9 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      // Login with Firebase
-      await FirebaseService.loginCivilian({
-        email: formData.email.trim(),
-        password: formData.password,
-      });
-
-      // Automatically navigate to Dashboard screen
-      setShowDashboard(true);
+      // Login using authentication context
+      await login(formData.email.trim(), formData.password);
+      // Navigation will be handled automatically by the auth context
     } catch (error: any) {
       let errorMessage = 'Login failed. Please check your credentials.';
       if (error.code === 'auth/user-not-found') {
@@ -92,9 +86,7 @@ const Login = () => {
   const isFormValid = formData.email && !emailError && formData.password;
 
   return (
-    showDashboard ? (
-      <Dashboard onLogout={() => setShowDashboard(false)} />
-    ) : showForgotPassword ? (
+    showForgotPassword ? (
       <ForgotPassword onGoToLogin={() => setShowForgotPassword(false)} />
     ) : showSignUp ? (
       <Register onGoToLogin={() => setShowSignUp(false)} />
