@@ -7,12 +7,14 @@ interface LanguageContextType {
   language: LanguageType;
   setLanguage: (lang: LanguageType) => void;
   t: (key: string) => string;
+  setCurrentUserId: (userId: string | null) => void;
 }
 
 export const LanguageContext = createContext<LanguageContextType>({
   language: 'en',
   setLanguage: () => {},
   t: () => '',
+  setCurrentUserId: () => {},
 });
 
 export const useLanguage = () => useContext(LanguageContext);
@@ -39,6 +41,39 @@ const translations = {
     'common.delete': 'Delete',
     'common.confirm': 'Confirm',
     'common.required': 'Required',
+
+    // Notifications
+    'notifications.settings': 'Notification Settings',
+    'notifications.customizeDesc': 'Customize your notification preferences',
+    'notifications.crimeReports': 'Crime Reports',
+    'notifications.emergency': 'Emergency',
+    'notifications.general': 'General',
+    'notifications.delivery': 'Delivery Settings',
+    'notifications.enableCrimeReports': 'Enable Crime Report Notifications',
+    'notifications.enableCrimeReportsDesc': 'Receive notifications about crime reports',
+    'notifications.newReports': 'New Crime Reports',
+    'notifications.newReportsDesc': 'Get notified when other users publish crime reports',
+    'notifications.reportSolved': 'Report Solved',
+    'notifications.reportSolvedDesc': 'Get notified when your crime report is solved',
+    'notifications.reportUpdated': 'Report Updated',
+    'notifications.reportUpdatedDesc': 'Get notified when your crime report status is updated',
+    'notifications.enableEmergency': 'Enable Emergency Notifications',
+    'notifications.enableEmergencyDesc': 'Receive emergency-related notifications',
+    'notifications.sosAlerts': 'SOS Alerts',
+    'notifications.sosAlertsDesc': 'Get notified when someone with you as primary contact sends SOS',
+    'notifications.pushNotifications': 'Push Notifications',
+    'notifications.pushNotificationsDesc': 'Enable push notifications on your device',
+    'notifications.emailNotifications': 'Email Notifications',
+    'notifications.emailNotificationsDesc': 'Receive notifications via email',
+    'notifications.quietHours': 'Quiet Hours',
+    'notifications.quietHoursDesc': 'Set times when you don\'t want to receive notifications',
+    'notifications.setQuietHours': 'Set Quiet Hours',
+    'notifications.startTime': 'Start Time',
+    'notifications.endTime': 'End Time',
+    'notifications.updateFailed': 'Failed to update notification settings',
+    'notifications.loadError': 'Failed to load notification settings',
+    'notifications.reportSubmitted': 'Crime Report Submitted',
+    'notifications.reportSubmittedDesc': 'Your crime report has been submitted successfully and is under review.',
 
     // Navigation
     'nav.home': 'Home',
@@ -187,6 +222,52 @@ const translations = {
     'dashboard.crimeListDesc': 'View crime reports from other users in your area.',
     'dashboard.recentCrimeReports': 'Recent Crime Reports',
     'dashboard.yourCrimeReports': 'Your Crime Reports',
+
+    // Emergency Contacts
+    'emergency.title': 'Emergency Contacts',
+    'emergency.noContacts': 'No Emergency Contacts',
+    'emergency.noContactsDesc': 'Add emergency contacts to ensure help is available when you need it most.',
+    'emergency.addFirstContact': 'Add Your First Contact',
+    'emergency.loadError': 'Unable to Load Contacts',
+    'emergency.loading': 'Loading contacts...',
+    'emergency.authRequired': 'Authentication Required',
+    'emergency.authRequiredDesc': 'Please log in to manage your emergency contacts.',
+    'emergency.primary': 'PRIMARY',
+    'emergency.deleteContact': 'Delete Contact',
+    'emergency.deleteConfirm': 'Are you sure you want to delete',
+    'emergency.delete': 'Delete',
+    'emergency.deleteSuccess': 'Contact deleted successfully',
+    'emergency.deleteError': 'Failed to delete contact',
+    'emergency.addContact': 'Add Emergency Contact',
+    'emergency.editContact': 'Edit Contact',
+    'emergency.name': 'Name',
+    'emergency.namePlaceholder': 'Enter full name',
+    'emergency.phoneNumber': 'Phone Number',
+    'emergency.relationship': 'Relationship',
+    'emergency.relationshipPlaceholder': 'e.g., Spouse, Parent, Friend',
+    'emergency.setPrimary': 'Set as Primary Contact',
+    'emergency.primaryDesc': 'Primary contact will be notified first in emergency situations',
+    'emergency.nameRequired': 'Name is required',
+    'emergency.phoneRequired': 'Phone number is required',
+    'emergency.phoneInvalid': 'Please enter a valid Philippine phone number (+63 followed by 10 digits)',
+    'emergency.testSOS': 'Test SOS Alert',
+    'emergency.testSOSDesc': 'This will send a test SOS alert to your primary emergency contacts. Continue?',
+    'emergency.sendTest': 'Send Test',
+    'emergency.sosSent': 'SOS Alert Sent',
+    'emergency.sosSentDesc': 'Test SOS alert sent to your emergency contacts.',
+    'emergency.sosError': 'Failed to send SOS alert',
+    'emergency.noPrimaryContacts': 'No Primary Contacts',
+    'emergency.noPrimaryContactsDesc': 'You need at least one primary emergency contact to test SOS alerts.',
+    'emergency.sosAlert': 'SOS Alert',
+    'emergency.sosConfirm': 'This will send an SOS alert to your primary emergency contacts. This is for real emergencies only. Continue?',
+    'emergency.sendSOS': 'Send SOS',
+    'emergency.relationshipRequired': 'Relationship is required',
+    'emergency.saveError': 'Failed to save emergency contact. Please try again.',
+    'emergency.longPressHint': 'Long press for options',
+
+    // Profile
+    'profile.email': 'Email',
+    'profile.contactNumber': 'Contact Number',
   },
   fil: {
     // Common
@@ -208,6 +289,39 @@ const translations = {
     'common.delete': 'Burahin',
     'common.confirm': 'Kumpirmahin',
     'common.required': 'Kailangan',
+
+    // Notifications
+    'notifications.settings': 'Mga Setting ng Notification',
+    'notifications.customizeDesc': 'I-customize ang inyong mga preference sa notification',
+    'notifications.crimeReports': 'Mga Ulat ng Krimen',
+    'notifications.emergency': 'Emergency',
+    'notifications.general': 'Pangkalahatan',
+    'notifications.delivery': 'Mga Setting ng Delivery',
+    'notifications.enableCrimeReports': 'I-enable ang Crime Report Notifications',
+    'notifications.enableCrimeReportsDesc': 'Tumanggap ng mga notification tungkol sa crime reports',
+    'notifications.newReports': 'Mga Bagong Crime Reports',
+    'notifications.newReportsDesc': 'Makatanggap ng notification kapag may ibang user na nag-publish ng crime report',
+    'notifications.reportSolved': 'Nalutas na ang Report',
+    'notifications.reportSolvedDesc': 'Makatanggap ng notification kapag nalutas na ang inyong crime report',
+    'notifications.reportUpdated': 'Na-update ang Report',
+    'notifications.reportUpdatedDesc': 'Makatanggap ng notification kapag na-update ang status ng inyong crime report',
+    'notifications.enableEmergency': 'I-enable ang Emergency Notifications',
+    'notifications.enableEmergencyDesc': 'Tumanggap ng mga notification na may kinalaman sa emergency',
+    'notifications.sosAlerts': 'Mga SOS Alert',
+    'notifications.sosAlertsDesc': 'Makatanggap ng notification kapag may nag-send ng SOS na may inyo bilang primary contact',
+    'notifications.pushNotifications': 'Push Notifications',
+    'notifications.pushNotificationsDesc': 'I-enable ang push notifications sa inyong device',
+    'notifications.emailNotifications': 'Email Notifications',
+    'notifications.emailNotificationsDesc': 'Tumanggap ng mga notification sa pamamagitan ng email',
+    'notifications.quietHours': 'Quiet Hours',
+    'notifications.quietHoursDesc': 'I-set ang mga oras na hindi kayo gustong tumanggap ng notification',
+    'notifications.setQuietHours': 'I-set ang Quiet Hours',
+    'notifications.startTime': 'Oras ng Simula',
+    'notifications.endTime': 'Oras ng Tapos',
+    'notifications.updateFailed': 'Hindi na-update ang notification settings',
+    'notifications.loadError': 'Hindi na-load ang notification settings',
+    'notifications.reportSubmitted': 'Na-submit na ang Crime Report',
+    'notifications.reportSubmittedDesc': 'Matagumpay na na-submit ang inyong crime report at kasalukuyang sinusuri.',
 
     // Navigation
     'nav.home': 'Home',
@@ -356,19 +470,70 @@ const translations = {
     'dashboard.crimeListDesc': 'Tingnan ang mga ulat ng krimen mula sa ibang mga user sa inyong lugar.',
     'dashboard.recentCrimeReports': 'Mga Kamakailang Ulat ng Krimen',
     'dashboard.yourCrimeReports': 'Mga Ulat Mong Krimen',
+
+    // Emergency Contacts
+    'emergency.title': 'Mga Emergency Contact',
+    'emergency.noContacts': 'Walang Emergency Contacts',
+    'emergency.noContactsDesc': 'Magdagdag ng emergency contacts upang matiyak na may tulong na available kapag kailangan ninyo.',
+    'emergency.addFirstContact': 'Magdagdag ng Emergency Contact',
+    'emergency.loadError': 'Hindi Ma-load ang mga Contact',
+    'emergency.loading': 'Naglo-load ng mga contact...',
+    'emergency.authRequired': 'Kailangan ng Authentication',
+    'emergency.authRequiredDesc': 'Mangyaring mag-log in upang ma-manage ang inyong emergency contacts.',
+    'emergency.primary': 'PANGUNAHIN',
+    'emergency.deleteContact': 'I-delete ang Contact',
+    'emergency.deleteConfirm': 'Sigurado ba kayong gusto ninyong i-delete',
+    'emergency.delete': 'I-delete',
+    'emergency.deleteSuccess': 'Matagumpay na na-delete ang contact',
+    'emergency.deleteError': 'Hindi ma-delete ang contact',
+    'emergency.addContact': 'Magdagdag ng contact',
+    'emergency.editContact': 'I-edit ang Contact',
+    'emergency.name': 'Pangalan',
+    'emergency.namePlaceholder': 'Ilagay ang buong pangalan',
+    'emergency.phoneNumber': 'Numero ng Telepono',
+    'emergency.relationship': 'Relasyon',
+    'emergency.relationshipPlaceholder': 'hal., Asawa, Magulang, Kaibigan',
+    'emergency.setPrimary': 'I-set bilang Primary Contact',
+    'emergency.primaryDesc': 'Ang primary contact ay unang ma-notify sa emergency situations',
+    'emergency.nameRequired': 'Kailangan ang pangalan',
+    'emergency.phoneRequired': 'Kailangan ang numero ng telepono',
+    'emergency.phoneInvalid': 'Mangyaring maglagay ng valid na Philippine phone number (+63 na sinusundan ng 10 digits)',
+    'emergency.testSOS': 'I-test ang SOS Alert',
+    'emergency.testSOSDesc': 'Ito ay magse-send ng test SOS alert sa inyong mga primary emergency contacts. Ituloy?',
+    'emergency.sendTest': 'I-send ang Test',
+    'emergency.sosSent': 'Na-send na ang SOS Alert',
+    'emergency.sosSentDesc': 'Na-send na ang test SOS alert sa inyong mga emergency contacts.',
+    'emergency.sosError': 'Hindi ma-send ang SOS alert',
+    'emergency.noPrimaryContacts': 'Walang Primary Contacts',
+    'emergency.noPrimaryContactsDesc': 'Kailangan ninyo ng kahit isang primary emergency contact upang ma-test ang SOS alerts.',
+    'emergency.sosAlert': 'SOS Alert',
+    'emergency.sosConfirm': 'Ito ay magse-send ng SOS alert sa inyong mga primary emergency contacts. Para lang ito sa mga tunay na emergency. Ituloy?',
+    'emergency.sendSOS': 'I-send ang SOS',
+    'emergency.relationshipRequired': 'Kailangan ang relasyon',
+    'emergency.saveError': 'Hindi ma-save ang emergency contact. Mangyaring subukan ulit.',
+    'emergency.longPressHint': 'Long press para sa mga opsyon',
+
+    // Profile
+    'profile.email': 'Email',
+    'profile.contactNumber': 'Numero ng Telepono',
   },
 };
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<LanguageType>('en');
+  const [currentUserId, setCurrentUserIdState] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadLanguage();
-  }, []);
+  const setCurrentUserId = (userId: string | null) => {
+    setCurrentUserIdState(userId);
+    if (userId) {
+      loadLanguage(userId);
+    }
+    // Don't reset to default when user logs out - keep current settings
+  };
 
-  const loadLanguage = async () => {
+  const loadLanguage = async (userId: string) => {
     try {
-      const savedLanguage = await AsyncStorage.getItem('language');
+      const savedLanguage = await AsyncStorage.getItem(`language_${userId}`);
       if (savedLanguage) {
         setLanguageState(savedLanguage as LanguageType);
       }
@@ -378,9 +543,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const setLanguage = async (newLanguage: LanguageType) => {
+    if (!currentUserId) return;
+    
     setLanguageState(newLanguage);
     try {
-      await AsyncStorage.setItem('language', newLanguage);
+      await AsyncStorage.setItem(`language_${currentUserId}`, newLanguage);
     } catch (error) {
       console.error('Error saving language:', error);
     }
@@ -396,6 +563,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         language,
         setLanguage,
         t,
+        setCurrentUserId,
       }}
     >
       {children}

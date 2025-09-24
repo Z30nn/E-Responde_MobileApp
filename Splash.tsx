@@ -16,12 +16,12 @@ const Splash = () => {
       // Start fade out animation
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 1000, // 1 second fade out
+        duration: 200, // 0.2 second fade out
         useNativeDriver: true,
       }).start(() => {
         setShowSplash(false);
       });
-    }, 2000); // Show for 2 seconds before starting fade
+    }, 300); // Show for 0.3 seconds before starting fade
 
     return () => clearTimeout(timer);
   }, [fadeAnim]);
