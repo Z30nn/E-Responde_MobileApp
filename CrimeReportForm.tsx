@@ -177,11 +177,30 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         },
         (error) => {
           console.error('Error getting location:', error);
+          
+          let errorMessage = 'Unable to get your current location.';
+          
+          // Provide specific error messages based on error code
+          switch (error.code) {
+            case 1: // PERMISSION_DENIED
+              errorMessage = 'Location permission denied. Please enable location access in settings.';
+              break;
+            case 2: // POSITION_UNAVAILABLE
+              errorMessage = 'Location is currently unavailable. Please try again or enter address manually.';
+              break;
+            case 3: // TIMEOUT
+              errorMessage = 'Location request timed out. Please try again or enter address manually.';
+              break;
+            default:
+              errorMessage = 'Unable to get your current location. You can manually enter an address instead.';
+          }
+          
           Alert.alert(
             'Location Error',
-            'Unable to get your current location. You can manually enter an address instead.',
+            errorMessage,
             [
               { text: 'Enter Address', onPress: () => setShowAddressModal(true) },
+              { text: 'Try Again', onPress: () => getCurrentLocation() },
               { text: 'Cancel', style: 'cancel' }
             ]
           );
@@ -196,9 +215,9 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           setIsLocationLoading(false);
         },
         {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 10000,
+          enableHighAccuracy: false, // Changed to false for faster response
+          timeout: 10000, // Reduced timeout to 10 seconds
+          maximumAge: 30000, // Accept cached location up to 30 seconds old
         }
       );
     } catch (error) {
@@ -712,20 +731,27 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     },
     submitButton: {
       backgroundColor: '#1E8A32',
-      padding: 16,
-      borderRadius: 8,
+      paddingHorizontal: 32,
+      paddingVertical: 16,
+      borderRadius: 12,
       alignItems: 'center',
       marginTop: 20,
-      width: '60%',
+      width: '70%',
       alignSelf: 'center',
+      minHeight: 56,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
     },
     submitButtonDisabled: {
       backgroundColor: '#9CA3AF',
     },
     submitButtonText: {
       color: 'white',
-      fontSize: fonts.button,
-      fontWeight: '600',
+      fontSize: 18,
+      fontWeight: '700',
     },
     // Dropdown Container and List Styles
     dropdownContainer: {
@@ -828,26 +854,32 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     modalCancelButton: {
       flex: 1,
       backgroundColor: theme.border,
-      padding: 12,
-      borderRadius: 8,
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      borderRadius: 12,
       alignItems: 'center',
+      minHeight: 56,
+      justifyContent: 'center',
     },
     modalCancelButtonText: {
       color: theme.text,
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 18,
+      fontWeight: '700',
     },
     modalSubmitButton: {
       flex: 1,
       backgroundColor: theme.primary,
-      padding: 12,
-      borderRadius: 8,
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      borderRadius: 12,
       alignItems: 'center',
+      minHeight: 56,
+      justifyContent: 'center',
     },
     modalSubmitButtonText: {
       color: 'white',
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 18,
+      fontWeight: '700',
     },
     uploadedFilesContainer: {
       marginTop: 12,

@@ -9,7 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
-import { auth } from './firebaseConfig';
+import { auth, database } from './firebaseConfig';
+import { ref, onValue, off } from 'firebase/database';
 import { useTheme, colors } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 
@@ -27,6 +28,56 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
 
   useEffect(() => {
     loadOtherUsersReports();
+    
+    // Set up real-time listener for status updates from all users
+    const allReportsRef = ref(database, 'civilian/civilian crime reports');
+    
+    const handleStatusChange = (snapshot: any) => {
+      if (snapshot.exists()) {
+        const allReportsData = snapshot.val();
+        const currentUser = auth.currentUser;
+        
+        if (currentUser) {
+          // Filter out current user's reports and get all other users' reports
+          // Only show reports that are "received" or higher (verified by authorities)
+          const otherUsersReports: CrimeReport[] = [];
+          
+          Object.keys(allReportsData).forEach(reportId => {
+            const report = allReportsData[reportId];
+            console.log('Real-time: Checking report:', reportId, 'Status:', report.status, 'Reporter UID:', report.reporterUid);
+            // Only include reports from other users that are "received" or higher (verified by authorities)
+            if (report.reporterUid !== currentUser.uid && report.status && (
+              report.status.toLowerCase() === 'received' ||
+              report.status.toLowerCase() === 'in progress' ||
+              report.status.toLowerCase() === 'resolved' ||
+              report.status.toLowerCase() === 'pending' // Temporary to debug
+            )) {
+              console.log('Real-time: Adding verified report:', reportId, 'Status:', report.status);
+              otherUsersReports.push({
+                ...report,
+                reportId: reportId
+              });
+            } else {
+              console.log('Real-time: Skipping report:', reportId, 'Status:', report.status, 'Reason:', report.reporterUid === currentUser.uid ? 'Own report' : 'Not verified');
+            }
+          });
+          
+          // Sort by date (newest first)
+          otherUsersReports.sort((a, b) => 
+            new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+          );
+          
+          setReports(otherUsersReports);
+        }
+      }
+    };
+    
+    onValue(allReportsRef, handleStatusChange);
+    
+    // Cleanup listener on unmount
+    return () => {
+      off(allReportsRef, 'value', handleStatusChange);
+    };
   }, []);
 
   const loadOtherUsersReports = async () => {
@@ -45,9 +96,22 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
       const allReports = await FirebaseService.getAllCrimeReports();
       console.log('All crime reports loaded:', allReports.length);
       
-      // Filter out current user's reports
-      const otherUsersReports = allReports.filter(report => report.reporterUid !== currentUser.uid);
-      console.log('Other users crime reports:', otherUsersReports.length);
+      // Filter out current user's reports and only show verified reports (received or higher)
+      console.log('All reports before filtering:', allReports.length);
+      allReports.forEach(report => {
+        console.log('Report status:', report.status, 'Reporter UID:', report.reporterUid, 'Current UID:', currentUser.uid);
+      });
+      
+      const otherUsersReports = allReports.filter(report => 
+        report.reporterUid !== currentUser.uid && 
+        report.status && (
+          report.status.toLowerCase() === 'received' ||
+          report.status.toLowerCase() === 'in progress' ||
+          report.status.toLowerCase() === 'resolved' ||
+          report.status.toLowerCase() === 'pending' // Temporary to debug
+        )
+      );
+      console.log('Other users verified crime reports:', otherUsersReports.length);
       
       setReports(otherUsersReports);
     } catch (error) {
@@ -77,16 +141,23 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending':
-        return '#F59E0B';
-      case 'investigating':
-        return '#3B82F6';
+      case 'reported':
+        return '#3B82F6'; // Blue (neutral, just logged)
+      case 'received':
+        return '#F59E0B'; // Yellow (acknowledged, pending action)
+      case 'in progress':
+        return '#F97316'; // Orange (active, ongoing, urgent)
       case 'resolved':
-        return '#10B981';
+        return '#10B981'; // Green (completed, successful outcome)
+      // Backward compatibility with old status names
+      case 'pending':
+        return '#F59E0B'; // Yellow
+      case 'investigating':
+        return '#F97316'; // Orange
       case 'closed':
-        return '#6B7280';
+        return '#6B7280'; // Gray
       default:
-        return '#6B7280';
+        return '#6B7280'; // Gray
     }
   };
 

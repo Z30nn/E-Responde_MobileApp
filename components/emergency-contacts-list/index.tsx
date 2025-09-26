@@ -222,12 +222,23 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
     );
   }
 
+  // Calculate primary contacts count
+  const primaryContactsCount = contacts.filter(contact => contact.isPrimary).length;
+  const maxPrimaryContacts = 3;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: isDarkMode ? 'transparent' : theme.menuBackground, borderBottomColor: theme.border }]}>
         <Text style={[styles.title, { color: theme.text, fontSize: fonts.subtitle }]}>{t('emergency.title')}</Text>
-        <Text style={[styles.primaryCounter, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-          Primary contacts: {contacts.filter(c => c.isPrimary).length}/3
+        <Text style={[
+          styles.primaryCounter, 
+          { 
+            color: primaryContactsCount >= maxPrimaryContacts ? '#FF4444' : theme.secondaryText, 
+            fontSize: fonts.caption 
+          }
+        ]}>
+          Primary contacts: {primaryContactsCount}/{maxPrimaryContacts}
+          {primaryContactsCount >= maxPrimaryContacts && ' (Limit reached)'}
         </Text>
       </View>
 

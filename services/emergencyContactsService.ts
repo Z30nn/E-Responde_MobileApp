@@ -271,8 +271,8 @@ export class EmergencyContactsService {
       console.log('EmergencyContactsService: userData after fetch:', userData);
       console.log('EmergencyContactsService: userData type:', typeof userData);
 
-      const sosMessage = message || `${userName} has sent an SOS alert and needs immediate assistance!`;
-      const alertTitle = '🚨 SOS ALERT';
+      const sosMessage = message || ``;
+      const alertTitle = 'SOS ALERT';
       const alertBody = sosMessage;
 
       // Get user's current location (if available)

@@ -21,15 +21,10 @@ const NotificationSettings: React.FC = () => {
   const { t } = useLanguage();
   const { settings, isLoading, updatePreferences } = useNotification();
   const [localPreferences, setLocalPreferences] = useState<NotificationPreferences | null>(null);
-  const [showQuietHoursModal, setShowQuietHoursModal] = useState(false);
-  const [quietHoursStart, setQuietHoursStart] = useState('22:00');
-  const [quietHoursEnd, setQuietHoursEnd] = useState('08:00');
 
   useEffect(() => {
     if (settings) {
       setLocalPreferences(settings.preferences);
-      setQuietHoursStart(settings.preferences.delivery.quietHours.startTime);
-      setQuietHoursEnd(settings.preferences.delivery.quietHours.endTime);
     }
   }, [settings]);
 
@@ -59,35 +54,6 @@ const NotificationSettings: React.FC = () => {
     }
   };
 
-  const handleQuietHoursSave = async () => {
-    if (!localPreferences) return;
-
-    const updatedPreferences = {
-      ...localPreferences,
-      delivery: {
-        ...localPreferences.delivery,
-        quietHours: {
-          ...localPreferences.delivery.quietHours,
-          startTime: quietHoursStart,
-          endTime: quietHoursEnd,
-        },
-      },
-    };
-
-    setLocalPreferences(updatedPreferences);
-    setShowQuietHoursModal(false);
-
-    try {
-      const success = await updatePreferences({ delivery: updatedPreferences.delivery });
-      if (!success) {
-        setLocalPreferences(localPreferences);
-        Alert.alert(t('common.error'), t('notifications.updateFailed'));
-      }
-    } catch (error) {
-      setLocalPreferences(localPreferences);
-      Alert.alert(t('common.error'), t('notifications.updateFailed'));
-    }
-  };
 
   const renderSection = (
     title: string,
@@ -126,69 +92,6 @@ const NotificationSettings: React.FC = () => {
     );
   };
 
-  const renderQuietHoursModal = () => (
-    <Modal
-      visible={showQuietHoursModal}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowQuietHoursModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: isDarkMode ? '#2A2A2A' : '#FFFFFF' }]}>
-          <Text style={[styles.modalTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
-            {t('notifications.quietHours')}
-          </Text>
-          
-          <View style={styles.timeInputContainer}>
-            <Text style={[styles.timeLabel, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
-              {t('notifications.startTime')}
-            </Text>
-            <TextInput
-              style={[styles.timeInput, { 
-                backgroundColor: isDarkMode ? '#3A3A3A' : '#F0F0F0',
-                color: isDarkMode ? '#FFFFFF' : '#1A1A1A'
-              }]}
-              value={quietHoursStart}
-              onChangeText={setQuietHoursStart}
-              placeholder="22:00"
-              placeholderTextColor={isDarkMode ? '#CCCCCC' : '#666666'}
-            />
-          </View>
-          
-          <View style={styles.timeInputContainer}>
-            <Text style={[styles.timeLabel, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
-              {t('notifications.endTime')}
-            </Text>
-            <TextInput
-              style={[styles.timeInput, { 
-                backgroundColor: isDarkMode ? '#3A3A3A' : '#F0F0F0',
-                color: isDarkMode ? '#FFFFFF' : '#1A1A1A'
-              }]}
-              value={quietHoursEnd}
-              onChangeText={setQuietHoursEnd}
-              placeholder="08:00"
-              placeholderTextColor={isDarkMode ? '#CCCCCC' : '#666666'}
-            />
-          </View>
-          
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.cancelButton]}
-              onPress={() => setShowQuietHoursModal(false)}
-            >
-              <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalButton, styles.saveButton]}
-              onPress={handleQuietHoursSave}
-            >
-              <Text style={styles.saveButtonText}>{t('common.save')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
 
   if (isLoading) {
     return (
@@ -253,23 +156,6 @@ const NotificationSettings: React.FC = () => {
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
             <Text style={[styles.settingLabel, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
-              {t('notifications.pushNotifications')}
-            </Text>
-            <Text style={[styles.settingDescription, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
-              {t('notifications.pushNotificationsDesc')}
-            </Text>
-          </View>
-          <Switch
-            value={localPreferences.delivery.pushNotifications}
-            onValueChange={(value) => handlePreferenceChange('delivery', 'pushNotifications', value)}
-            trackColor={{ false: '#767577', true: '#1E3A8A' }}
-            thumbColor={localPreferences.delivery.pushNotifications ? '#FFFFFF' : '#F4F3F4'}
-          />
-        </View>
-
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={[styles.settingLabel, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
               {t('notifications.emailNotifications')}
             </Text>
             <Text style={[styles.settingDescription, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
@@ -284,36 +170,7 @@ const NotificationSettings: React.FC = () => {
           />
         </View>
 
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={[styles.settingLabel, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
-              {t('notifications.quietHours')}
-            </Text>
-            <Text style={[styles.settingDescription, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
-              {t('notifications.quietHoursDesc')}
-            </Text>
-          </View>
-          <Switch
-            value={localPreferences.delivery.quietHours.enabled}
-            onValueChange={(value) => handlePreferenceChange('delivery', 'quietHours', { ...localPreferences.delivery.quietHours, enabled: value })}
-            trackColor={{ false: '#767577', true: '#1E3A8A' }}
-            thumbColor={localPreferences.delivery.quietHours.enabled ? '#FFFFFF' : '#F4F3F4'}
-          />
-        </View>
-
-        {localPreferences.delivery.quietHours.enabled && (
-          <TouchableOpacity
-            style={[styles.quietHoursButton, { backgroundColor: isDarkMode ? '#3A3A3A' : '#E0E0E0' }]}
-            onPress={() => setShowQuietHoursModal(true)}
-          >
-            <Text style={[styles.quietHoursButtonText, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
-              {t('notifications.setQuietHours')}: {quietHoursStart} - {quietHoursEnd}
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
-
-      {renderQuietHoursModal()}
     </ScrollView>
   );
 };

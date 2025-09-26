@@ -89,27 +89,41 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending':
-        return '#F59E0B';
-      case 'investigating':
-        return '#3B82F6';
+      case 'reported':
+        return '#3B82F6'; // Blue (neutral, just logged)
+      case 'received':
+        return '#F59E0B'; // Yellow (acknowledged, pending action)
+      case 'in progress':
+        return '#F97316'; // Orange (active, ongoing, urgent)
       case 'resolved':
-        return '#10B981';
+        return '#10B981'; // Green (completed, successful outcome)
+      // Backward compatibility with old status names
+      case 'pending':
+        return '#F59E0B'; // Yellow
+      case 'investigating':
+        return '#F97316'; // Orange
       case 'closed':
-        return '#6B7280';
+        return '#6B7280'; // Gray
       default:
-        return '#6B7280';
+        return '#6B7280'; // Gray
     }
   };
 
   const getStatusDescription = (status: string) => {
     switch (status.toLowerCase()) {
+      case 'reported':
+        return 'The crime has been filed and logged in the system.';
+      case 'received':
+        return 'Authorities have acknowledged and confirmed this report.';
+      case 'in progress':
+        return 'Authorities are actively investigating and responding to this report.';
+      case 'resolved':
+        return 'This case has been addressed and officially closed.';
+      // Backward compatibility with old status names
       case 'pending':
         return 'Your report has been submitted and is awaiting review by authorities.';
       case 'investigating':
         return 'Authorities are currently investigating your report. You may be contacted for additional information.';
-      case 'resolved':
-        return 'Your report has been resolved. Thank you for helping keep the community safe.';
       case 'closed':
         return 'This report has been closed. If you have new information, please submit a new report.';
       default:
@@ -171,8 +185,8 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     section: {
       backgroundColor: theme.menuBackground,
       borderRadius: 12,
-      padding: 20,
-      marginBottom: 20,
+      padding: 16,
+      marginBottom: 16,
       borderWidth: 1,
       borderColor: theme.border,
     },
@@ -180,7 +194,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       fontSize: fonts.subtitle,
       fontWeight: 'bold',
       color: theme.primary,
-      marginBottom: 16,
+      marginBottom: 12,
     },
     infoRow: {
       flexDirection: 'row',
@@ -213,7 +227,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     noteText: {
       fontSize: fonts.caption,
       color: theme.secondaryText,
-      lineHeight: 20,
+      lineHeight: 18,
       fontStyle: 'italic',
     },
     loadingContainer: {
@@ -303,16 +317,24 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     },
     mapButton: {
       backgroundColor: theme.primary,
-      padding: 16,
-      borderRadius: 8,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 10,
       alignItems: 'center',
-      margin: 20,
+      margin: 16,
       marginTop: 0,
+      minHeight: 48,
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
     },
     mapButtonText: {
       color: 'white',
       fontSize: 16,
-      fontWeight: '600',
+      fontWeight: '700',
     },
     imageModalOverlay: {
       flex: 1,

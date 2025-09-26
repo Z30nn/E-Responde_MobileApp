@@ -5,6 +5,9 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     paddingTop: 0,
+    position: 'relative',
+    // Ensure container doesn't change size unexpectedly
+    minHeight: '100%',
   },
   header: {
     flexDirection: 'column',
@@ -186,29 +189,37 @@ export const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: 120,
   },
   floatingAddButton: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 100, // Fixed distance from bottom of screen
     right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
+    elevation: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 8,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    zIndex: 10000,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    // Ensure it stays fixed regardless of content changes
+    top: undefined,
+    left: undefined,
   },
   floatingAddButtonText: {
     color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '300',
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    lineHeight: 28,
   },
 });
