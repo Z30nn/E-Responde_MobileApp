@@ -1066,13 +1066,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               <Text style={styles.multimediaButtonText}>📁 {t('crime.addPhotoVideo')}</Text>
             )}
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.multimediaButton, isUploading && styles.multimediaButtonDisabled]}
-            onPress={handleFileUpload}
-            disabled={isUploading}
-          >
-            <Text style={styles.multimediaButtonText}>🎤 {t('crime.addAudio')}</Text>
-          </TouchableOpacity>
           
           {/* Show uploaded files */}
           {uploadedFiles.length > 0 && (

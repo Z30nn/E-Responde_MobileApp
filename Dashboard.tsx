@@ -1181,11 +1181,6 @@ const Dashboard = () => {
                   <Text style={styles.chevronRight}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Give Us Feedbacks</Text>
-                  <Text style={styles.chevronRight}>›</Text>
-                </TouchableOpacity>
-
                 {/* Logout Button */}
                 <TouchableOpacity
                   style={styles.logoutButtonContainer}
