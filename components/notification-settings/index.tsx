@@ -10,17 +10,19 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { useTheme } from '../../services/themeContext';
+import { useTheme, colors } from '../../services/themeContext';
 import { useLanguage } from '../../services/languageContext';
 import { useNotification } from '../../services/notificationContext';
 import { NotificationPreferences } from '../../services/types/notification-types';
-import { styles } from './styles';
+import { createStyles } from './styles';
 
 const NotificationSettings: React.FC = () => {
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
   const { settings, isLoading, updatePreferences } = useNotification();
   const [localPreferences, setLocalPreferences] = useState<NotificationPreferences | null>(null);
+  const theme = isDarkMode ? colors.dark : colors.light;
+  const styles = createStyles(theme);
 
   useEffect(() => {
     if (settings) {
@@ -63,19 +65,19 @@ const NotificationSettings: React.FC = () => {
     if (!localPreferences) return null;
 
     return (
-      <View style={[styles.section, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F9FA' }]}>
-        <Text style={[styles.sectionTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
           {title}
         </Text>
         
         {fields.map((field) => (
           <View key={field.key} style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Text style={[styles.settingLabel, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={styles.settingLabel}>
                 {field.label}
               </Text>
               {field.description && (
-                <Text style={[styles.settingDescription, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
+                <Text style={styles.settingDescription}>
                   {field.description}
                 </Text>
               )}
@@ -95,8 +97,8 @@ const NotificationSettings: React.FC = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF' }]}>
-        <Text style={[styles.loadingText, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>
           {t('common.loading')}...
         </Text>
       </View>
@@ -105,8 +107,8 @@ const NotificationSettings: React.FC = () => {
 
   if (!localPreferences) {
     return (
-      <View style={[styles.container, { backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF' }]}>
-        <Text style={[styles.errorText, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+      <View style={styles.container}>
+        <Text style={styles.errorText}>
           {t('notifications.loadError')}
         </Text>
       </View>
@@ -114,12 +116,12 @@ const NotificationSettings: React.FC = () => {
   }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF' }]}>
+    <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+        <Text style={styles.headerTitle}>
           {t('notifications.settings')}
         </Text>
-        <Text style={[styles.headerSubtitle, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
+        <Text style={styles.headerSubtitle}>
           {t('notifications.customizeDesc')}
         </Text>
       </View>
@@ -148,17 +150,17 @@ const NotificationSettings: React.FC = () => {
 
 
       {/* Delivery Settings Section */}
-      <View style={[styles.section, { backgroundColor: isDarkMode ? '#2A2A2A' : '#F8F9FA' }]}>
-        <Text style={[styles.sectionTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
           {t('notifications.delivery')}
         </Text>
         
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
-            <Text style={[styles.settingLabel, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+            <Text style={styles.settingLabel}>
               {t('notifications.emailNotifications')}
             </Text>
-            <Text style={[styles.settingDescription, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
+            <Text style={styles.settingDescription}>
               {t('notifications.emailNotificationsDesc')}
             </Text>
           </View>

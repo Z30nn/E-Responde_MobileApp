@@ -15,7 +15,7 @@ import { EmergencyContactsService } from '../../services/emergencyContactsServic
 import EmergencyContactForm from '../emergency-contact-form';
 import { useTheme, colors, fontSizes } from '../../services/themeContext';
 import { useLanguage } from '../../services/languageContext';
-import { styles } from './styles';
+import { createStyles } from './styles';
 
 interface EmergencyContactsListProps {
   userId: string;
@@ -35,6 +35,7 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
   const { language, t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
+  const styles = createStyles(theme);
 
   useEffect(() => {
     if (userId) {
@@ -313,7 +314,7 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: isDarkMode ? '#DC2626' : '#EF4444' }]}
+                style={[styles.actionButton, { backgroundColor: '#EF4444' }]}
                 onPress={handleDeleteContact}
               >
                 <Text style={[styles.actionButtonText, { color: '#FFFFFF', fontSize: fonts.body }]}>

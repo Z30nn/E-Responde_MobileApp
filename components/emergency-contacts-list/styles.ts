@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.background,
     paddingTop: 0,
     position: 'relative',
     // Ensure container doesn't change size unexpectedly
@@ -16,25 +16,25 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: theme.border,
+    backgroundColor: theme.menuBackground,
   },
   title: {
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: theme.text,
   },
   primaryCounter: {
     marginTop: 4,
     opacity: 0.7,
   },
   addButton: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: theme.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   addButtonText: {
-    color: '#FFFFFF',
+    color: theme.background,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -43,12 +43,12 @@ export const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   contactItem: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.menuBackground,
     borderRadius: 8,
     padding: 16,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: theme.border,
   },
   contactInfo: {
     flex: 1,
@@ -60,35 +60,35 @@ export const styles = StyleSheet.create({
   },
   contactName: {
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: theme.text,
     flex: 1,
   },
   primaryBadge: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: theme.primary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     marginLeft: 8,
   },
   primaryBadgeText: {
-    color: '#FFFFFF',
+    color: theme.background,
     fontSize: 9,
     fontWeight: '600',
   },
   contactPhone: {
-    color: '#1E3A8A',
+    color: theme.primary,
     fontWeight: '500',
     marginBottom: 4,
   },
   contactRelationship: {
-    color: '#6B7280',
+    color: theme.secondaryText,
   },
   longPressHint: {
     marginTop: 8,
     alignItems: 'center',
   },
   longPressHintText: {
-    color: '#6B7280',
+    color: theme.secondaryText,
     fontSize: 12,
     fontStyle: 'italic',
   },
@@ -99,20 +99,20 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionMenu: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.menuBackground,
     borderRadius: 12,
     padding: 20,
     marginHorizontal: 20,
     minWidth: 280,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: theme.border,
   },
   actionMenuTitle: {
     fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 16,
-    color: '#1A1A1A',
+    color: theme.text,
   },
   actionMenuButtons: {
     gap: 12,
@@ -127,7 +127,7 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: theme.background,
   },
   cancelButton: {
     paddingVertical: 12,
@@ -135,12 +135,12 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: theme.border,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1A1A1A',
+    color: theme.text,
   },
   emptyState: {
     flex: 1,
@@ -151,18 +151,18 @@ export const styles = StyleSheet.create({
   },
   emptyStateTitle: {
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: theme.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   emptyStateText: {
-    color: '#6B7280',
+    color: theme.secondaryText,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
   },
   addFirstButton: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: theme.primary,
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 12,
@@ -171,18 +171,18 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addFirstButtonText: {
-    color: '#FFFFFF',
+    color: theme.background,
     fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.background,
   },
   loadingText: {
     marginTop: 16,
-    color: '#6B7280',
+    color: theme.secondaryText,
   },
   scrollContainer: {
     flex: 1,
@@ -209,14 +209,12 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 10,
     zIndex: 10000,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
     // Ensure it stays fixed regardless of content changes
     top: undefined,
     left: undefined,
   },
   floatingAddButtonText: {
-    color: '#FFFFFF',
+    color: theme.background,
     fontSize: 28,
     fontWeight: 'bold',
     textAlign: 'center',

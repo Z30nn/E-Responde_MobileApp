@@ -10,8 +10,6 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
-import EyeIcon from './assets/eye.svg';
-import EyeOffIcon from './assets/eye-off.svg';
 import { FirebaseService } from './services/firebaseService';
 
 const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
@@ -41,6 +39,30 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
     if (!email) return 'Email is required.';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address.';
     return '';
+  };
+
+  const formatPhoneNumber = (text: string) => {
+    // Remove all non-digit characters
+    const cleaned = text.replace(/\D/g, '');
+    
+    // If it starts with 63, add + prefix
+    if (cleaned.startsWith('63')) {
+      return '+' + cleaned;
+    }
+    // If it doesn't start with 63, add +63 prefix
+    if (cleaned.length > 0 && !cleaned.startsWith('63')) {
+      return '+63' + cleaned;
+    }
+    // If empty, return empty
+    if (cleaned.length === 0) {
+      return '';
+    }
+    // If it starts with 0, replace with +63
+    if (cleaned.startsWith('0')) {
+      return '+63' + cleaned.substring(1);
+    }
+    
+    return '+' + cleaned;
   };
 
   const validateContactNumber = (contactNumber: string) => {
@@ -167,300 +189,282 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
     formData.password === formData.confirmPassword;
 
   return (
-    <ScrollView
-      style={{
-        flex: 1,
-        backgroundColor: '#ffffff',
-      }}
-      contentContainerStyle={{
-        flexGrow: 1,
-        justifyContent: 'center',
-        padding: 20,
-      }}>
-      <Image
-        source={require('./assets/signuplogo.png')}
-                  style={{
-            width: 300,
-            height: 300,
-            alignSelf: 'center',
-            marginBottom: 40,
+    <View style={{ 
+      flex: 1, 
+      backgroundColor: '#2d3480',
+      marginTop: -50,
+      marginBottom: -50,
+    }}>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          padding: 20,
+          paddingTop: 0,
+          paddingBottom: 50,
         }}
-      />
+        showsVerticalScrollIndicator={true}
+        bounces={true}
+        alwaysBounceVertical={false}
+      >
+        {/* Enhanced Form Container */}
+        <View style={{
+          backgroundColor: '#ffffff',
+          borderRadius: 25,
+          padding: 25,
+          marginTop: 50,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 8,
+          },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(71, 94, 61, 0.1)',
+        }}>
+
+          {/* Form Title */}
+          <Text style={{
+            fontSize: 20,
+            fontWeight: '900',
+            color: '#475e3d',
+            textAlign: 'center',
+            marginBottom: 20,
+            letterSpacing: 0.5,
+          }}>
+            Create an Account
+          </Text>
+
+          {/* Form Fields */}
+          <View style={{ gap: 18 }}>
+            <TextInput
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
+              placeholderTextColor="#9CA3AF"
+              placeholder="First Name"
+              value={formData.firstName}
+              onChangeText={value => handleInputChange('firstName', value)}
+              onFocus={() => handleFocus('firstName')}
+              onBlur={handleBlur}
+              autoCapitalize="words"
+            />
 
             <TextInput
-        style={{
-          backgroundColor: 'rgba(30, 58, 138, 0.31)',
-          padding: 15,
-          marginBottom: 15,
-          fontSize: 16,
-          borderRadius: 8,
-          width: '80%',
-          alignSelf: 'center',
-          color: '#1E3A8A',
-          marginTop: -80,
-          fontWeight: '500',
-        }}
-        placeholderTextColor="#1E3A8A"
-        placeholder="First Name"
-        value={formData.firstName}
-        onChangeText={value => handleInputChange('firstName', value)}
-        onFocus={() => handleFocus('firstName')}
-        onBlur={handleBlur}
-        autoCapitalize="words"
-      />
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
+              placeholderTextColor="#9CA3AF"
+              placeholder="Last Name"
+              value={formData.lastName}
+              onChangeText={value => handleInputChange('lastName', value)}
+              onFocus={() => handleFocus('lastName')}
+              onBlur={handleBlur}
+              autoCapitalize="words"
+            />
 
-      <TextInput
-        style={{
-          backgroundColor: 'rgba(30, 58, 138, 0.31)',
-          padding: 15,
-          marginBottom: 15,
-          fontSize: 16,
-          borderRadius: 8,
-          width: '80%',
-          alignSelf: 'center',
-          color: '#1E3A8A',
-          fontWeight: '500',
-        }}
-        placeholderTextColor="#1E3A8A"
-        placeholder="Last Name"
-        value={formData.lastName}
-        onChangeText={value => handleInputChange('lastName', value)}
-        onFocus={() => handleFocus('lastName')}
-        onBlur={handleBlur}
-        autoCapitalize="words"
-      />
+            <TextInput
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
+              placeholder="Phone Number"
+              placeholderTextColor="#9CA3AF"
+              value={formData.contactNumber}
+              onChangeText={value => {
+                const formatted = formatPhoneNumber(value);
+                handleInputChange('contactNumber', formatted);
+              }}
+              onFocus={() => handleFocus('contactNumber')}
+              onBlur={handleBlur}
+              keyboardType="phone-pad"
+            />
 
-      <View style={{ position: 'relative', marginBottom: 15 }}>
-        <TextInput
-          style={{
-            backgroundColor: 'rgba(30, 58, 138, 0.31)',
-            padding: 15,
-            fontSize: 16,
-            borderRadius: 8,
-            width: '80%',
-            alignSelf: 'center',
-            color: '#1E3A8A',
-            fontWeight: '500',
-          }}
-          placeholder="+63XXXXXXXXXX"
-          placeholderTextColor="#1E3A8A"
-          value={formData.contactNumber}
-          onChangeText={value => handleInputChange('contactNumber', value)}
-          onFocus={() => handleFocus('contactNumber')}
-          onBlur={handleBlur}
-          keyboardType="phone-pad"
-        />
-        {focusedField === 'contactNumber' && contactNumberError && (
-          <View style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 60,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            padding: 8,
-            borderRadius: 6,
-            zIndex: 10,
-          }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, textAlign: 'center', fontWeight: 'bold' }}>{contactNumberError}</Text>
-          </View>
-        )}
-        {focusedField === 'contactNumber' && !contactNumberError && (
-          <View style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 60,
-            backgroundColor: 'rgba(30, 58, 138, 0.9)',
-            padding: 8,
-            borderRadius: 6,
-            zIndex: 10,
-          }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 12, textAlign: 'center' }}>Enter your Philippine mobile number (e.g., +639123456789)</Text>
-          </View>
-        )}
-      </View>
+            <TextInput
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
+              placeholder="Email Address"
+              placeholderTextColor="#9CA3AF"
+              value={formData.email}
+              onChangeText={value => handleInputChange('email', value)}
+              onFocus={() => handleFocus('email')}
+              onBlur={handleBlur}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
 
-      <View style={{ position: 'relative', marginBottom: 15 }}>
-        <TextInput
-          style={{
-            backgroundColor: 'rgba(30, 58, 138, 0.31)',
-            padding: 15,
-            fontSize: 16,
-            borderRadius: 8,
-            width: '80%',
-            alignSelf: 'center',
-            color: '#1E3A8A',
-            fontWeight: '500',
-          }}
-          placeholder="Email Address"
-          placeholderTextColor="#1E3A8A"
-          value={formData.email}
-          onChangeText={value => handleInputChange('email', value)}
-          onFocus={() => handleFocus('email')}
-          onBlur={handleBlur}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        {focusedField === 'email' && emailError && (
-          <View style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 60,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            padding: 8,
-            borderRadius: 6,
-            zIndex: 10,
-          }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, textAlign: 'center', fontWeight: 'bold' }}>{emailError}</Text>
-          </View>
-        )}
-      </View>
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  paddingRight: 50,
+                  fontSize: 14,
+                  borderRadius: 25,
+                  color: '#1F2937',
+                }}
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                value={formData.password}
+                onChangeText={value => handleInputChange('password', value)}
+                onFocus={() => handleFocus('password')}
+                onBlur={handleBlur}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  right: 5,
+                  top: -5,
+                  padding: 5,
+                }}
+                onPress={() => setShowPassword(!showPassword)}>
+                <Image 
+                  source={!showPassword ? require('./assets/eyeoff.png') : require('./assets/eyeon.png')}
+                  style={{ 
+                    width: 50, 
+                    height: 50,
+                    tintColor: '#193a3c'
+                  }}
+                />
+              </TouchableOpacity>
+            </View>
 
-      <View style={{ position: 'relative', marginBottom: 15 }}>
-        <TextInput
-          style={{
-            backgroundColor: 'rgba(30, 58, 138, 0.31)',
-            padding: 15,
-            fontSize: 16,
-            paddingRight: 50,
-            borderRadius: 8,
-            width: '80%',
-            alignSelf: 'center',
-            color: '#1E3A8A',
-            fontWeight: '500',
-          }}
-                      placeholder="Password"
-          placeholderTextColor="#1E3A8A"
-          value={formData.password}
-          onChangeText={value => handleInputChange('password', value)}
-          onFocus={() => handleFocus('password')}
-          onBlur={handleBlur}
-          secureTextEntry={!showPassword}
-        />
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            right: '14%',
-            top: 15,
-            padding: 5,
-          }}
-          onPress={() => setShowPassword(!showPassword)}>
-          {showPassword ? (
-            <EyeOffIcon width={24} height={24} />
-          ) : (
-            <EyeIcon width={24} height={24} />
-          )}
-        </TouchableOpacity>
-        {focusedField === 'password' && passwordErrors.length > 0 && (
-          <View style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 60,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            padding: 8,
-            borderRadius: 6,
-            zIndex: 10,
-          }}>
-            {passwordErrors.map((err, idx) => (
-              <Text key={idx} style={{ color: '#FFFFFF', fontSize: 13, textAlign: 'center', fontWeight: 'bold' }}>
-                Password must have: {err}
-              </Text>
-            ))}
-          </View>
-        )}
-      </View>
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  paddingRight: 50,
+                  fontSize: 14,
+                  borderRadius: 25,
+                  color: '#1F2937',
+                }}
+                placeholder="Confirm Password"
+                placeholderTextColor="#9CA3AF"
+                value={formData.confirmPassword}
+                onChangeText={value => handleInputChange('confirmPassword', value)}
+                onFocus={() => handleFocus('confirmPassword')}
+                onBlur={handleBlur}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity
+                style={{
+                  position: 'absolute',
+                  right: 5,
+                  top: -5,
+                  padding: 5,
+                }}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <Image 
+                  source={!showConfirmPassword ? require('./assets/eyeoff.png') : require('./assets/eyeon.png')}
+                  style={{ 
+                    width: 50, 
+                    height: 50,
+                    tintColor: '#193a3c'
+                  }}
+                />
+              </TouchableOpacity>
+            </View>
 
-      <View style={{ position: 'relative', marginBottom: 25 }}>
-        <TextInput
-          style={{
-            backgroundColor: 'rgba(30, 58, 138, 0.31)',
-            padding: 15,
-            fontSize: 16,
-            paddingRight: 50,
-            borderRadius: 8,
-            width: '80%',
-            alignSelf: 'center',
-            color: '#1E3A8A',
-            fontWeight: '500',
-          }}
-                      placeholder="Confirm Password"
-          placeholderTextColor="#1E3A8A"
-          value={formData.confirmPassword}
-          onChangeText={value => handleInputChange('confirmPassword', value)}
-          onFocus={() => handleFocus('confirmPassword')}
-          onBlur={handleBlur}
-          secureTextEntry={!showConfirmPassword}
-        />
-        <TouchableOpacity
-          style={{
-            position: 'absolute',
-            right: '14%',
-            top: 15,
-            padding: 5,
-          }}
-          onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-          {showConfirmPassword ? (
-            <EyeOffIcon width={24} height={24} />
-          ) : (
-            <EyeIcon width={24} height={24} />
-          )}
-        </TouchableOpacity>
-        {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-          <Text style={{ color: '#FFFFFF', marginBottom: 10, fontSize: 13, fontWeight: 'bold' }}>
-            Passwords do not match
-          </Text>
-        )}
-      </View>
-
-      <TouchableOpacity
-        style={{
-          backgroundColor: isFormValid && !isLoading ? '#1E3A8A' : '#aaa',
-          borderRadius: 15,
-          padding: 15,
-          marginTop: 60,
-          alignItems: 'center',
-          alignSelf: 'center',
-          width: '50%',
-        }}
-        onPress={handleRegister}
-        disabled={!isFormValid || isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="white" size="small" />
-        ) : (
-          <Text
-            style={{
-              color: 'white',
-              fontSize: 20,
-              fontWeight: 'bold',
-            }}>
-            Register
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      <Text
+            {/* Register Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isFormValid && !isLoading ? '#4c643b' : '#9CA3AF',
+                borderRadius: 25,
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                alignItems: 'center',
+                marginTop: 15,
+                shadowColor: '#000',
+                shadowOffset: {
+                  width: 0,
+                  height: 2,
+                },
+                shadowOpacity: 0.25,
+                shadowRadius: 3.84,
+                elevation: 5,
+              }}
+              onPress={handleRegister}
+              disabled={!isFormValid || isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text
                   style={{
-            textAlign: 'center',
-            marginTop: 20,
-            color: '#000000',
-            fontSize: 14,
-          }}>
-        Already have an account?{' '}
+                    color: 'white',
+                    fontSize: 16,
+                    fontWeight: '600',
+                    letterSpacing: 0.5,
+                  }}>
+                  Sign Up
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Footer Text */}
         <Text
           style={{
-            color: '#1E3A8A',
-            fontWeight: 'bold',
-          }}
-          onPress={onGoToLogin}
-        >
-          Log In
+            textAlign: 'center',
+            marginTop: 15,
+            color: '#f8f9ed',
+            fontSize: 16,
+          }}>
+          Already have an account?{' '}
+          <Text
+            style={{
+              color: '#f8f9ed',
+              fontWeight: '600',
+            }}
+            onPress={onGoToLogin}
+          >
+            Log In
+          </Text>
         </Text>
-      </Text>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
-export default Register; 
+export default Register;

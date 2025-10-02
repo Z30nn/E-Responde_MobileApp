@@ -291,9 +291,9 @@ const Dashboard = () => {
       marginBottom: 16,
     },
     contactInfoBox: {
-      backgroundColor: '#F8F9FA',
+      backgroundColor: theme.menuBackground,
       borderWidth: 1,
-      borderColor: '#E5E5E5',
+      borderColor: theme.border,
       borderRadius: 8,
       padding: 8,
       marginHorizontal: 20,
@@ -303,12 +303,12 @@ const Dashboard = () => {
       marginBottom: 6,
     },
     contactInfoLabel: {
-      color: '#6B7280',
+      color: theme.secondaryText,
       marginBottom: 4,
       fontWeight: '500',
     },
     contactInfoText: {
-      color: '#1A1A1A',
+      color: theme.text,
       fontWeight: '600',
     },
 
@@ -374,11 +374,12 @@ const Dashboard = () => {
     },
     bottomNav: {
       flexDirection: 'row',
-      backgroundColor: theme.primary,
+      backgroundColor: '#2d3480',
       borderTopWidth: 1,
       borderTopColor: theme.border,
       paddingVertical: 2,
       paddingHorizontal: 8,
+      paddingBottom: 20,
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -387,7 +388,7 @@ const Dashboard = () => {
       shadowOpacity: 0.1,
       shadowRadius: 3,
       elevation: 8,
-      minHeight: 35,
+      minHeight: 80,
     },
     tabButton: {
       flex: 1,
@@ -399,7 +400,7 @@ const Dashboard = () => {
       marginHorizontal: 2,
     },
     activeTabButton: {
-      backgroundColor: isDarkMode ? 'rgba(147, 197, 253, 0.5)' : 'rgba(37, 99, 235, 0.8)',
+      backgroundColor: '#4A90E2',
     },
     tabIcon: {
       fontSize: 20,
@@ -489,6 +490,7 @@ const Dashboard = () => {
       shadowOpacity: 0.25,
       shadowRadius: 4,
       elevation: 5,
+      zIndex: 10,
     },
     reportButtonText: {
       color: '#FFFFFF',
@@ -515,6 +517,7 @@ const Dashboard = () => {
       width: '100%',
       maxWidth: 400,
       paddingTop: 20,
+      paddingBottom: 100,
     },
     crimeListTabContainer: {
       flex: 1,
@@ -537,19 +540,19 @@ const Dashboard = () => {
       textAlign: 'center',
     },
     sectionHeader: {
-      flexDirection: 'row',
+      flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: 20,
-      paddingVertical: 12,
+      paddingVertical: 16,
       borderBottomWidth: 1,
-      backgroundColor: '#F8F9FA',
+      backgroundColor: theme.menuBackground,
       marginTop: 0,
     },
     sectionHeaderTitle: {
       fontSize: 20,
       fontWeight: '700',
-      color: '#1A1A1A',
+      color: theme.text,
     },
     // Font Size Modal Styles
     fontSizePreview: {
@@ -650,6 +653,7 @@ const Dashboard = () => {
     termsContent: {
       padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
       flex: 1,
+      backgroundColor: theme.background,
     },
     termsSectionTitle: {
       fontSize: fonts.subtitle,
@@ -688,6 +692,7 @@ const Dashboard = () => {
     privacyContent: {
       padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
       flex: 1,
+      backgroundColor: theme.background,
     },
     privacySectionTitle: {
       fontSize: fonts.subtitle,
@@ -1052,7 +1057,10 @@ const Dashboard = () => {
         return (
           <ScrollView 
             style={styles.profileScrollView}
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={true}
+            showsHorizontalScrollIndicator={false}
+            bounces={true}
+            alwaysBounceVertical={false}>
             <View style={styles.profileContainer}>
 
 
@@ -1109,8 +1117,8 @@ const Dashboard = () => {
                 <View style={styles.menuItem}>
                   <Text style={styles.menuItemText}>{t('settings.darkMode')}</Text>
                   <Switch
-                    trackColor={{ false: '#767577', true: '#81b0ff' }}
-                    thumbColor={isDarkMode ? '#1E3A8A' : '#f4f3f4'}
+                    trackColor={{ false: '#767577', true: '#f8f9ed' }}
+                    thumbColor={isDarkMode ? '#f8f9ed' : '#f4f3f4'}
                     ios_backgroundColor="#3e3e3e"
                     onValueChange={toggleTheme}
                     value={isDarkMode}
@@ -1205,8 +1213,8 @@ const Dashboard = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.primary} />
+    <View style={styles.container}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent={true} />
       
       {showCrimeReportForm ? (
         <CrimeReportForm
@@ -1389,11 +1397,17 @@ const Dashboard = () => {
               </TouchableOpacity>
             </View>
             
-            <ScrollView 
-              style={styles.termsContent} 
-              contentContainerStyle={{ flexGrow: 1 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
+            <View style={[styles.termsContent, { borderRightWidth: 3, borderRightColor: '#2d3480' }]}>
+              <ScrollView 
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+                showsVerticalScrollIndicator={true}
+                showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled={true}
+                bounces={true}
+                alwaysBounceVertical={false}
+                scrollIndicatorInsets={{ right: 1 }}
+                indicatorStyle="default"
             >
               <Text style={styles.termsSectionTitle}>{t('terms.acceptance')}</Text>
               <Text style={styles.termsText}>
@@ -1438,7 +1452,8 @@ const Dashboard = () => {
               <Text style={styles.termsLastUpdated}>
                 {t('terms.lastUpdated')} {new Date().toLocaleDateString()}
               </Text>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -1470,11 +1485,17 @@ const Dashboard = () => {
               </TouchableOpacity>
             </View>
             
-            <ScrollView 
-              style={styles.privacyContent} 
-              contentContainerStyle={{ flexGrow: 1 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
+            <View style={[styles.privacyContent, { borderRightWidth: 3, borderRightColor: '#2d3480' }]}>
+              <ScrollView 
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+                showsVerticalScrollIndicator={true}
+                showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled={true}
+                bounces={true}
+                alwaysBounceVertical={false}
+                scrollIndicatorInsets={{ right: 1 }}
+                indicatorStyle="default"
             >
               <Text style={styles.privacySectionTitle}>{t('privacy.informationCollected')}</Text>
               <Text style={styles.privacyText}>
@@ -1529,7 +1550,8 @@ const Dashboard = () => {
               <Text style={styles.privacyLastUpdated}>
                 {t('privacy.lastUpdated')} {new Date().toLocaleDateString()}
               </Text>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -1609,17 +1631,17 @@ const Dashboard = () => {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowNotificationModal(false)}
       >
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF' }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? '#333' : '#E0E0E0' }]}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.menuBackground }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setShowNotificationModal(false)}
             >
-              <Text style={[styles.modalCloseText, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={[styles.modalCloseText, { color: theme.text }]}>
                 {t('common.close')}
               </Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
               {t('notifications.settings')}
             </Text>
             <View style={styles.modalHeaderSpacer} />
@@ -1635,62 +1657,67 @@ const Dashboard = () => {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowSOSInfoModal(false)}
       >
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF' }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? '#333' : '#E0E0E0' }]}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.menuBackground }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setShowSOSInfoModal(false)}
             >
-              <Text style={[styles.modalCloseText, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={[styles.modalCloseText, { color: theme.text }]}>
                 ×
               </Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
               {t('emergency.sosAlertInfo')}
             </Text>
             <View style={styles.modalHeaderSpacer} />
           </View>
           
-          <ScrollView style={styles.sosInfoContent} showsVerticalScrollIndicator={false}>
+          <ScrollView 
+            style={styles.sosInfoContent} 
+            showsVerticalScrollIndicator={true}
+            showsHorizontalScrollIndicator={false}
+            bounces={true}
+            alwaysBounceVertical={false}>
             <View style={styles.sosInfoSection}>
-              <Text style={[styles.sosInfoTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
                 {t('emergency.whatIsSosAlert')}
               </Text>
-              <Text style={[styles.sosInfoText, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
                 {t('emergency.whatIsSosAlertDesc')}
               </Text>
             </View>
 
             <View style={styles.sosInfoSection}>
-              <Text style={[styles.sosInfoTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
                 {t('emergency.howToUse')}
               </Text>
-              <Text style={[styles.sosInfoText, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
                 {t('emergency.howToUseDesc')}
               </Text>
             </View>
 
             <View style={styles.sosInfoSection}>
-              <Text style={[styles.sosInfoTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
                 {t('emergency.whenToUse')}
               </Text>
-              <Text style={[styles.sosInfoText, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
                 {t('emergency.whenToUseDesc')}
               </Text>
             </View>
 
             <View style={styles.sosInfoSection}>
-              <Text style={[styles.sosInfoTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
                 {t('emergency.importantNotes')}
               </Text>
-              <Text style={[styles.sosInfoText, { color: isDarkMode ? '#CCCCCC' : '#666666' }]}>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
                 {t('emergency.importantNotesDesc')}
               </Text>
             </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -498,6 +498,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       return;
     }
 
+    // Check if location is valid
+    if (!formData.location || formData.location.latitude === 0 || formData.location.longitude === 0 || 
+        formData.location.address === 'Getting current location...' || formData.location.address === 'Location unavailable') {
+      Alert.alert('Location Required', 'Please provide a valid location for your report. You can use your current location or enter an address manually.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Get current user info from Firebase Auth
@@ -620,6 +627,10 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       color: theme.text,
       marginBottom: 8,
     },
+    requiredIndicator: {
+      color: '#EF4444',
+      fontWeight: 'bold',
+    },
     pickerContainer: {
       borderWidth: 1,
       borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.3)' : theme.border,
@@ -735,7 +746,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       paddingVertical: 16,
       borderRadius: 12,
       alignItems: 'center',
-      marginTop: 20,
+      marginTop: 5,
       width: '70%',
       alignSelf: 'center',
       minHeight: 56,
@@ -1028,7 +1039,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
         {/* Location */}
         <View style={styles.fieldContainer}>
-          <Text style={styles.label}>{t('crime.location')}</Text>
+          <Text style={styles.label}>{t('crime.location')} <Text style={styles.requiredIndicator}>*</Text></Text>
           <View style={styles.locationContainer}>
             <Text style={styles.locationText}>
               {isLocationLoading ? 'Getting location...' : formData.location?.address}

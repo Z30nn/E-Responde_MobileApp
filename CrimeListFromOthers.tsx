@@ -200,7 +200,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
     crimeType: {
       fontSize: 18,
       fontWeight: 'bold',
-      color: theme.primary,
+      color: isDarkMode ? '#f8f9ed' : theme.primary,
       flex: 1,
     },
     statusBadge: {

@@ -101,24 +101,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 export const colors = {
   light: {
-    primary: '#1E3A8A',
+    primary: '#2d3480',
     background: '#FFFFFF',
     text: '#1F2937',
     secondaryText: '#666666',
     placeholder: '#9CA3AF',
     border: '#E5E7EB',
-    menuBackground: '#FFFFFF',
+    menuBackground: '#F8F9FA',
     settingsBackground: '#F3F4F6',
   },
   dark: {
-    primary: '#60A5FA',
-    background: '#111827',
-    text: '#F3F4F6',
-    secondaryText: '#9CA3AF',
-    placeholder: '#FFFFFF',
-    border: '#374151',
-    menuBackground: '#1F2937',
-    settingsBackground: '#374151',
+    primary: '#2d3480',
+    background: '#1A1A1A',
+    text: '#E5E5E5',
+    secondaryText: '#B0B0B0',
+    placeholder: '#808080',
+    border: '#404040',
+    menuBackground: '#2A2A2A',
+    settingsBackground: '#333333',
   },
 };
 
