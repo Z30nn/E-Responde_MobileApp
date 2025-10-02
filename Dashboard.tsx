@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import NotificationSettings from './components/notification-settings';
 import SOSAlertsHistory from './components/sos-alerts-history';
 import { EmergencyContactsService } from './services/emergencyContactsService';
 import { useNotification } from './services/notificationContext';
+import { gyroscopeService } from './services/gyroscopeService';
 
 interface UserProfile {
   firstName: string;
@@ -51,7 +52,7 @@ const Dashboard = () => {
   const { isDarkMode, toggleTheme, fontSize, setFontSize } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { logout, user } = useAuth();
-  const { sendNotification } = useNotification();
+  // const { sendNotification } = useNotification();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
 
@@ -60,6 +61,7 @@ const Dashboard = () => {
       loadUserProfile();
     }
   }, [activeTab]);
+
 
   const loadUserProfile = async () => {
     try {
@@ -97,7 +99,7 @@ const Dashboard = () => {
     setActiveTab(tabId);
   };
 
-  const handleSOSPress = async () => {
+  const handleSOSPress = useCallback(async () => {
     try {
       setSosLoading(true);
       
@@ -135,6 +137,39 @@ const Dashboard = () => {
                   'EMERGENCY: I need immediate assistance!'
                 );
 
+                // Create an immediate severity crime report for SOS
+                try {
+                  const currentUser = auth.currentUser;
+                  if (currentUser) {
+                    const userData = await FirebaseService.getCivilianUser(currentUser.uid);
+                    const userName = userData ? `${userData.firstName} ${userData.lastName}` : 'Unknown User';
+                    
+                    const sosReport = {
+                      crimeType: 'Emergency SOS',
+                      dateTime: new Date(),
+                      description: 'SOS Alert triggered - Immediate assistance required',
+                      multimedia: [],
+                      location: {
+                        latitude: 0, // Will be updated with actual location
+                        longitude: 0,
+                        address: 'Location not available',
+                      },
+                      anonymous: false,
+                      reporterName: userName,
+                      reporterUid: currentUser.uid,
+                      status: 'pending',
+                      createdAt: new Date().toISOString(),
+                      severity: 'Immediate' as const,
+                    };
+
+                    await FirebaseService.submitCrimeReport(sosReport);
+                    console.log('SOS: Emergency report created with Immediate severity');
+                  }
+                } catch (reportError) {
+                  console.error('Error creating SOS report:', reportError);
+                  // Don't fail the SOS if report creation fails
+                }
+
                 if (result.success) {
                   Alert.alert(
                     t('emergency.sosSent') || 'SOS Alert Sent',
@@ -150,9 +185,10 @@ const Dashboard = () => {
                 }
               } catch (error) {
                 console.error('Error sending SOS:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
                 Alert.alert(
                   t('common.error') || 'Error',
-                  error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
+                  errorMessage || t('emergency.sosError') || 'Failed to send SOS alert.',
                   [{ text: t('common.ok') || 'OK' }]
                 );
               }
@@ -162,12 +198,28 @@ const Dashboard = () => {
       );
     } catch (error) {
       console.error('Error in handleSOSPress:', error);
-      Alert.alert(t('common.error') || 'Error', error.message);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      Alert.alert(t('common.error') || 'Error', errorMessage);
     } finally {
       setSosLoading(false);
     }
-  };
+  }, [user, t]);
 
+  // Gyroscope SOS functionality
+  useEffect(() => {
+    const handleGyroscopeSOS = () => {
+      console.log('Dashboard: Gyroscope SOS triggered');
+      handleSOSPress();
+    };
+
+    // Start gyroscope listening when component mounts
+    gyroscopeService.startListening(handleGyroscopeSOS);
+
+    // Cleanup on unmount
+    return () => {
+      gyroscopeService.stopListening();
+    };
+  }, [handleSOSPress]);
 
   const styles = StyleSheet.create({
     profileScrollView: {
@@ -546,6 +598,7 @@ const Dashboard = () => {
     termsContent: {
       padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
       flex: 1,
+      maxHeight: '100%',
     },
     termsSectionTitle: {
       fontSize: fonts.subtitle,
@@ -584,6 +637,7 @@ const Dashboard = () => {
     privacyContent: {
       padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
       flex: 1,
+      maxHeight: '100%',
     },
     privacySectionTitle: {
       fontSize: fonts.subtitle,
@@ -1153,9 +1207,12 @@ const Dashboard = () => {
             
             <ScrollView 
               style={styles.termsContent} 
-              contentContainerStyle={{ flexGrow: 1 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
+              bounces={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.termsSectionTitle}>{t('terms.acceptance')}</Text>
               <Text style={styles.termsText}>
@@ -1234,9 +1291,12 @@ const Dashboard = () => {
             
             <ScrollView 
               style={styles.privacyContent} 
-              contentContainerStyle={{ flexGrow: 1 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
+              bounces={true}
+              scrollEventThrottle={16}
+              keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.privacySectionTitle}>{t('privacy.informationCollected')}</Text>
               <Text style={styles.privacyText}>

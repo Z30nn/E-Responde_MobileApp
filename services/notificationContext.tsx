@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth } from './authContext';
 import { notificationService } from './notificationService';
+import { soundService } from './soundService';
 import { 
   NotificationSettings, 
   NotificationPreferences, 
@@ -87,7 +88,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     if (!user) return false;
     
     try {
-      return await notificationService.sendNotification(user.uid, type as any, title, body, data);
+      const success = await notificationService.sendNotification(user.uid, type as any, title, body, data);
+      
+      // Play sound for SOS alerts
+      if (type === 'sos' || title.toLowerCase().includes('sos') || body.toLowerCase().includes('emergency')) {
+        await soundService.playSOSSound();
+      }
+      
+      return success;
     } catch (error) {
       console.error('Error sending notification:', error);
       return false;

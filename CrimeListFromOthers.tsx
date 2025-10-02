@@ -24,6 +24,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
   const [reports, setReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [votingReports, setVotingReports] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadOtherUsersReports();
@@ -218,7 +219,82 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
       textAlign: 'center',
       lineHeight: 20,
     },
+    votingSection: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    voteButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+    },
+    voteButton: {
+      flex: 1,
+      padding: 8,
+      marginHorizontal: 4,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.background,
+      alignItems: 'center',
+    },
+    voteButtonActive: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    voteButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    voteButtonTextActive: {
+      color: 'white',
+    },
   });
+
+  const handleVote = async (reportId: string, voteType: 'upvote' | 'downvote') => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to vote');
+      return;
+    }
+
+    try {
+      setVotingReports(prev => new Set(prev).add(reportId));
+      
+      // Find the current report to check existing vote
+      const currentReport = reports.find(report => report.reportId === reportId);
+      const currentUserVote = currentReport?.userVotes?.[currentUser.uid];
+      
+      // If user is voting the same way again, remove the vote
+      if (currentUserVote === voteType) {
+        await FirebaseService.removeVoteFromCrimeReport(reportId, currentUser.uid);
+      } else {
+        // Otherwise, vote normally (this handles switching votes too)
+        await FirebaseService.voteOnCrimeReport(reportId, currentUser.uid, voteType);
+      }
+      
+      // Refresh the reports to show updated vote counts
+      await loadOtherUsersReports();
+    } catch (error) {
+      console.error('Error voting:', error);
+      Alert.alert('Error', 'Failed to vote. Please try again.');
+    } finally {
+      setVotingReports(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(reportId);
+        return newSet;
+      });
+    }
+  };
+
+  const getUserVote = (report: CrimeReport): 'upvote' | 'downvote' | null => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || !report.userVotes) return null;
+    return report.userVotes[currentUser.uid] || null;
+  };
 
   const renderReportCard = ({ item }: { item: CrimeReport }) => (
     <TouchableOpacity
@@ -249,6 +325,43 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
         <Text style={styles.reporter}>
           {item.anonymous ? 'Anonymous Report' : `By: ${item.reporterName}`}
         </Text>
+      </View>
+
+      {/* Voting Section */}
+      <View style={styles.votingSection}>
+        <View style={styles.voteButtons}>
+          <TouchableOpacity
+            style={[
+              styles.voteButton,
+              getUserVote(item) === 'upvote' && styles.voteButtonActive
+            ]}
+            onPress={() => handleVote(item.reportId || '', 'upvote')}
+            disabled={votingReports.has(item.reportId || '')}
+          >
+            <Text style={[
+              styles.voteButtonText,
+              getUserVote(item) === 'upvote' && styles.voteButtonTextActive
+            ]}>
+              👍 {item.upvotes || 0}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.voteButton,
+              getUserVote(item) === 'downvote' && styles.voteButtonActive
+            ]}
+            onPress={() => handleVote(item.reportId || '', 'downvote')}
+            disabled={votingReports.has(item.reportId || '')}
+          >
+            <Text style={[
+              styles.voteButtonText,
+              getUserVote(item) === 'downvote' && styles.voteButtonTextActive
+            ]}>
+              👎 {item.downvotes || 0}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </TouchableOpacity>
   );

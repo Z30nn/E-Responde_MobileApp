@@ -41,11 +41,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     anonymous: false,
     status: 'pending',
     createdAt: new Date().toISOString(),
+    severity: 'Low',
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showCrimeTypeDropdown, setShowCrimeTypeDropdown] = useState(false);
+  const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -64,6 +66,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     t('crime.crimeTypes.drugRelated'),
     t('crime.crimeTypes.domesticViolence'),
     t('crime.crimeTypes.other'),
+  ];
+
+  const severityOptions = [
+    { value: 'Immediate', label: 'Immediate', color: '#FF0000' },
+    { value: 'High', label: 'High', color: '#FF6B35' },
+    { value: 'Moderate', label: 'Moderate', color: '#FFA500' },
+    { value: 'Low', label: 'Low', color: '#32CD32' },
   ];
 
   const checkAuthentication = useCallback(() => {
@@ -512,6 +521,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         reporterUid: currentUser.uid,
         status: 'pending',
         createdAt: new Date().toISOString(),
+        severity: formData.severity || 'Low',
       };
 
       // Submit to Firebase
@@ -887,6 +897,34 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       fontSize: 16,
       fontWeight: 'bold',
     },
+    severityItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    severityIndicator: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    severityDropdownList: {
+      position: 'absolute',
+      top: 50,
+      left: 0,
+      right: 0,
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.3)' : theme.border,
+      borderTopWidth: 0,
+      borderBottomLeftRadius: 8,
+      borderBottomRightRadius: 8,
+      zIndex: 2000, // Higher z-index than crime type dropdown
+      elevation: 10,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
   });
 
   return (
@@ -945,6 +983,61 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
                       ]}>
                         {type}
                       </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* Severity */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Severity *</Text>
+          <View style={styles.dropdownContainer}>
+            <TouchableOpacity 
+              style={styles.pickerContainer}
+              onPress={() => setShowSeverityDropdown(!showSeverityDropdown)}
+            >
+              <Text style={[
+                styles.pickerText,
+                { color: formData.severity ? theme.text : theme.placeholder }
+              ]}>
+                {formData.severity || 'Select Severity'}
+              </Text>
+              <Text style={[styles.dropdownArrow, { color: theme.text }]}>
+                {showSeverityDropdown ? '▲' : '▼'}
+              </Text>
+            </TouchableOpacity>
+            
+            {showSeverityDropdown && (
+              <>
+                <TouchableOpacity 
+                  style={styles.dropdownOverlay}
+                  onPress={() => setShowSeverityDropdown(false)}
+                />
+                <View style={styles.severityDropdownList}>
+                  {severityOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.dropdownItem,
+                        formData.severity === option.value && styles.selectedDropdownItem
+                      ]}
+                      onPress={() => {
+                        setFormData(prev => ({ ...prev, severity: option.value as any }));
+                        setShowSeverityDropdown(false);
+                      }}
+                    >
+                      <View style={styles.severityItem}>
+                        <View style={[styles.severityIndicator, { backgroundColor: option.color }]} />
+                        <Text style={[
+                          styles.dropdownItemText,
+                          formData.severity === option.value && styles.selectedDropdownItemText
+                        ]}>
+                          {option.label}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </View>
