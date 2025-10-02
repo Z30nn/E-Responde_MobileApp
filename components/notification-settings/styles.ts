@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
@@ -12,10 +12,12 @@ export const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: theme.text,
   },
   headerSubtitle: {
     fontSize: 16,
     lineHeight: 22,
+    color: theme.secondaryText,
   },
   section: {
     marginBottom: 20,
@@ -29,11 +31,13 @@ export const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    backgroundColor: theme.menuBackground,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
+    color: theme.text,
   },
   settingRow: {
     flexDirection: 'row',
@@ -41,7 +45,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomColor: theme.border,
   },
   settingInfo: {
     flex: 1,
@@ -51,10 +55,12 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginBottom: 4,
+    color: theme.text,
   },
   settingDescription: {
     fontSize: 14,
     lineHeight: 18,
+    color: theme.secondaryText,
   },
   quietHoursButton: {
     marginTop: 12,
@@ -65,11 +71,13 @@ export const styles = StyleSheet.create({
   quietHoursButtonText: {
     fontSize: 14,
     fontWeight: '500',
+    color: theme.primary,
   },
   loadingText: {
     fontSize: 16,
     textAlign: 'center',
     marginTop: 50,
+    color: theme.secondaryText,
   },
   errorText: {
     fontSize: 16,
@@ -96,12 +104,14 @@ export const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    backgroundColor: theme.menuBackground,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: theme.text,
   },
   timeInputContainer: {
     marginBottom: 16,
@@ -110,13 +120,16 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     marginBottom: 8,
+    color: theme.text,
   },
   timeInput: {
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: theme.border,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+    backgroundColor: theme.menuBackground,
+    color: theme.text,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -131,18 +144,18 @@ export const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   cancelButton: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: theme.border,
   },
   saveButton: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: theme.primary,
   },
   cancelButtonText: {
-    color: '#666',
+    color: theme.text,
     fontSize: 16,
     fontWeight: '500',
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: theme.background,
     fontSize: 16,
     fontWeight: '500',
   },

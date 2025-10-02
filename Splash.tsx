@@ -34,7 +34,7 @@ const Splash = () => {
     <Animated.View
       style={{
         flex: 1,
-        backgroundColor: '#1E3A8A',
+        backgroundColor: '#2d3480',
         justifyContent: 'center',
         alignItems: 'center',
         opacity: fadeAnim,

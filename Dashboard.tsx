@@ -28,6 +28,7 @@ import NotificationSettings from './components/notification-settings';
 import SOSAlertsHistory from './components/sos-alerts-history';
 import { EmergencyContactsService } from './services/emergencyContactsService';
 import { useNotification } from './services/notificationContext';
+import { sosCleanupService } from './services/sosCleanupService';
 
 interface UserProfile {
   firstName: string;
@@ -48,6 +49,13 @@ const Dashboard = () => {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [sosLoading, setSosLoading] = useState(false);
+  const [showSOSInfoModal, setShowSOSInfoModal] = useState(false);
+  const [sosStats, setSosStats] = useState({
+    total: 0,
+    olderThanWeek: 0,
+    newerThanWeek: 0
+  });
+  const [cleanupLoading, setCleanupLoading] = useState(false);
   const { isDarkMode, toggleTheme, fontSize, setFontSize } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { logout, user } = useAuth();
@@ -58,8 +66,59 @@ const Dashboard = () => {
   useEffect(() => {
     if (activeTab === 4) {
       loadUserProfile();
+      loadSOSStats();
     }
   }, [activeTab]);
+
+  // Load SOS alert statistics
+  const loadSOSStats = async () => {
+    try {
+      if (user) {
+        const stats = await sosCleanupService.getUserSOSStats(user.uid);
+        setSosStats(stats);
+      }
+    } catch (error: any) {
+      console.error('Error loading SOS stats:', error);
+    }
+  };
+
+  // Clean up old SOS alerts
+  const cleanupOldSOSAlerts = async () => {
+    if (!user) return;
+
+    Alert.alert(
+      'Clean Up Old SOS Alerts',
+      `This will remove ${sosStats.olderThanWeek} SOS alerts older than 1 week. Continue?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clean Up',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setCleanupLoading(true);
+              const result = await sosCleanupService.cleanupUserSOSAlerts(user.uid);
+              
+              if (result.deleted > 0) {
+                Alert.alert(
+                  'Cleanup Complete',
+                  `Successfully removed ${result.deleted} old SOS alerts.`
+                );
+                // Refresh stats
+                loadSOSStats();
+              } else {
+                Alert.alert('No Old Alerts', 'No SOS alerts older than 1 week were found.');
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clean up old alerts. Please try again.');
+            } finally {
+              setCleanupLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const loadUserProfile = async () => {
     try {
@@ -75,7 +134,7 @@ const Dashboard = () => {
           contactNumber: userData.contactNumber || '',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading profile:', error);
     }
   };
@@ -97,9 +156,19 @@ const Dashboard = () => {
     setActiveTab(tabId);
   };
 
+  const [sosCountdown, setSosCountdown] = useState<number | null>(null);
+  const [sosCountdownInterval, setSosCountdownInterval] = useState<NodeJS.Timeout | null>(null);
+
   const handleSOSPress = async () => {
     try {
-      setSosLoading(true);
+      // If countdown is active, cancel it
+      if (sosCountdown !== null && sosCountdownInterval) {
+        clearInterval(sosCountdownInterval);
+        setSosCountdown(null);
+        setSosCountdownInterval(null);
+        setSosLoading(false);
+        return;
+      }
       
       if (!user) {
         Alert.alert('Error', 'User not authenticated');
@@ -119,50 +188,64 @@ const Dashboard = () => {
         return;
       }
 
-      // Show confirmation dialog
-      Alert.alert(
-        t('emergency.sosAlert') || 'SOS Alert',
-        t('emergency.sosConfirm') || `This will send an SOS alert to ${primaryContacts.length} primary emergency contact(s). This is for real emergencies only. Continue?`,
-        [
-          { text: t('common.cancel') || 'Cancel', style: 'cancel' },
-          {
-            text: t('emergency.sendSOS') || 'Send SOS',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const result = await EmergencyContactsService.sendSOSAlert(
-                  user.uid,
-                  'EMERGENCY: I need immediate assistance!'
-                );
+      // Start 5-second countdown
+      let countdown = 5;
+      setSosCountdown(countdown);
+      
+      const interval = setInterval(() => {
+        countdown--;
+        setSosCountdown(countdown);
+        
+        if (countdown <= 0) {
+          clearInterval(interval);
+          setSosCountdown(null);
+          setSosCountdownInterval(null);
+          // Send SOS alert after countdown
+          sendSOSAlert();
+        }
+      }, 1000);
+      
+      setSosCountdownInterval(interval);
 
-                if (result.success) {
-                  Alert.alert(
-                    t('emergency.sosSent') || 'SOS Alert Sent',
-                    t('emergency.sosSentDesc') || `SOS alert sent to ${result.sentTo} emergency contact(s).`,
-                    [{ text: t('common.ok') || 'OK' }]
-                  );
-                } else {
-                  Alert.alert(
-                    t('common.error') || 'Error',
-                    t('emergency.sosError') || 'Failed to send SOS alert.',
-                    [{ text: t('common.ok') || 'OK' }]
-                  );
-                }
-              } catch (error) {
-                console.error('Error sending SOS:', error);
-                Alert.alert(
-                  t('common.error') || 'Error',
-                  error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
-                  [{ text: t('common.ok') || 'OK' }]
-                );
-              }
-            }
-          }
-        ]
-      );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in handleSOSPress:', error);
       Alert.alert(t('common.error') || 'Error', error.message);
+      setSosLoading(false);
+      setSosCountdown(null);
+      if (sosCountdownInterval) {
+        clearInterval(sosCountdownInterval);
+        setSosCountdownInterval(null);
+      }
+    }
+  };
+
+  const sendSOSAlert = async () => {
+    try {
+      const result = await EmergencyContactsService.sendSOSAlert(
+        user!.uid,
+        ''
+      );
+
+      if (result.success) {
+        Alert.alert(
+          t('emergency.sosSent') || 'SOS Alert Sent',
+          t('emergency.sosSentDesc') || `SOS alert sent to ${result.sentTo} emergency contact(s).`,
+          [{ text: t('common.ok') || 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          t('common.error') || 'Error',
+          t('emergency.sosError') || 'Failed to send SOS alert.',
+          [{ text: t('common.ok') || 'OK' }]
+        );
+      }
+    } catch (error: any) {
+      console.error('Error sending SOS alert:', error);
+      Alert.alert(
+        t('common.error') || 'Error',
+        error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
+        [{ text: t('common.ok') || 'OK' }]
+      );
     } finally {
       setSosLoading(false);
     }
@@ -208,9 +291,9 @@ const Dashboard = () => {
       marginBottom: 16,
     },
     contactInfoBox: {
-      backgroundColor: '#F8F9FA',
+      backgroundColor: theme.menuBackground,
       borderWidth: 1,
-      borderColor: '#E5E5E5',
+      borderColor: theme.border,
       borderRadius: 8,
       padding: 8,
       marginHorizontal: 20,
@@ -220,12 +303,12 @@ const Dashboard = () => {
       marginBottom: 6,
     },
     contactInfoLabel: {
-      color: '#6B7280',
+      color: theme.secondaryText,
       marginBottom: 4,
       fontWeight: '500',
     },
     contactInfoText: {
-      color: '#1A1A1A',
+      color: theme.text,
       fontWeight: '600',
     },
 
@@ -291,11 +374,12 @@ const Dashboard = () => {
     },
     bottomNav: {
       flexDirection: 'row',
-      backgroundColor: theme.primary,
+      backgroundColor: '#2d3480',
       borderTopWidth: 1,
       borderTopColor: theme.border,
       paddingVertical: 2,
       paddingHorizontal: 8,
+      paddingBottom: 20,
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
@@ -304,7 +388,7 @@ const Dashboard = () => {
       shadowOpacity: 0.1,
       shadowRadius: 3,
       elevation: 8,
-      minHeight: 35,
+      minHeight: 80,
     },
     tabButton: {
       flex: 1,
@@ -316,19 +400,25 @@ const Dashboard = () => {
       marginHorizontal: 2,
     },
     activeTabButton: {
-      backgroundColor: isDarkMode ? 'rgba(147, 197, 253, 0.5)' : 'rgba(37, 99, 235, 0.8)',
+      backgroundColor: '#4A90E2',
     },
     tabIcon: {
-      fontSize: 24,
-      marginBottom: 4,
+      fontSize: 20,
+      marginBottom: 3,
       color: theme.background,
     },
+    activeTabIcon: {
+      transform: [{ scale: 1.1 }],
+    },
     tabIconImage: {
-      width: 32,
-      height: 32,
-      marginBottom: 4,
+      width: 26,
+      height: 26,
+      marginBottom: 3,
       tintColor: theme.background,
       resizeMode: 'contain',
+    },
+    activeTabIconImage: {
+      transform: [{ scale: 1.1 }],
     },
     sosIconImage: {
       width: 48,
@@ -341,7 +431,7 @@ const Dashboard = () => {
       transform: [{ scale: 1.1 }],
     },
     tabLabel: {
-      fontSize: 12,
+      fontSize: 10,
       color: theme.background,
       fontWeight: '500',
       opacity: 0.8,
@@ -360,15 +450,22 @@ const Dashboard = () => {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 12,
-      borderRadius: 8,
-      width: '60%',
+      paddingHorizontal: 32,
+      paddingVertical: 16,
+      borderRadius: 12,
+      width: '70%',
       alignSelf: 'center',
+      minHeight: 56,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
     },
     logoutButtonText: {
       color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 18,
+      fontWeight: '700',
       marginLeft: 8,
     },
     logoutIcon: {
@@ -378,18 +475,27 @@ const Dashboard = () => {
     },
     reportButton: {
       backgroundColor: '#D21414',
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
+      paddingHorizontal: 32,
+      paddingVertical: 16,
+      borderRadius: 12,
       marginTop: 20,
       marginBottom: 20,
-      width: '60%',
+      width: '70%',
       alignSelf: 'center',
+      minHeight: 56,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+      zIndex: 10,
     },
     reportButtonText: {
       color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
+      fontSize: 18,
+      fontWeight: '700',
       textAlign: 'center',
     },
     reportsSection: {
@@ -411,6 +517,7 @@ const Dashboard = () => {
       width: '100%',
       maxWidth: 400,
       paddingTop: 20,
+      paddingBottom: 100,
     },
     crimeListTabContainer: {
       flex: 1,
@@ -433,19 +540,19 @@ const Dashboard = () => {
       textAlign: 'center',
     },
     sectionHeader: {
-      flexDirection: 'row',
+      flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
       paddingHorizontal: 20,
-      paddingVertical: 12,
+      paddingVertical: 16,
       borderBottomWidth: 1,
-      backgroundColor: '#F8F9FA',
+      backgroundColor: theme.menuBackground,
       marginTop: 0,
     },
     sectionHeaderTitle: {
       fontSize: 20,
       fontWeight: '700',
-      color: '#1A1A1A',
+      color: theme.text,
     },
     // Font Size Modal Styles
     fontSizePreview: {
@@ -546,6 +653,7 @@ const Dashboard = () => {
     termsContent: {
       padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
       flex: 1,
+      backgroundColor: theme.background,
     },
     termsSectionTitle: {
       fontSize: fonts.subtitle,
@@ -584,6 +692,7 @@ const Dashboard = () => {
     privacyContent: {
       padding: fontSize === 'large' ? 24 : fontSize === 'medium' ? 22 : 20,
       flex: 1,
+      backgroundColor: theme.background,
     },
     privacySectionTitle: {
       fontSize: fonts.subtitle,
@@ -691,21 +800,43 @@ const Dashboard = () => {
       fontSize: 16,
       fontWeight: '500',
     },
+    sosButtonContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 20,
+    },
+    sosOuterButton: {
+      width: 320,
+      height: 320,
+      borderRadius: 160,
+      backgroundColor: '#FFAAAA',
+      position: 'absolute',
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+    },
     sosButton: {
       width: 280,
       height: 280,
       borderRadius: 140,
       justifyContent: 'center',
       alignItems: 'center',
-      marginTop: 40,
+      backgroundColor: '#FF4444',
+      borderWidth: 20,
+      borderColor: '#FF6666',
       elevation: 15,
       shadowColor: '#000',
       shadowOffset: {
         width: 0,
         height: 8,
       },
-      shadowOpacity: 0.5,
-      shadowRadius: 10,
+      shadowOpacity: 0.3,
+      shadowRadius: 15,
     },
     sosButtonIcon: {
       fontSize: 70,
@@ -722,6 +853,71 @@ const Dashboard = () => {
       fontSize: 18,
       opacity: 0.9,
     },
+    sosButtonTextContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sosButtonMainText: {
+      color: '#FFFFFF',
+      fontSize: 28,
+      fontWeight: '900',
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    sosButtonSubText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      opacity: 0.8,
+      textAlign: 'center',
+    },
+    sosTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginTop: 20,
+      marginBottom: 30,
+      color: theme.primary,
+    },
+    infoButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      zIndex: 1000,
+    },
+    infoButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    sosInfoContent: {
+      flex: 1,
+      padding: 20,
+    },
+    sosInfoSection: {
+      marginBottom: 24,
+    },
+    sosInfoTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      marginBottom: 12,
+    },
+    sosInfoText: {
+      fontSize: 16,
+      lineHeight: 24,
+    },
     sosHistoryContainer: {
       marginTop: 30,
       width: '100%',
@@ -734,6 +930,23 @@ const Dashboard = () => {
       color: theme.primary,
       marginBottom: 16,
       textAlign: 'center',
+    },
+    cleanupMenuItem: {
+      backgroundColor: '#FFF5F5',
+      borderLeftWidth: 4,
+      borderLeftColor: '#FF6B6B',
+    },
+    cleanupInfo: {
+      flex: 1,
+      marginRight: 10,
+    },
+    cleanupSubtext: {
+      marginTop: 4,
+      opacity: 0.7,
+    },
+    cleanupButton: {
+      fontWeight: 'bold',
+      fontSize: 14,
     },
   });
 
@@ -750,9 +963,6 @@ const Dashboard = () => {
             </Text>
             
             <View style={styles.crimeListSection}>
-              <View style={[styles.sectionHeader, { backgroundColor: isDarkMode ? 'transparent' : theme.menuBackground, borderBottomColor: theme.border }]}>
-                <Text style={[styles.sectionHeaderTitle, { color: theme.text, fontSize: fonts.subtitle }]}>{t('dashboard.recentCrimeReports')}</Text>
-              </View>
               <CrimeListFromOthers onViewReport={(reportId) => setSelectedReportId(reportId)} />
             </View>
           </View>
@@ -772,35 +982,52 @@ const Dashboard = () => {
       case 2:
         return (
           <View style={styles.contentContainer}>
-            <Text style={styles.contentTitle}>Emergency</Text>
-            <Text style={styles.contentText}>
-              Quick access to emergency services and contacts.
-            </Text>
+            <Text style={styles.sosTitle}>SOS</Text>
+            <TouchableOpacity
+              style={[styles.infoButton, { backgroundColor: theme.primary }]}
+              onPress={() => setShowSOSInfoModal(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.infoButtonText}>i</Text>
+            </TouchableOpacity>
             
             {/* SOS Button */}
             {user && (
-              <TouchableOpacity
-                style={[styles.sosButton, { backgroundColor: '#FF4444' }]}
-                onPress={handleSOSPress}
-                activeOpacity={0.8}
-                disabled={sosLoading}
-              >
-                {sosLoading ? (
-                  <ActivityIndicator size="large" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <Text style={styles.sosButtonIcon}>🚨</Text>
-                    <Text style={styles.sosButtonText}>SOS ALERT</Text>
-                    <Text style={styles.sosButtonSubtext}>Press for Emergency</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+              <View style={styles.sosButtonContainer}>
+                {/* Outer light red button */}
+                <View style={styles.sosOuterButton} />
+                
+                {/* Main SOS Button */}
+                <TouchableOpacity
+                  style={[styles.sosButton, { backgroundColor: '#FF4444' }]}
+                  onPress={handleSOSPress}
+                  onLongPress={handleSOSPress}
+                  activeOpacity={0.8}
+                  disabled={sosLoading}
+                >
+                  {sosLoading ? (
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                  ) : sosCountdown !== null ? (
+                    <View style={styles.sosButtonTextContainer}>
+                      <Text style={styles.sosButtonMainText}>{sosCountdown}</Text>
+                      <Text style={styles.sosButtonSubText}>{t('emergency.tapToCancel')}</Text>
+                      <Text style={[styles.sosButtonSubText, { fontSize: 13, marginTop: 6, opacity: 0.8, lineHeight: 16 }]}>
+                        {t('emergency.sosCountdownMessage')}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View style={styles.sosButtonTextContainer}>
+                      <Text style={styles.sosButtonMainText}>{t('emergency.tapToSendSOS')}</Text>
+                      <Text style={styles.sosButtonSubText}>{t('emergency.pressAndHold')}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* SOS Alerts History */}
             {user && (
               <View style={styles.sosHistoryContainer}>
-                <Text style={styles.sosHistoryTitle}>Recent SOS Alerts</Text>
                 <SOSAlertsHistory userId={user.uid} />
               </View>
             )}
@@ -830,7 +1057,10 @@ const Dashboard = () => {
         return (
           <ScrollView 
             style={styles.profileScrollView}
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={true}
+            showsHorizontalScrollIndicator={false}
+            bounces={true}
+            alwaysBounceVertical={false}>
             <View style={styles.profileContainer}>
 
 
@@ -887,8 +1117,8 @@ const Dashboard = () => {
                 <View style={styles.menuItem}>
                   <Text style={styles.menuItemText}>{t('settings.darkMode')}</Text>
                   <Switch
-                    trackColor={{ false: '#767577', true: '#81b0ff' }}
-                    thumbColor={isDarkMode ? '#1E3A8A' : '#f4f3f4'}
+                    trackColor={{ false: '#767577', true: '#f8f9ed' }}
+                    thumbColor={isDarkMode ? '#f8f9ed' : '#f4f3f4'}
                     ios_backgroundColor="#3e3e3e"
                     onValueChange={toggleTheme}
                     value={isDarkMode}
@@ -922,6 +1152,27 @@ const Dashboard = () => {
                   </View>
                 </TouchableOpacity>
 
+                {/* SOS Cleanup Option */}
+                {sosStats.olderThanWeek > 0 && (
+                  <TouchableOpacity 
+                    style={[styles.menuItem, styles.cleanupMenuItem]}
+                    onPress={cleanupOldSOSAlerts}
+                    disabled={cleanupLoading}
+                  >
+                    <View style={styles.cleanupInfo}>
+                      <Text style={styles.menuItemText}>Clean Old SOS Alerts</Text>
+                      <Text style={[styles.cleanupSubtext, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                        {sosStats.olderThanWeek} alerts older than 1 week
+                      </Text>
+                    </View>
+                    {cleanupLoading ? (
+                      <ActivityIndicator size="small" color={theme.primary} />
+                    ) : (
+                      <Text style={[styles.cleanupButton, { color: '#FF6B6B' }]}>Clean Up</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity 
                   style={styles.menuItem}
                   onPress={() => setShowTermsModal(true)}
@@ -935,11 +1186,6 @@ const Dashboard = () => {
                   onPress={() => setShowPrivacyModal(true)}
                 >
                   <Text style={styles.menuItemText}>{t('settings.privacyPolicies')}</Text>
-                  <Text style={styles.chevronRight}>›</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.menuItem}>
-                  <Text style={styles.menuItemText}>Give Us Feedbacks</Text>
                   <Text style={styles.chevronRight}>›</Text>
                 </TouchableOpacity>
 
@@ -967,8 +1213,8 @@ const Dashboard = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.primary} />
+    <View style={styles.container}>
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor="transparent" translucent={true} />
       
       {showCrimeReportForm ? (
         <CrimeReportForm
@@ -1001,22 +1247,22 @@ const Dashboard = () => {
                 onPress={() => handleTabPress(tab.id)}
                 activeOpacity={0.7}
               >
-                {typeof tab.icon === 'string' ? (
-                  <Text style={[
-                    styles.tabIcon,
-                    activeTab === tab.id && styles.activeTabIcon,
-                  ]}>
-                    {tab.icon}
-                  </Text>
-                ) : (
-                  <Image
-                    source={tab.icon}
-                    style={[
-                      tab.id === 2 ? styles.sosIconImage : styles.tabIconImage,
+                  {typeof tab.icon === 'string' ? (
+                    <Text style={[
+                      styles.tabIcon,
                       activeTab === tab.id && styles.activeTabIcon,
-                    ]}
-                  />
-                )}
+                    ]}>
+                      {tab.icon}
+                    </Text>
+                  ) : (
+                    <Image
+                      source={tab.icon}
+                      style={[
+                        tab.id === 2 ? styles.sosIconImage : styles.tabIconImage,
+                        activeTab === tab.id && styles.activeTabIconImage,
+                      ]}
+                    />
+                  )}
                 <Text style={[
                   styles.tabLabel,
                   activeTab === tab.id && styles.activeTabLabel,
@@ -1151,11 +1397,17 @@ const Dashboard = () => {
               </TouchableOpacity>
             </View>
             
-            <ScrollView 
-              style={styles.termsContent} 
-              contentContainerStyle={{ flexGrow: 1 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
+            <View style={[styles.termsContent, { borderRightWidth: 3, borderRightColor: '#2d3480' }]}>
+              <ScrollView 
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+                showsVerticalScrollIndicator={true}
+                showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled={true}
+                bounces={true}
+                alwaysBounceVertical={false}
+                scrollIndicatorInsets={{ right: 1 }}
+                indicatorStyle="default"
             >
               <Text style={styles.termsSectionTitle}>{t('terms.acceptance')}</Text>
               <Text style={styles.termsText}>
@@ -1200,7 +1452,8 @@ const Dashboard = () => {
               <Text style={styles.termsLastUpdated}>
                 {t('terms.lastUpdated')} {new Date().toLocaleDateString()}
               </Text>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -1232,11 +1485,17 @@ const Dashboard = () => {
               </TouchableOpacity>
             </View>
             
-            <ScrollView 
-              style={styles.privacyContent} 
-              contentContainerStyle={{ flexGrow: 1 }}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
+            <View style={[styles.privacyContent, { borderRightWidth: 3, borderRightColor: '#2d3480' }]}>
+              <ScrollView 
+                style={{ flex: 1 }}
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+                showsVerticalScrollIndicator={true}
+                showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled={true}
+                bounces={true}
+                alwaysBounceVertical={false}
+                scrollIndicatorInsets={{ right: 1 }}
+                indicatorStyle="default"
             >
               <Text style={styles.privacySectionTitle}>{t('privacy.informationCollected')}</Text>
               <Text style={styles.privacyText}>
@@ -1291,7 +1550,8 @@ const Dashboard = () => {
               <Text style={styles.privacyLastUpdated}>
                 {t('privacy.lastUpdated')} {new Date().toLocaleDateString()}
               </Text>
-            </ScrollView>
+              </ScrollView>
+            </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -1371,17 +1631,17 @@ const Dashboard = () => {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowNotificationModal(false)}
       >
-        <SafeAreaView style={[styles.modalContainer, { backgroundColor: isDarkMode ? '#1A1A1A' : '#FFFFFF' }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: isDarkMode ? '#333' : '#E0E0E0' }]}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.menuBackground }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
             <TouchableOpacity
               style={styles.modalCloseButton}
               onPress={() => setShowNotificationModal(false)}
             >
-              <Text style={[styles.modalCloseText, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+              <Text style={[styles.modalCloseText, { color: theme.text }]}>
                 {t('common.close')}
               </Text>
             </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: isDarkMode ? '#FFFFFF' : '#1A1A1A' }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
               {t('notifications.settings')}
             </Text>
             <View style={styles.modalHeaderSpacer} />
@@ -1389,7 +1649,75 @@ const Dashboard = () => {
           <NotificationSettings />
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+
+      {/* SOS Info Modal */}
+      <Modal
+        visible={showSOSInfoModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSOSInfoModal(false)}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.menuBackground }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowSOSInfoModal(false)}
+            >
+              <Text style={[styles.modalCloseText, { color: theme.text }]}>
+                ×
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>
+              {t('emergency.sosAlertInfo')}
+            </Text>
+            <View style={styles.modalHeaderSpacer} />
+          </View>
+          
+          <ScrollView 
+            style={styles.sosInfoContent} 
+            showsVerticalScrollIndicator={true}
+            showsHorizontalScrollIndicator={false}
+            bounces={true}
+            alwaysBounceVertical={false}>
+            <View style={styles.sosInfoSection}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
+                {t('emergency.whatIsSosAlert')}
+              </Text>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
+                {t('emergency.whatIsSosAlertDesc')}
+              </Text>
+            </View>
+
+            <View style={styles.sosInfoSection}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
+                {t('emergency.howToUse')}
+              </Text>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
+                {t('emergency.howToUseDesc')}
+              </Text>
+            </View>
+
+            <View style={styles.sosInfoSection}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
+                {t('emergency.whenToUse')}
+              </Text>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
+                {t('emergency.whenToUseDesc')}
+              </Text>
+            </View>
+
+            <View style={styles.sosInfoSection}>
+              <Text style={[styles.sosInfoTitle, { color: theme.text }]}>
+                {t('emergency.importantNotes')}
+              </Text>
+              <Text style={[styles.sosInfoText, { color: theme.secondaryText }]}>
+                {t('emergency.importantNotesDesc')}
+              </Text>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+    </View>
   );
 };
 

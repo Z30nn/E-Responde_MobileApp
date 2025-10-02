@@ -13,7 +13,7 @@ import {
 import { EmergencyContact, CreateEmergencyContactData, UpdateEmergencyContactData } from '../../services/types/emergency-types';
 import { useTheme, colors, fontSizes } from '../../services/themeContext';
 import { useLanguage } from '../../services/languageContext';
-import { styles } from './styles';
+import { createStyles } from './styles';
 
 interface EmergencyContactFormProps {
   visible: boolean;
@@ -41,6 +41,7 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
   const { language, t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
+  const styles = createStyles(theme);
 
   useEffect(() => {
     if (editingContact) {
@@ -135,38 +136,38 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.name')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: isDarkMode ? '#374151' : '#FFFFFF', borderColor: theme.border, color: theme.text }, errors.name && styles.inputError]}
+              style={[styles.input, { backgroundColor: theme.menuBackground, borderColor: theme.border, color: theme.text }, errors.name && styles.inputError]}
               value={formData.name}
               onChangeText={(value) => handleInputChange('name', value)}
               placeholder={t('emergency.namePlaceholder')}
               placeholderTextColor={theme.placeholderText}
             />
-            {errors.name && <Text style={[styles.errorText, { color: isDarkMode ? '#FCA5A5' : '#DC2626', fontSize: fonts.caption }]}>{errors.name}</Text>}
+            {errors.name && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.name}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.phoneNumber')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: isDarkMode ? '#374151' : '#FFFFFF', borderColor: theme.border, color: theme.text }, errors.phoneNumber && styles.inputError]}
+              style={[styles.input, { backgroundColor: theme.menuBackground, borderColor: theme.border, color: theme.text }, errors.phoneNumber && styles.inputError]}
               value={formData.phoneNumber}
               onChangeText={(value) => handleInputChange('phoneNumber', value)}
               placeholder="+63XXXXXXXXXX"
               placeholderTextColor={theme.placeholderText}
               keyboardType="phone-pad"
             />
-            {errors.phoneNumber && <Text style={[styles.errorText, { color: isDarkMode ? '#FCA5A5' : '#DC2626', fontSize: fonts.caption }]}>{errors.phoneNumber}</Text>}
+            {errors.phoneNumber && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.phoneNumber}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.relationship')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: isDarkMode ? '#374151' : '#FFFFFF', borderColor: theme.border, color: theme.text }, errors.relationship && styles.inputError]}
+              style={[styles.input, { backgroundColor: theme.menuBackground, borderColor: theme.border, color: theme.text }, errors.relationship && styles.inputError]}
               value={formData.relationship}
               onChangeText={(value) => handleInputChange('relationship', value)}
               placeholder={t('emergency.relationshipPlaceholder')}
               placeholderTextColor={theme.placeholderText}
             />
-            {errors.relationship && <Text style={[styles.errorText, { color: isDarkMode ? '#FCA5A5' : '#DC2626', fontSize: fonts.caption }]}>{errors.relationship}</Text>}
+            {errors.relationship && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.relationship}</Text>}
           </View>
 
           <View style={styles.switchGroup}>
