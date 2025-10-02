@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.background,
   },
   header: {
     flexDirection: 'row',
@@ -12,8 +12,8 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
-    backgroundColor: '#F8F9FA',
+    borderBottomColor: theme.border,
+    backgroundColor: theme.menuBackground,
     minHeight: 60, // Ensure minimum height for large fonts
   },
   cancelButton: {
@@ -22,17 +22,17 @@ export const styles = StyleSheet.create({
     minHeight: 40, // Ensure minimum touch target
   },
   cancelButtonText: {
-    color: '#1E3A8A',
+    color: theme.primary,
     fontWeight: '500',
   },
   title: {
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: theme.text,
     flex: 1,
     textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#3b5b8a',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -45,7 +45,7 @@ export const styles = StyleSheet.create({
     backgroundColor: '#9CA3AF',
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: theme.background,
     fontWeight: '600',
   },
   form: {
@@ -58,17 +58,17 @@ export const styles = StyleSheet.create({
   },
   label: {
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: theme.text,
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: theme.border,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#1A1A1A',
-    backgroundColor: '#FFFFFF',
+    color: theme.text,
+    backgroundColor: theme.menuBackground,
     minHeight: 48, // Ensure minimum height for large fonts
   },
   inputError: {
@@ -84,7 +84,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: theme.border,
     marginTop: 20,
     minHeight: 60, // Ensure minimum height for large fonts
   },
@@ -94,11 +94,11 @@ export const styles = StyleSheet.create({
   },
   switchLabel: {
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: theme.text,
     marginBottom: 4,
   },
   switchDescription: {
-    color: '#6B7280',
+    color: theme.secondaryText,
     lineHeight: 20,
   },
 });

@@ -11,6 +11,8 @@ import {
   Modal,
   SafeAreaView,
   StatusBar,
+  TouchableOpacity,
+  Image,
 } from 'react-native';
 import EyeIcon from './assets/eye.svg';
 import EyeOffIcon from './assets/eye-off.svg';
@@ -134,7 +136,7 @@ const ChangePassword = ({ onClose }: { onClose: () => void }) => {
       >
         <Pressable
           style={{
-            backgroundColor: theme.background,
+            backgroundColor: isDarkMode ? '#2A2A2A' : '#ffffff',
             borderRadius: 20,
             width: '100%',
             maxWidth: 350,
@@ -150,163 +152,221 @@ const ChangePassword = ({ onClose }: { onClose: () => void }) => {
           }}
           onPress={(e) => e.stopPropagation()}
         >
-          {/* Title */}
-          <Text style={{
-            fontSize: 24,
-            fontWeight: 'bold',
-            textAlign: 'center',
-            marginBottom: 30,
-            color: theme.primary,
-          }}>
-            {t('auth.changePassword')}
-          </Text>
+           {/* Form Title */}
+           <Text style={{
+             fontSize: 20,
+             fontWeight: '900',
+             color: isDarkMode ? '#f8f9ed' : '#475e3d',
+             textAlign: 'center',
+             marginBottom: 20,
+             letterSpacing: 0.5,
+           }}>
+             Change Password
+           </Text>
 
-          {/* Current Password */}
-          <View style={{ position: 'relative', marginBottom: 20 }}>
-            <TextInput
-              style={{
-                backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.2)' : 'rgba(30, 58, 138, 0.31)',
-                color: theme.primary,
-                padding: 15,
-                fontSize: 16,
-                paddingRight: 50,
-                borderRadius: 8,
-                fontWeight: '500',
-                borderWidth: 1,
-                borderColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'transparent',
-              }}
-              placeholder={t('auth.currentPassword')}
-              placeholderTextColor={theme.primary}
-              value={formData.currentPassword}
-              onChangeText={value => handleInputChange('currentPassword', value)}
-              secureTextEntry={!showCurrentPassword}
-            />
-            <Pressable
-              style={{ position: 'absolute', right: 15, top: 15, padding: 5 }}
-              onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-            >
-              {showCurrentPassword ? (
-                <EyeOffIcon width={24} height={24} />
-              ) : (
-                <EyeIcon width={24} height={24} />
-              )}
-            </Pressable>
-          </View>
+           {/* Form Fields */}
+           <View style={{ gap: 18 }}>
+             {/* Current Password */}
+             <View style={{ position: 'relative' }}>
+               <TextInput
+                 style={{
+                   backgroundColor: isDarkMode ? '#3A3A3A' : '#ffffff',
+                   borderWidth: 1,
+                   borderColor: isDarkMode ? '#555555' : '#E5E7EB',
+                   paddingVertical: 12,
+                   paddingHorizontal: 16,
+                   paddingRight: 50,
+                   fontSize: 14,
+                   borderRadius: 25,
+                   color: isDarkMode ? '#f8f9ed' : '#1F2937',
+                 }}
+                 placeholder="Current Password"
+                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#9CA3AF'}
+                 value={formData.currentPassword}
+                 onChangeText={value => handleInputChange('currentPassword', value)}
+                 secureTextEntry={!showCurrentPassword}
+               />
+               <TouchableOpacity
+                 style={{
+                   position: 'absolute',
+                   right: 5,
+                   top: -5,
+                   padding: 5,
+                 }}
+                 onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+               >
+                 <Image 
+                   source={!showCurrentPassword ? require('./assets/eyeoff.png') : require('./assets/eyeon.png')}
+                   style={{ 
+                     width: 50, 
+                     height: 50,
+                     tintColor: '#193a3c'
+                   }}
+                 />
+               </TouchableOpacity>
+             </View>
 
-          {/* New Password */}
-          <View style={{ position: 'relative', marginBottom: 20 }}>
-            <TextInput
-              style={{
-                backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.2)' : 'rgba(30, 58, 138, 0.31)',
-                color: theme.primary,
-                padding: 15,
-                fontSize: 16,
-                paddingRight: 50,
-                borderRadius: 8,
-                fontWeight: '500',
-                borderWidth: 1,
-                borderColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'transparent',
-              }}
-              placeholder={t('auth.newPassword')}
-              placeholderTextColor={theme.primary}
-              value={formData.newPassword}
-              onChangeText={value => handleInputChange('newPassword', value)}
-              secureTextEntry={!showNewPassword}
-            />
-            <Pressable
-              style={{ position: 'absolute', right: 15, top: 15, padding: 5 }}
-              onPress={() => setShowNewPassword(!showNewPassword)}
-            >
-              {showNewPassword ? (
-                <EyeOffIcon width={24} height={24} />
-              ) : (
-                <EyeIcon width={24} height={24} />
-              )}
-            </Pressable>
-          </View>
+             {/* New Password */}
+             <View style={{ position: 'relative' }}>
+               <TextInput
+                 style={{
+                   backgroundColor: isDarkMode ? '#3A3A3A' : '#ffffff',
+                   borderWidth: 1,
+                   borderColor: isDarkMode ? '#555555' : '#E5E7EB',
+                   paddingVertical: 12,
+                   paddingHorizontal: 16,
+                   paddingRight: 50,
+                   fontSize: 14,
+                   borderRadius: 25,
+                   color: isDarkMode ? '#f8f9ed' : '#1F2937',
+                 }}
+                 placeholder="New Password"
+                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#9CA3AF'}
+                 value={formData.newPassword}
+                 onChangeText={value => handleInputChange('newPassword', value)}
+                 secureTextEntry={!showNewPassword}
+               />
+               <TouchableOpacity
+                 style={{
+                   position: 'absolute',
+                   right: 5,
+                   top: -5,
+                   padding: 5,
+                 }}
+                 onPress={() => setShowNewPassword(!showNewPassword)}
+               >
+                 <Image 
+                   source={!showNewPassword ? require('./assets/eyeoff.png') : require('./assets/eyeon.png')}
+                   style={{ 
+                     width: 50, 
+                     height: 50,
+                     tintColor: '#193a3c'
+                   }}
+                 />
+               </TouchableOpacity>
+             </View>
 
-          {/* Confirm Password */}
-          <View style={{ position: 'relative', marginBottom: 30 }}>
-            <TextInput
-              style={{
-                backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.2)' : 'rgba(30, 58, 138, 0.31)',
-                color: theme.primary,
-                padding: 15,
-                fontSize: 16,
-                paddingRight: 50,
-                borderRadius: 8,
-                fontWeight: '500',
-                borderWidth: 1,
-                borderColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'transparent',
-              }}
-              placeholder={t('auth.confirmPassword')}
-              placeholderTextColor={theme.primary}
-              value={formData.confirmPassword}
-              onChangeText={value => handleInputChange('confirmPassword', value)}
-              secureTextEntry={!showConfirmPassword}
-            />
-            <Pressable
-              style={{ position: 'absolute', right: 15, top: 15, padding: 5 }}
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              {showConfirmPassword ? (
-                <EyeOffIcon width={24} height={24} />
-              ) : (
-                <EyeIcon width={24} height={24} />
-              )}
-            </Pressable>
-            {formData.confirmPassword && formData.newPassword !== formData.confirmPassword && (
-              <Text style={{ 
-                color: '#FF0000', 
-                marginTop: 8, 
-                fontSize: 13, 
-                fontWeight: 'bold', 
-                textAlign: 'center' 
-              }}>
-                Passwords do not match
-              </Text>
-            )}
-          </View>
+             {/* Confirm Password */}
+             <View style={{ position: 'relative' }}>
+               <TextInput
+                 style={{
+                   backgroundColor: isDarkMode ? '#3A3A3A' : '#ffffff',
+                   borderWidth: 1,
+                   borderColor: isDarkMode ? '#555555' : '#E5E7EB',
+                   paddingVertical: 12,
+                   paddingHorizontal: 16,
+                   paddingRight: 50,
+                   fontSize: 14,
+                   borderRadius: 25,
+                   color: isDarkMode ? '#f8f9ed' : '#1F2937',
+                 }}
+                 placeholder="Confirm Password"
+                 placeholderTextColor={isDarkMode ? '#9CA3AF' : '#9CA3AF'}
+                 value={formData.confirmPassword}
+                 onChangeText={value => handleInputChange('confirmPassword', value)}
+                 secureTextEntry={!showConfirmPassword}
+               />
+               <TouchableOpacity
+                 style={{
+                   position: 'absolute',
+                   right: 5,
+                   top: -5,
+                   padding: 5,
+                 }}
+                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+               >
+                 <Image 
+                   source={!showConfirmPassword ? require('./assets/eyeoff.png') : require('./assets/eyeon.png')}
+                   style={{ 
+                     width: 50, 
+                     height: 50,
+                     tintColor: '#193a3c'
+                   }}
+                 />
+               </TouchableOpacity>
+               {formData.confirmPassword && formData.newPassword !== formData.confirmPassword && (
+                 <Text style={{ 
+                   color: '#FF6B6B', 
+                   marginTop: 8, 
+                   fontSize: 13, 
+                   fontWeight: 'bold', 
+                   textAlign: 'center' 
+                 }}>
+                   Passwords do not match
+                 </Text>
+               )}
+             </View>
+             {/* Change Password Button */}
+             <TouchableOpacity
+               style={{
+                 backgroundColor: isFormValid && !isLoading ? (isDarkMode ? '#4c643b' : '#4c643b') : '#9CA3AF',
+                 borderRadius: 25,
+                 paddingVertical: 14,
+                 paddingHorizontal: 28,
+                 alignItems: 'center',
+                 marginTop: 15,
+                 shadowColor: '#000',
+                 shadowOffset: {
+                   width: 0,
+                   height: 2,
+                 },
+                 shadowOpacity: 0.25,
+                 shadowRadius: 3.84,
+                 elevation: 5,
+               }}
+               onPress={handleChangePassword}
+               disabled={!isFormValid || isLoading}
+             >
+               {isLoading ? (
+                 <ActivityIndicator color="white" size="small" />
+               ) : (
+                 <Text style={{ 
+                   color: isDarkMode ? '#f8f9ed' : '#f8f9ed', 
+                   fontSize: 16, 
+                   fontWeight: '600',
+                   letterSpacing: 0.5,
+                 }}>
+                   Change Password
+                 </Text>
+               )}
+             </TouchableOpacity>
 
-          {/* Buttons */}
-          <View style={{ gap: 15 }}>
-            <Pressable
-              style={({ pressed }) => ({
-                backgroundColor: pressed ? '#aaa' : (isFormValid && !isLoading ? theme.primary : '#aaa'),
-                borderRadius: 15,
-                padding: 18,
-                alignItems: 'center',
-                width: '100%',
-              })}
-              onPress={handleChangePassword}
-              disabled={!isFormValid || isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>{t('auth.changePassword')}</Text>
-              )}
-            </Pressable>
+             {/* Cancel Button */}
+             <TouchableOpacity
+               style={{
+                 backgroundColor: isDarkMode ? '#555555' : '#6B7280',
+                 borderRadius: 25,
+                 paddingVertical: 14,
+                 paddingHorizontal: 28,
+                 alignItems: 'center',
+                 marginTop: 10,
+                 shadowColor: '#000',
+                 shadowOffset: {
+                   width: 0,
+                   height: 2,
+                 },
+                 shadowOpacity: 0.25,
+                 shadowRadius: 3.84,
+                 elevation: 5,
+               }}
+               onPress={onClose}
+               disabled={isLoading}
+             >
+               <Text style={{ 
+                 color: 'white', 
+                 fontSize: 16, 
+                 fontWeight: '600',
+                 letterSpacing: 0.5,
+               }}>
+                 Cancel
+               </Text>
+             </TouchableOpacity>
+           </View>
 
-            <Pressable
-              style={({ pressed }) => ({
-                backgroundColor: pressed ? '#aaa' : (isDarkMode ? '#444444' : '#666666'),
-                borderRadius: 15,
-                padding: 18,
-                alignItems: 'center',
-                width: '100%',
-              })}
-              onPress={onClose}
-              disabled={isLoading}
-            >
-              <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>{t('common.cancel')}</Text>
-            </Pressable>
-          </View>
-
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-};
+         </Pressable>
+       </Pressable>
+     </Modal>
+   );
+ };
 
 export default ChangePassword;

@@ -258,25 +258,25 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
     >
       <View style={styles.alertHeader}>
         <View style={styles.alertInfo}>
-          <Text style={[styles.alertTitle, { color: theme.text, fontSize: fonts.subtitle }]}>
-            {item.title}
-          </Text>
-          <Text style={[styles.alertTime, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-            {formatTimestamp(item.timestamp)}
+          <Text style={[styles.alertDateTime, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+            {formatFullTimestamp(item.timestamp).date} at {formatFullTimestamp(item.timestamp).time}
           </Text>
         </View>
       </View>
       
-      <Text style={[styles.alertBody, { color: theme.text, fontSize: fonts.body }]}>
-        {item.body}
-      </Text>
+      {item.data?.fromUserName && (
+        <Text style={[styles.alertBody, { color: theme.text, fontSize: fonts.body }]}>
+          {t('emergency.sosTriggeredBy')} <Text style={styles.boldText}>{item.data.fromUserName}</Text>
+        </Text>
+      )}
+      
+      {item.data?.location?.address && (
+        <Text style={[styles.alertLocation, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+          {t('emergency.near')} {item.data.location.address}
+        </Text>
+      )}
       
       <View style={styles.alertFooter}>
-        {item.data?.fromUserName && (
-          <Text style={[styles.alertFrom, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-            From: {item.data.fromUserName}
-          </Text>
-        )}
         
         <View style={styles.alertBadges}>
           {item.data?.isTest && (
@@ -300,7 +300,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="small" color={theme.primary} />
         <Text style={[styles.loadingText, { color: theme.text, fontSize: fonts.body }]}>
-          Loading SOS alerts...
+          {t('emergency.loadingSosAlerts')}
         </Text>
       </View>
     );
@@ -314,7 +314,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
         {newAlertReceived && (
           <View style={[styles.newAlertIndicator, { backgroundColor: '#4CAF50' }]}>
             <Text style={[styles.newAlertText, { color: '#FFFFFF', fontSize: fonts.caption }]}>
-              New SOS Alert Received!
+              {t('emergency.newSosAlertReceived')}
             </Text>
           </View>
         )}
@@ -336,10 +336,10 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
           {receivedAlerts.length > 0 && (
             <View style={styles.sectionContainer}>
               <Text style={[styles.sectionTitle, { color: theme.text, fontSize: fonts.subtitle }]}>
-                SOS Alerts
+                {t('emergency.sosAlerts')}
               </Text>
               <Text style={[styles.sectionSubtitle, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                Emergency alerts sent to you by your contacts
+                {t('emergency.sosAlertsDescription')}
               </Text>
               {receivedAlerts.map((alert) => (
                 <View key={alert.id}>
@@ -353,10 +353,10 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
           {receivedAlerts.length === 0 && (
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyText, { color: theme.secondaryText, fontSize: fonts.body }]}>
-                No SOS alerts received.
+                {t('emergency.noSosAlerts')}
               </Text>
               <Text style={[styles.emptySubtext, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                Emergency alerts from your contacts will appear here.
+                {t('emergency.noSosAlertsDesc')}
               </Text>
             </View>
           )}
@@ -374,11 +374,11 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
           <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <Text style={[styles.modalTitle, { color: theme.text, fontSize: fonts.subtitle }]}>
-                SOS Alert Details
+                {t('emergency.sosAlertDetails')}
               </Text>
               <TouchableOpacity onPress={closeDetailsModal} style={styles.closeButton}>
                 <Text style={[styles.closeButtonText, { color: theme.secondaryText, fontSize: fonts.subtitle }]}>
-                  ✕
+                  ×
                 </Text>
               </TouchableOpacity>
             </View>
@@ -387,16 +387,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
               <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.detailSection}>
                   <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    Alert Type
-                  </Text>
-                  <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
-                    {selectedAlert.data?.isTest ? 'Test Alert' : 'Emergency Alert'}
-                  </Text>
-                </View>
-
-                <View style={styles.detailSection}>
-                  <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    From
+                    👤 From
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                     {selectedAlert.data?.fromUserName || 'Unknown'}
@@ -406,7 +397,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
                 {selectedAlert.data?.fromUserPhone && (
                   <View style={styles.detailSection}>
                     <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                      Sender Phone
+                      📞 Sender Phone
                     </Text>
                     <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                       {selectedAlert.data.fromUserPhone}
@@ -416,7 +407,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
 
                 <View style={styles.detailSection}>
                   <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    Date
+                    📅 Date
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                     {formatFullTimestamp(selectedAlert.timestamp).date}
@@ -425,7 +416,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
 
                 <View style={styles.detailSection}>
                   <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    Time
+                    🕐 Time
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                     {formatFullTimestamp(selectedAlert.timestamp).time}
@@ -435,7 +426,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
                 {selectedAlert.data?.location && (
                   <View style={styles.detailSection}>
                     <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                      Location
+                      📍 Location
                     </Text>
                     <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                       {selectedAlert.data.location.address || 'Location not available'}
@@ -445,15 +436,6 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
                     </Text>
                   </View>
                 )}
-
-                <View style={styles.detailSection}>
-                  <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    Message
-                  </Text>
-                  <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
-                    {selectedAlert.body}
-                  </Text>
-                </View>
               </ScrollView>
             )}
           </View>
@@ -525,15 +507,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   alertItem: {
-    padding: 15,
-    marginBottom: 10,
-    borderRadius: 10,
-    borderLeftWidth: 5,
+    padding: 12,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderLeftWidth: 4,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   alertHeader: {
     marginBottom: 8,
@@ -548,9 +530,19 @@ const styles = StyleSheet.create({
   alertTime: {
     fontStyle: 'italic',
   },
+  alertDateTime: {
+    fontStyle: 'italic',
+  },
   alertBody: {
-    marginBottom: 8,
-    lineHeight: 20,
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  boldText: {
+    fontWeight: 'bold',
+  },
+  alertLocation: {
+    marginBottom: 6,
+    fontStyle: 'italic',
   },
   alertFrom: {
     marginBottom: 8,

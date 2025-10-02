@@ -73,102 +73,139 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: '#ffffff' }}
-      contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}
-    >
-      <Image
-        source={require('./assets/loginlogo.png')}
-        style={{ width: logoSize, height: logoSize, alignSelf: 'center', marginTop: -80 }}
-      />
-      <Text
-        style={{
-          fontSize: 24,
-          fontWeight: 'bold',
-          textAlign: 'center',
-          marginBottom: 40,
-          marginTop: -60,
-          color: '#1E3A8A',
-        }}>
-        {t('auth.resetPassword')}
-      </Text>
-      <Text
-        style={{
-          fontSize: 16,
-          textAlign: 'center',
-          marginBottom: 30,
-          color: '#000000',
-          paddingHorizontal: 20,
-          marginTop: -10,
-        }}>
-        {t('auth.forgotPasswordDesc')}
-      </Text>
-      <View style={{ position: 'relative', marginBottom: 15, alignSelf: 'center', width: '80%', marginTop: -40 }}>
-        <TextInput
-          style={{
-            backgroundColor: 'rgba(30, 58, 138, 0.31)',
-            color: '#1E3A8A',
-            padding: 15,
-            fontSize: 16,
-            borderRadius: 8,
-            marginTop: 30,
-            fontWeight: '500',
-          }}
-          placeholder={t('auth.email')}
-          placeholderTextColor="#1E3A8A"
-          value={email}
-          onChangeText={handleEmailChange}
-          onFocus={() => setFocusedField('email')}
-          onBlur={() => setFocusedField(null)}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        {focusedField === 'email' && emailError && (
-          <View style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 60,
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            padding: 8,
-            borderRadius: 6,
-            zIndex: 10,
-          }}>
-            <Text style={{ color: 'white', fontSize: 13, textAlign: 'center' }}>{emailError}</Text>
-          </View>
-        )}
-      </View>
-      <Pressable
-        style={({ pressed }) => ({
-          backgroundColor: pressed ? '#aaa' : (email && !emailError && !isLoading ? '#1E3A8A' : '#aaa'),
-          borderRadius: 15,
-          padding: 15,
+    <View style={{ 
+      flex: 1, 
+      backgroundColor: '#2d3480',
+      marginTop: -50,
+      marginBottom: -50,
+    }}>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
           alignItems: 'center',
-          alignSelf: 'center',
-          width: '50%',
-          marginTop: 60,
-        })}
-        onPress={handleResetPassword}
-        disabled={!email || !!emailError || isLoading}
+          padding: 20,
+          paddingTop: 30,
+        }}
+        showsVerticalScrollIndicator={false}
       >
-        {isLoading ? (
-          <ActivityIndicator color="white" size="small" />
-        ) : (
-          <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{t('auth.resetPassword')}</Text>
-        )}
-      </Pressable>
-      <Text
-        style={{ textAlign: 'center', marginTop: 20, color: '#000000', fontSize: 14 }}
-      >
-        {t('auth.rememberPassword')}{' '}
-        <Text
-          style={{ color: '#1E3A8A', fontWeight: 'bold' }}
-          onPress={onGoToLogin}
-        >
-          {t('auth.login')}
-        </Text>
-      </Text>
-    </ScrollView>
+        {/* Enhanced Form Container */}
+        <View style={{
+          backgroundColor: '#ffffff',
+          borderRadius: 25,
+          padding: 25,
+          marginTop: 50,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 8,
+          },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
+          elevation: 12,
+          borderWidth: 1,
+          borderColor: 'rgba(71, 94, 61, 0.1)',
+        }}>
+
+          {/* Form Title */}
+          <Text style={{
+            fontSize: 20,
+            fontWeight: '900',
+            color: '#475e3d',
+            textAlign: 'center',
+            marginBottom: 20,
+            letterSpacing: 0.5,
+          }}>
+            Reset Password
+          </Text>
+          {/* Form Fields */}
+          <View style={{ gap: 18 }}>
+            <TextInput
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
+              placeholder="Email Address"
+              placeholderTextColor="#9CA3AF"
+              value={email}
+              onChangeText={handleEmailChange}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            {emailError && (
+              <Text style={{ color: '#EF4444', fontSize: 12, marginTop: -10 }}>
+                {emailError}
+              </Text>
+            )}
+          </View>
+
+          {/* Reset Password Button */}
+          <Pressable
+            style={({ pressed }) => ({
+              backgroundColor: email && !emailError && !isLoading ? '#4c643b' : '#9CA3AF',
+              borderRadius: 25,
+              paddingVertical: 14,
+              paddingHorizontal: 28,
+              alignItems: 'center',
+              marginTop: 15,
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 2,
+              },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+              elevation: 5,
+            })}
+            onPress={handleResetPassword}
+            disabled={!email || !!emailError || isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Text style={{ 
+                color: '#f8f9ed', 
+                fontSize: 16, 
+                fontWeight: '600',
+                letterSpacing: 0.5,
+              }}>
+                Reset Password
+              </Text>
+            )}
+          </Pressable>
+
+          {/* Footer Text */}
+            <Text
+              style={{
+                textAlign: 'center',
+                marginTop: 15,
+                color: '#4c643b',
+                fontSize: 16,
+              }}>
+            Remember your password?{' '}
+            <Text
+              style={{
+                color: '#4c643b',
+                fontWeight: 'bold',
+              }}
+              onPress={onGoToLogin}
+            >
+              Log In
+            </Text>
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 

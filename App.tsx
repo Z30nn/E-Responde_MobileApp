@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, ActivityIndicator, Animated, Image } from 'react-native';
+import { View, ActivityIndicator, Animated, Image, StatusBar } from 'react-native';
 import { ThemeProvider, useTheme } from './services/themeContext';
 import { LanguageProvider, useLanguage } from './services/languageContext';
 import { AuthProvider, useAuth } from './services/authContext';
@@ -34,15 +34,15 @@ const SplashScreen = () => {
     <Animated.View
       style={{
         flex: 1,
-        backgroundColor: '#1E3A8A',
+        backgroundColor: '#2d3480',
         justifyContent: 'center',
         alignItems: 'center',
         opacity: fadeAnim,
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        top: -100,
+        left: -50,
+        right: -50,
+        bottom: -100,
         zIndex: 1000,
       }}>
       <Image
@@ -123,6 +123,7 @@ const App = () => {
       <ThemeProvider>
         <AuthProvider>
           <NotificationProvider>
+            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
             <AppContent />
           </NotificationProvider>
         </AuthProvider>

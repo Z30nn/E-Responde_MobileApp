@@ -25,77 +25,114 @@ const Welcome = () => {
     <ScrollView
       style={{
         flex: 1,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#eef2f1',
       }}
       contentContainerStyle={{
         flexGrow: 1,
-        justifyContent: 'flex-start',
-        padding: 20,
-      }}>
-      <Image
-        source={require('./assets/welcome.png')}
-        style={{
-          width: '80%',
-          height: 600,
-          resizeMode: 'contain',
-          alignSelf: 'center',
-          marginBottom: 20,
-        }}
-      />
-
-      <Text style={{
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#1E3A8A',
-        textAlign: 'center',
-        marginBottom: 10,
-        marginTop: -160,
-      }}>
-        Join now.
-      </Text>
-
-      <Text style={{
-        fontSize: 16,
-        color: '#000000',
-        textAlign: 'center',
-        marginBottom: 40,
+        justifyContent: 'center',
         paddingHorizontal: 20,
+        paddingVertical: 40,
       }}>
-        You are one click away from making your community safer.
-      </Text>
+      <View style={{
+        alignItems: 'center',
+        marginBottom: 40,
+      }}>
+        <Image
+          source={require('./assets/landingpng.png')}
+          style={{
+            width: '90%',
+            height: 300,
+            resizeMode: 'contain',
+            marginBottom: 15,
+          }}
+        />
 
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#1E3A8A',
-          borderRadius: 8,
-          padding: 15,
-          alignItems: 'center',
-          width: '70%',
-          alignSelf: 'center',
-          marginBottom: 15,
-        }}
-        onPress={() => setCurrentScreen('register')}
-      >
-        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>
-          Sign up
+        <Text style={{
+          fontSize: 28,
+          fontWeight: 'bold',
+          color: '#193a3c',
+          textAlign: 'center',
+          marginBottom: -5,
+        }}>
+          Join now.
         </Text>
-      </TouchableOpacity>
 
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#000000',
-          borderRadius: 8,
-          padding: 15,
-          alignItems: 'center',
-          width: '70%',
-          alignSelf: 'center',
-        }}
-        onPress={() => setCurrentScreen('login')}
-      >
-        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>
-          Log in
+        <Text style={{
+          fontSize: 16,
+          color: '#666666',
+          textAlign: 'center',
+          paddingHorizontal: 20,
+          lineHeight: 24,
+          marginBottom: 5,
+        }}>
+          You are one click away from making your community safer.
         </Text>
-      </TouchableOpacity>
+      </View>
+
+      <View style={{
+        alignItems: 'center',
+        gap: 15,
+      }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#0d3b66',
+            borderRadius: 12,
+            paddingVertical: 12,
+            paddingHorizontal: 24,
+            alignItems: 'center',
+            width: '100%',
+            maxWidth: 250,
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+          onPress={() => setCurrentScreen('register')}
+        >
+          <Text style={{ 
+            color: '#f8f9ed', 
+            fontSize: 18, 
+            fontWeight: '600',
+            letterSpacing: 0.5,
+          }}>
+            Sign up
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#4c643b',
+            borderRadius: 12,
+            paddingVertical: 12,
+            paddingHorizontal: 24,
+            alignItems: 'center',
+            width: '100%',
+            maxWidth: 250,
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+          onPress={() => setCurrentScreen('login')}
+        >
+          <Text style={{ 
+            color: '#f8f9ed', 
+            fontSize: 18, 
+            fontWeight: '600',
+            letterSpacing: 0.5,
+          }}>
+            Log in
+          </Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 };

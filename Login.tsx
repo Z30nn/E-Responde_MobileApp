@@ -12,8 +12,6 @@ import {
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
-import EyeIcon from './assets/eye.svg';
-import EyeOffIcon from './assets/eye-off.svg';
 import Register from './Register';
 import ForgotPassword from './ForgotPassword';
 import { useAuth } from './services/authContext';
@@ -35,7 +33,7 @@ const Login = () => {
 
   const validateEmail = (email: string) => {
     if (!email) return 'Email is required.';
-    if (!/^[^\s@]+@[^ 0-9]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address.';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'Please enter a valid email address.';
     return '';
   };
 
@@ -52,31 +50,38 @@ const Login = () => {
   };
 
   const handleLogin = async () => {
-    if (!formData.email.trim() || emailError) {
-      Alert.alert('Error', emailError || 'Please enter your email');
+    if (emailError) {
+      Alert.alert('Error', emailError);
       return;
     }
     if (!formData.password) {
-      Alert.alert('Error', 'Please enter your password');
+      Alert.alert('Error', 'Password is required');
       return;
     }
 
     setIsLoading(true);
     try {
-      // Login using authentication context
-      await login(formData.email.trim(), formData.password);
-      // Navigation will be handled automatically by the auth context
+      await login(formData.email, formData.password);
     } catch (error: any) {
-      let errorMessage = 'Login failed. Please check your credentials.';
+      let errorMessage = 'Login failed. Please try again.';
+      console.error('Login error details:', error);
+      
       if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email address';
       } else if (error.code === 'auth/wrong-password') {
         errorMessage = 'Incorrect password';
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email address';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled';
       } else if (error.code === 'auth/too-many-requests') {
-        errorMessage = 'Too many failed attempts. Please try again later.';
+        errorMessage = 'Too many failed attempts. Please try again later';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
       Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
@@ -91,123 +96,186 @@ const Login = () => {
     ) : showSignUp ? (
       <Register onGoToLogin={() => setShowSignUp(false)} />
     ) : (
-      <ScrollView
-        style={{ flex: 1, backgroundColor: '#ffffff' }}
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }}
-      >
-        <Image
-          source={require('./assets/loginlogo.png')}
-          style={{ width: logoSize, height: logoSize, alignSelf: 'center', marginTop: -80 }}
-        />
-        <View style={{ position: 'relative', marginBottom: 15, alignSelf: 'center', width: '80%', marginTop: -40 }}>
-          <TextInput
-            style={{
-              backgroundColor: 'rgba(30, 58, 138, 0.31)',
-              color: '#1E3A8A',
-              padding: 15,
-              fontSize: 16,
-              borderRadius: 8,
-              fontWeight: '500',
-            }}
-            placeholder="Email Address"
-            placeholderTextColor="#1E3A8A"
-            value={formData.email}
-            onChangeText={value => handleInputChange('email', value)}
-            onFocus={() => handleFocus('email')}
-            onBlur={handleBlur}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          {focusedField === 'email' && emailError && (
-            <View style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 60,
-              backgroundColor: 'rgba(0,0,0,0.85)',
-              padding: 8,
-              borderRadius: 6,
-              zIndex: 10,
+      <View style={{ 
+        flex: 1, 
+        backgroundColor: '#2d3480',
+        marginTop: -50,
+        marginBottom: -50,
+      }}>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            padding: 20,
+            paddingTop: 30,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Enhanced Form Container */}
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderRadius: 25,
+            padding: 25,
+            marginTop: 50,
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 8,
+            },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+            elevation: 12,
+            borderWidth: 1,
+            borderColor: 'rgba(71, 94, 61, 0.1)',
+          }}>
+
+            {/* Form Title */}
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '900',
+              color: '#475e3d',
+              textAlign: 'center',
+              marginBottom: 20,
+              letterSpacing: 0.5,
             }}>
-              <Text style={{ color: 'white', fontSize: 13, textAlign: 'center' }}>{emailError}</Text>
+              Sign In
+            </Text>
+            {/* Form Fields */}
+            <View style={{ gap: 18 }}>
+              <TextInput
+                style={{
+                  backgroundColor: '#ffffff',
+                  borderWidth: 1,
+                  borderColor: '#E5E7EB',
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  fontSize: 14,
+                  borderRadius: 25,
+                  color: '#1F2937',
+                }}
+                placeholder="Email Address"
+                placeholderTextColor="#9CA3AF"
+                value={formData.email}
+                onChangeText={value => handleInputChange('email', value)}
+                onFocus={() => handleFocus('email')}
+                onBlur={handleBlur}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <View style={{ position: 'relative' }}>
+                <TextInput
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    paddingRight: 50,
+                    fontSize: 14,
+                    borderRadius: 25,
+                    color: '#1F2937',
+                  }}
+                  placeholder="Password"
+                  placeholderTextColor="#9CA3AF"
+                  value={formData.password}
+                  onChangeText={value => handleInputChange('password', value)}
+                  onFocus={() => handleFocus('password')}
+                  onBlur={handleBlur}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={{
+                    position: 'absolute',
+                    right: 5,
+                    top: -5,
+                    padding: 5,
+                  }}
+                  onPress={() => setShowPassword(!showPassword)}>
+                  <Image 
+                    source={!showPassword ? require('./assets/eyeoff.png') : require('./assets/eyeon.png')}
+                    style={{ 
+                      width: 50, 
+                      height: 50,
+                      tintColor: '#193a3c'
+                    }}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <Text
+                style={{ 
+                  color: '#475e3d',
+                  fontWeight: '600',
+                  textAlign: 'right',
+                  marginTop: -5,
+                  fontSize: 14,
+                }}
+                onPress={() => setShowForgotPassword(true)}
+              >
+                Forgot Password?
+              </Text>
+
+              {/* Login Button */}
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isFormValid && !isLoading ? '#4c643b' : '#9CA3AF',
+                  borderRadius: 25,
+                  paddingVertical: 14,
+                  paddingHorizontal: 28,
+                  alignItems: 'center',
+                  marginTop: 15,
+                  shadowColor: '#000',
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                }}
+                onPress={handleLogin}
+                disabled={!isFormValid || isLoading}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={{ 
+                    color: '#f8f9ed', 
+                    fontSize: 16, 
+                    fontWeight: '600',
+                    letterSpacing: 0.5,
+                  }}>
+                    Sign In
+                  </Text>
+                )}
+              </TouchableOpacity>
             </View>
-          )}
-        </View>
-        <View style={{ position: 'relative', marginBottom: 65, alignSelf: 'center', width: '80%' }}>
-          <TextInput
-            style={{
-              backgroundColor: 'rgba(30, 58, 138, 0.31)',
-              color: '#1E3A8A',
-              padding: 15,
-              fontSize: 16,
-              paddingRight: 50,
-              borderRadius: 8,
-              fontWeight: '500',
-            }}
-            placeholder="Password"
-            placeholderTextColor="#1E3A8A"
-            value={formData.password}
-            onChangeText={value => handleInputChange('password', value)}
-            onFocus={() => handleFocus('password')}
-            onBlur={handleBlur}
-            secureTextEntry={!showPassword}
-          />
-          <TouchableOpacity
-            style={{ position: 'absolute', right: 15, top: 15, padding: 5 }}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            {showPassword ? (
-              <EyeOffIcon width={24} height={24} />
-            ) : (
-              <EyeIcon width={24} height={24} />
-            )}
-          </TouchableOpacity>
+          </View>
+
+          {/* Footer Text */}
           <Text
             style={{ 
-              color: '#1E3A8A',
-              fontWeight: 'bold',
-              textAlign: 'right',
-              marginTop: 8,
-              fontSize: 14,
+              textAlign: 'center', 
+              marginTop: 15, 
+              color: '#f8f9ed', 
+              fontSize: 16 
             }}
-            onPress={() => setShowForgotPassword(true)}
           >
-            Forgot Password?
+            Don't have an account?{' '}
+            <Text
+              style={{ color: '#f8f9ed', fontWeight: 'bold' }}
+              onPress={() => setShowSignUp(true)}
+            >
+              Register
+            </Text>
           </Text>
-        </View>
-        <Pressable
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? '#aaa' : (isFormValid && !isLoading ? '#1E3A8A' : '#aaa'),
-            borderRadius: 15,
-            padding: 15,
-            alignItems: 'center',
-            alignSelf: 'center',
-            width: '50%',
-            marginTop: 60,
-          })}
-          onPress={handleLogin}
-          disabled={!isFormValid || isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>Log In</Text>
-          )}
-        </Pressable>
-        <Text
-          style={{ textAlign: 'center', marginTop: 20, color: '#000000', fontSize: 14 }}
-        >
-          Don't have an account?{' '}
-          <Text
-            style={{ color: '#1E3A8A', fontWeight: 'bold' }}
-            onPress={() => setShowSignUp(true)}
-          >
-            Register
-          </Text>
-        </Text>
-      </ScrollView>
+        </ScrollView>
+      </View>
     )
   );
 };
 
-export default Login; 
+export default Login;

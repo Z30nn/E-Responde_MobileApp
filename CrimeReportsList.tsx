@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
-import { auth } from './firebaseConfig';
+import { auth, database } from './firebaseConfig';
+import { ref, onValue, off } from 'firebase/database';
 import { useTheme, colors } from './services/themeContext';
 
 interface CrimeReportsListProps {
@@ -21,15 +22,89 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
   const theme = isDarkMode ? colors.dark : colors.light;
   const [reports, setReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadUserReports();
+    
+    // Set up real-time listener for status updates
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const reportsRef = ref(database, `civilian/civilian account/${currentUser.uid}/crime reports`);
+      
+      const handleStatusChange = (snapshot: any) => {
+        console.log('CrimeReportsList: Real-time update detected');
+        if (snapshot.exists()) {
+          const reportsData = snapshot.val();
+          console.log('CrimeReportsList: Reports data updated:', reportsData);
+          const reportsArray = Object.keys(reportsData).map(key => {
+            const report = {
+              ...reportsData[key],
+              reportId: key
+            };
+            console.log('CrimeReportsList: Report status:', key, report.status);
+            return report;
+          });
+          
+          // Sort by creation date (newest first)
+          const sortedReports = reportsArray.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          setReports(sortedReports);
+        } else {
+          console.log('CrimeReportsList: No reports found');
+          setReports([]);
+        }
+      };
+      
+      onValue(reportsRef, handleStatusChange);
+      
+      // Also listen to the main civilian crime reports path to catch admin updates
+      const allReportsRef = ref(database, 'civilian/civilian crime reports');
+      const handleAllReportsChange = (snapshot: any) => {
+        console.log('CrimeReportsList: All reports update detected');
+        if (snapshot.exists()) {
+          const allReportsData = snapshot.val();
+          console.log('CrimeReportsList: All reports data:', allReportsData);
+          // Filter reports for current user
+          const userReports: CrimeReport[] = [];
+          Object.keys(allReportsData).forEach(reportId => {
+            const report = allReportsData[reportId];
+            if (report.reporterUid === currentUser.uid) {
+              userReports.push({
+                ...report,
+                reportId: reportId
+              });
+            }
+          });
+          console.log('CrimeReportsList: User reports from all reports:', userReports);
+          
+          // Sort by creation date (newest first)
+          const sortedReports = userReports.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          setReports(sortedReports);
+        }
+      };
+      
+      onValue(allReportsRef, handleAllReportsChange);
+      
+      // Cleanup listeners on unmount
+      return () => {
+        off(reportsRef, 'value', handleStatusChange);
+        off(allReportsRef, 'value', handleAllReportsChange);
+      };
+    }
   }, []);
 
-  const loadUserReports = async () => {
+  const loadUserReports = useCallback(async (isRefresh = false) => {
     try {
-      setIsLoading(true);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
       
       const currentUser = auth.currentUser;
@@ -47,8 +122,16 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
       console.error('Error loading crime reports:', error);
       setError('Failed to load crime reports');
     } finally {
-      setIsLoading(false);
+      if (isRefresh) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
     }
+  }, []);
+
+  const handleRefresh = () => {
+    loadUserReports(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -70,16 +153,23 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending':
-        return '#F59E0B';
-      case 'investigating':
-        return '#3B82F6';
+      case 'reported':
+        return '#3B82F6'; // Blue (neutral, just logged)
+      case 'received':
+        return '#F59E0B'; // Yellow (acknowledged, pending action)
+      case 'in progress':
+        return '#F97316'; // Orange (active, ongoing, urgent)
       case 'resolved':
-        return '#10B981';
+        return '#10B981'; // Green (completed, successful outcome)
+      // Backward compatibility with old status names
+      case 'pending':
+        return '#F59E0B'; // Yellow
+      case 'investigating':
+        return '#F97316'; // Orange
       case 'closed':
-        return '#6B7280';
+        return '#6B7280'; // Gray
       default:
-        return '#6B7280';
+        return '#6B7280'; // Gray
     }
   };
 
@@ -122,7 +212,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
     crimeType: {
       fontSize: 18,
       fontWeight: 'bold',
-      color: theme.primary,
+      color: isDarkMode ? '#f8f9ed' : theme.primary,
       flex: 1,
     },
     statusBadge: {
@@ -130,6 +220,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
       paddingVertical: 4,
       borderRadius: 12,
       minWidth: 80,
+      // Remove any default backgroundColor to ensure our dynamic color shows
     },
     statusText: {
       color: '#FFFFFF',
@@ -283,8 +374,8 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
         style={styles.list}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        onRefresh={loadUserReports}
-        refreshing={isLoading}
+        onRefresh={handleRefresh}
+        refreshing={isRefreshing}
         nestedScrollEnabled={true}
       />
     </View>
