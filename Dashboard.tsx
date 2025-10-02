@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import NotificationSettings from './components/notification-settings';
 import SOSAlertsHistory from './components/sos-alerts-history';
 import { EmergencyContactsService } from './services/emergencyContactsService';
 import { useNotification } from './services/notificationContext';
+import { gyroscopeService } from './services/gyroscopeService';
 import { sosCleanupService } from './services/sosCleanupService';
 
 interface UserProfile {
@@ -59,7 +60,7 @@ const Dashboard = () => {
   const { isDarkMode, toggleTheme, fontSize, setFontSize } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { logout, user } = useAuth();
-  const { sendNotification } = useNotification();
+  // const { sendNotification } = useNotification();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
 
@@ -160,6 +161,7 @@ const Dashboard = () => {
   const [sosCountdownInterval, setSosCountdownInterval] = useState<NodeJS.Timeout | null>(null);
 
   const handleSOSPress = async () => {
+
     try {
       // If countdown is active, cancel it
       if (sosCountdown !== null && sosCountdownInterval) {
@@ -207,50 +209,102 @@ const Dashboard = () => {
       
       setSosCountdownInterval(interval);
 
-    } catch (error: any) {
-      console.error('Error in handleSOSPress:', error);
-      Alert.alert(t('common.error') || 'Error', error.message);
-      setSosLoading(false);
-      setSosCountdown(null);
-      if (sosCountdownInterval) {
-        clearInterval(sosCountdownInterval);
-        setSosCountdownInterval(null);
-      }
+      const sendSOSAlert = async () => {
+        try {
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            // Fetch user info for report
+            const userData = await FirebaseService.getCivilianUser(currentUser.uid);
+            const userName = userData
+              ? `${userData.firstName} ${userData.lastName}`
+              : 'Unknown User';
+
+            // Create immediate severity crime report for SOS
+            const sosReport = {
+              crimeType: 'Emergency SOS',
+              dateTime: new Date(),
+              description: 'SOS Alert triggered - Immediate assistance required',
+              multimedia: [],
+              location: {
+                latitude: 0, // Will be updated with actual location
+                longitude: 0,
+                address: 'Location not available',
+              },
+              anonymous: false,
+              reporterName: userName,
+              reporterUid: currentUser.uid,
+              status: 'pending',
+              createdAt: new Date().toISOString(),
+              severity: 'Immediate' as const,
+            };
+
+            try {
+              await FirebaseService.submitCrimeReport(sosReport);
+              console.log('SOS: Emergency report created with Immediate severity');
+            } catch (reportError) {
+              console.error('Error creating SOS report:', reportError);
+              // Don't block SOS if report creation fails
+            }
+          }
+
+          // Send SOS alert to emergency contacts
+          const result = await EmergencyContactsService.sendSOSAlert(
+            currentUser!.uid,
+            ''
+          );
+
+          if (result.success) {
+            Alert.alert(
+              t('emergency.sosSent') || 'SOS Alert Sent',
+              t('emergency.sosSentDesc') ||
+                `SOS alert sent to ${result.sentTo} emergency contact(s).`,
+              [{ text: t('common.ok') || 'OK' }]
+            );
+          } else {
+            Alert.alert(
+              t('common.error') || 'Error',
+              t('emergency.sosError') || 'Failed to send SOS alert.',
+              [{ text: t('common.ok') || 'OK' }]
+            );
+          }
+        } catch (error: any) {
+          console.error('Error in sendSOSAlert:', error);
+          Alert.alert(
+            t('common.error') || 'Error',
+            error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
+            [{ text: t('common.ok') || 'OK' }]
+          );
+  } finally {
+    // Always reset UI state after attempt
+    setSosLoading(false);
+    setSosCountdown(null);
+    if (sosCountdownInterval) {
+      clearInterval(sosCountdownInterval);
+      setSosCountdownInterval(null);
     }
-  };
+  }
+};
 
-  const sendSOSAlert = async () => {
-    try {
-      const result = await EmergencyContactsService.sendSOSAlert(
-        user!.uid,
-        ''
-      );
-
-      if (result.success) {
-        Alert.alert(
-          t('emergency.sosSent') || 'SOS Alert Sent',
-          t('emergency.sosSentDesc') || `SOS alert sent to ${result.sentTo} emergency contact(s).`,
-          [{ text: t('common.ok') || 'OK' }]
-        );
-      } else {
-        Alert.alert(
-          t('common.error') || 'Error',
-          t('emergency.sosError') || 'Failed to send SOS alert.',
-          [{ text: t('common.ok') || 'OK' }]
-        );
-      }
-    } catch (error: any) {
-      console.error('Error sending SOS alert:', error);
-      Alert.alert(
-        t('common.error') || 'Error',
-        error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
-        [{ text: t('common.ok') || 'OK' }]
-      );
     } finally {
       setSosLoading(false);
     }
-  };
+  }, [user, t]);
 
+  // Gyroscope SOS functionality
+  useEffect(() => {
+    const handleGyroscopeSOS = () => {
+      console.log('Dashboard: Gyroscope SOS triggered');
+      handleSOSPress();
+    };
+
+    // Start gyroscope listening when component mounts
+    gyroscopeService.startListening(handleGyroscopeSOS);
+
+    // Cleanup on unmount
+    return () => {
+      gyroscopeService.stopListening();
+    };
+  }, [handleSOSPress]);
 
   const styles = StyleSheet.create({
     profileScrollView: {
@@ -1408,6 +1462,8 @@ const Dashboard = () => {
                 alwaysBounceVertical={false}
                 scrollIndicatorInsets={{ right: 1 }}
                 indicatorStyle="default"
+                scrollEventThrottle={16}
+                keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.termsSectionTitle}>{t('terms.acceptance')}</Text>
               <Text style={styles.termsText}>
@@ -1496,6 +1552,8 @@ const Dashboard = () => {
                 alwaysBounceVertical={false}
                 scrollIndicatorInsets={{ right: 1 }}
                 indicatorStyle="default"
+                scrollEventThrottle={16}
+                keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.privacySectionTitle}>{t('privacy.informationCollected')}</Text>
               <Text style={styles.privacyText}>

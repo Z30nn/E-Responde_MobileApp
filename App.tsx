@@ -4,6 +4,7 @@ import { ThemeProvider, useTheme } from './services/themeContext';
 import { LanguageProvider, useLanguage } from './services/languageContext';
 import { AuthProvider, useAuth } from './services/authContext';
 import { NotificationProvider } from './services/notificationContext';
+import { backgroundService } from './services/backgroundService';
 import Welcome from './Welcome';
 import Dashboard from './Dashboard';
 
@@ -107,6 +108,16 @@ const AppContent = () => {
 };
 
 const App = () => {
+  useEffect(() => {
+    // Initialize background service
+    backgroundService.start();
+    
+    // Cleanup on unmount
+    return () => {
+      backgroundService.stop();
+    };
+  }, []);
+
   return (
     <LanguageProvider>
       <ThemeProvider>
