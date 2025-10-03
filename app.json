@@ -1,5 +1,4 @@
 {
-  "name": "MobileApp",
   "expo": {
     "name": "E-Responde Mobile App",
     "slug": "e-responde-mobile-app",
@@ -40,11 +39,6 @@
       "eas": {
         "projectId": "ad40e1db-8fe4-4455-a887-7d720f3f5930"
       }
-    }
-  },
-  "extra": {
-    "eas": {
-      "projectId": "29b2548c-872e-48a6-928e-5518a97610f5"
     }
   }
 }
