@@ -47,6 +47,10 @@ export interface CrimeReport {
   status: string;
   createdAt: string;
   reportId?: string;
+  severity: 'Immediate' | 'High' | 'Moderate' | 'Low';
+  upvotes?: number;
+  downvotes?: number;
+  userVotes?: { [userId: string]: 'upvote' | 'downvote' };
 }
 
 export class FirebaseService {
@@ -328,6 +332,109 @@ export class FirebaseService {
       return [];
     } catch (error) {
       console.error('Get all crime reports error:', error);
+      throw error;
+    }
+  }
+
+  // Vote on a crime report
+  static async voteOnCrimeReport(reportId: string, userId: string, voteType: 'upvote' | 'downvote'): Promise<boolean> {
+    try {
+      console.log(`Voting ${voteType} on report ${reportId} by user ${userId}`);
+      
+      const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      const snapshot = await get(reportRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error('Report not found');
+      }
+      
+      const report = snapshot.val() as CrimeReport;
+      const currentVotes = report.userVotes || {};
+      const currentUserVote = currentVotes[userId];
+      
+      // Initialize vote counts if they don't exist
+      let upvotes = report.upvotes || 0;
+      let downvotes = report.downvotes || 0;
+      
+      // Remove previous vote if exists
+      if (currentUserVote === 'upvote') {
+        upvotes = Math.max(0, upvotes - 1);
+      } else if (currentUserVote === 'downvote') {
+        downvotes = Math.max(0, downvotes - 1);
+      }
+      
+      // Add new vote
+      if (voteType === 'upvote') {
+        upvotes += 1;
+      } else {
+        downvotes += 1;
+      }
+      
+      // Update user vote
+      currentVotes[userId] = voteType;
+      
+      // Update the report with new vote counts and user votes
+      await set(reportRef, {
+        ...report,
+        upvotes,
+        downvotes,
+        userVotes: currentVotes
+      });
+      
+      console.log(`Successfully voted ${voteType} on report ${reportId}`);
+      return true;
+    } catch (error) {
+      console.error('Error voting on crime report:', error);
+      throw error;
+    }
+  }
+
+  // Remove vote from a crime report
+  static async removeVoteFromCrimeReport(reportId: string, userId: string): Promise<boolean> {
+    try {
+      console.log(`Removing vote from report ${reportId} by user ${userId}`);
+      
+      const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      const snapshot = await get(reportRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error('Report not found');
+      }
+      
+      const report = snapshot.val() as CrimeReport;
+      const currentVotes = report.userVotes || {};
+      const currentUserVote = currentVotes[userId];
+      
+      if (!currentUserVote) {
+        console.log('User has not voted on this report');
+        return true; // No vote to remove
+      }
+      
+      // Update vote counts
+      let upvotes = report.upvotes || 0;
+      let downvotes = report.downvotes || 0;
+      
+      if (currentUserVote === 'upvote') {
+        upvotes = Math.max(0, upvotes - 1);
+      } else if (currentUserVote === 'downvote') {
+        downvotes = Math.max(0, downvotes - 1);
+      }
+      
+      // Remove user vote
+      delete currentVotes[userId];
+      
+      // Update the report
+      await set(reportRef, {
+        ...report,
+        upvotes,
+        downvotes,
+        userVotes: currentVotes
+      });
+      
+      console.log(`Successfully removed vote from report ${reportId}`);
+      return true;
+    } catch (error) {
+      console.error('Error removing vote from crime report:', error);
       throw error;
     }
   }

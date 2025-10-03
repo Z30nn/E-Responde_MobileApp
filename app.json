@@ -1,4 +1,44 @@
 {
-  "name": "MobileApp",
-  "displayName": "MobileApp"
+  "expo": {
+    "name": "E-Responde Mobile App",
+    "slug": "e-responde-mobile-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/spashwelcome.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E3A8A"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#1E3A8A"
+      },
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/logo.png"
+    },
+    "plugins": [
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ad40e1db-8fe4-4455-a887-7d720f3f5930"
+      }
+    }
+  }
 }

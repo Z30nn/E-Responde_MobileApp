@@ -13,6 +13,7 @@ import {
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
+import { useAuth } from './services/authContext';
 import CrimeReportMap from './CrimeReportMap';
 
 interface CrimeReportDetailProps {
@@ -23,6 +24,7 @@ interface CrimeReportDetailProps {
 const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
+  const { user } = useAuth();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const [report, setReport] = useState<CrimeReport | null>(null);
@@ -515,10 +517,12 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
           </Text>
         </View>
 
-        {/* Map Button */}
-        <TouchableOpacity style={styles.mapButton} onPress={openMap}>
-          <Text style={styles.mapButtonText}>🗺️ View Location on Map</Text>
-        </TouchableOpacity>
+        {/* Map Button - Only show for current user's reports */}
+        {user && report && report.reporterUid === user.uid && (
+          <TouchableOpacity style={styles.mapButton} onPress={openMap}>
+            <Text style={styles.mapButtonText}>🗺️ View Location on Map</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Map Modal */}
