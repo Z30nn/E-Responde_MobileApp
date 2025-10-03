@@ -233,19 +233,13 @@ const Dashboard = () => {
           [{ text: t('common.ok') || 'OK' }]
         );
       } else {
-        Alert.alert(
-          t('common.error') || 'Error',
-          t('emergency.sosError') || 'Failed to send SOS alert.',
-          [{ text: t('common.ok') || 'OK' }]
-        );
+        // Alert removed - no popup for failed SOS
+        console.log('SOS alert failed to send to all contacts');
       }
     } catch (error: any) {
       console.error('Error sending SOS alert:', error);
-      Alert.alert(
-        t('common.error') || 'Error',
-        error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
-        [{ text: t('common.ok') || 'OK' }]
-      );
+      // Alert removed - no popup for SOS errors
+      console.log('SOS alert error:', error.message);
     } finally {
       setSosLoading(false);
     }
@@ -427,9 +421,6 @@ const Dashboard = () => {
       resizeMode: 'contain',
       transform: [{ scale: 1.2 }],
     },
-    activeTabIcon: {
-      transform: [{ scale: 1.1 }],
-    },
     tabLabel: {
       fontSize: 10,
       color: theme.background,
@@ -475,10 +466,10 @@ const Dashboard = () => {
     },
     reportButton: {
       backgroundColor: '#D21414',
-      paddingHorizontal: 32,
-      paddingVertical: 16,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
       borderRadius: 12,
-      marginTop: 20,
+      marginTop: 10,
       marginBottom: 20,
       width: '70%',
       alignSelf: 'center',
@@ -499,11 +490,12 @@ const Dashboard = () => {
       textAlign: 'center',
     },
     reportsSection: {
-      marginTop: 30,
+      marginTop: 5,
       width: '100%',
       maxWidth: 400,
       flex: 1,
-      minHeight: 400,
+      minHeight: 700,
+      marginBottom: 0,
     },
     reportsSectionTitle: {
       fontSize: 20,
@@ -516,8 +508,10 @@ const Dashboard = () => {
       flex: 1,
       width: '100%',
       maxWidth: 400,
-      paddingTop: 20,
-      paddingBottom: 100,
+      paddingTop: 0,
+      paddingBottom: 10,
+      justifyContent: 'flex-start',
+      alignItems: 'center',
     },
     crimeListTabContainer: {
       flex: 1,

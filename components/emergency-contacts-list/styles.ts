@@ -193,7 +193,7 @@ export const createStyles = (theme: any) => StyleSheet.create({
   },
   floatingAddButton: {
     position: 'absolute',
-    bottom: 100, // Fixed distance from bottom of screen
+    bottom: 60, // Fixed distance from bottom of screen
     right: 20,
     width: 70,
     height: 70,
