@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { useAuth } from './authContext';
-import { notificationService } from './notificationService';
+import { NotificationService } from './notificationService';
 import { soundService } from './soundService';
 import { 
   NotificationSettings, 
@@ -19,6 +19,7 @@ interface NotificationContextType {
   clearAllNotifications: () => Promise<boolean>;
   refreshSettings: () => Promise<void>;
   getSOSAlerts: () => Promise<NotificationPayload[]>;
+  loadNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -37,6 +38,17 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     if (user) {
       loadNotificationSettings();
       loadNotifications();
+      // Set up real-time listener for notifications
+      const unsubscribe = NotificationService.getInstance().listenToNotifications(user.uid, (notifications) => {
+        console.log('NotificationContext: Real-time update received:', notifications.length);
+        setNotifications(notifications);
+      });
+      
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
     } else {
       setSettings(null);
       setNotifications([]);
@@ -44,36 +56,41 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   }, [user]);
 
-  const loadNotificationSettings = async () => {
+  const loadNotificationSettings = useCallback(async () => {
     if (!user) return;
     
     try {
       setIsLoading(true);
-      const userSettings = await notificationService.getUserNotificationSettings(user.uid);
+      const userSettings = await NotificationService.getInstance().getUserNotificationSettings(user.uid);
       setSettings(userSettings);
     } catch (error) {
       console.error('Error loading notification settings:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const loadNotifications = async () => {
-    if (!user) return;
+  const loadNotifications = useCallback(async () => {
+    if (!user) {
+      console.log('NotificationContext: No user, skipping notification load');
+      return;
+    }
     
     try {
-      const userNotifications = await notificationService.getUserNotifications(user.uid);
+      console.log('NotificationContext: Loading notifications for user:', user.uid);
+      const userNotifications = await NotificationService.getInstance().getUserNotifications(user.uid);
+      console.log('NotificationContext: Loaded notifications:', userNotifications.length);
       setNotifications(userNotifications);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('NotificationContext: Error loading notifications:', error);
     }
-  };
+  }, [user]);
 
   const updatePreferences = async (preferences: Partial<NotificationPreferences>): Promise<boolean> => {
     if (!user || !settings) return false;
     
     try {
-      const success = await notificationService.updateNotificationPreferences(user.uid, preferences);
+      const success = await NotificationService.getInstance().updateNotificationPreferences(user.uid, preferences);
       if (success) {
         await loadNotificationSettings(); // Refresh settings
       }
@@ -88,7 +105,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     if (!user) return false;
     
     try {
-      const success = await notificationService.sendNotification(user.uid, type as any, title, body, data);
+      const success = await NotificationService.getInstance().sendNotification(user.uid, type as any, title, body, data);
       
       // Play sound for SOS alerts
       if (type === 'sos' || title.toLowerCase().includes('sos') || body.toLowerCase().includes('emergency')) {
@@ -106,7 +123,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     if (!user) return false;
     
     try {
-      const success = await notificationService.markNotificationAsRead(user.uid, notificationId);
+      const success = await NotificationService.getInstance().markNotificationAsRead(user.uid, notificationId);
       if (success) {
         await loadNotifications(); // Refresh notifications
       }
@@ -121,7 +138,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     if (!user) return [];
     
     try {
-      return await notificationService.getSOSAlerts(user.uid);
+      return await NotificationService.getInstance().getSOSAlerts(user.uid);
     } catch (error) {
       console.error('Error getting SOS alerts:', error);
       return [];
@@ -132,7 +149,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     if (!user) return false;
     
     try {
-      const success = await notificationService.clearAllNotifications(user.uid);
+      const success = await NotificationService.getInstance().clearAllNotifications(user.uid);
       if (success) {
         setNotifications([]);
       }
@@ -143,10 +160,10 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   };
 
-  const refreshSettings = async (): Promise<void> => {
+  const refreshSettings = useCallback(async (): Promise<void> => {
     await loadNotificationSettings();
     await loadNotifications();
-  };
+  }, [loadNotificationSettings, loadNotifications]);
 
   const value: NotificationContextType = {
     settings,
@@ -158,6 +175,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     clearAllNotifications,
     refreshSettings,
     getSOSAlerts,
+    loadNotifications,
   };
 
   return (

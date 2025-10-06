@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Image,
+  Modal,
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { auth, database } from './firebaseConfig';
-import { ref, onValue, off } from 'firebase/database';
+import { ref as firebaseRef, onValue, off } from 'firebase/database';
 import { useTheme, colors } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 
@@ -18,20 +20,82 @@ interface CrimeListFromOthersProps {
   onViewReport?: (reportId: string) => void;
 }
 
-const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
+export interface CrimeListFromOthersRef {
+  openFilterModal: () => void;
+}
+
+const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthersProps>(({ onViewReport }, ref) => {
   const { isDarkMode } = useTheme();
   const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
   const [reports, setReports] = useState<CrimeReport[]>([]);
+  const [filteredReports, setFilteredReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [votingReports, setVotingReports] = useState<Set<string>>(new Set());
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
+  // Filter reports based on selected status
+  const filterReports = (reportsList: CrimeReport[], status: string) => {
+    if (status === 'all') {
+      return reportsList;
+    }
+    
+    // Status-based filters
+    if (['pending', 'received', 'in progress', 'resolved'].includes(status)) {
+      return reportsList.filter(report => report.status && report.status.toLowerCase() === status.toLowerCase());
+    }
+    
+    // Time-based filters
+    if (status === 'recent') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return reportsList.filter(report => {
+        const reportDate = new Date(report.createdAt);
+        return reportDate >= sevenDaysAgo;
+      });
+    }
+    
+    if (status === 'this_month') {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return reportsList.filter(report => {
+        const reportDate = new Date(report.createdAt);
+        return reportDate >= startOfMonth;
+      });
+    }
+    
+    // Severity-based filters
+    if (['immediate', 'high', 'moderate', 'low'].includes(status)) {
+      const severityMap: { [key: string]: string } = {
+        'immediate': 'Immediate',
+        'high': 'High',
+        'moderate': 'Moderate',
+        'low': 'Low'
+      };
+      return reportsList.filter(report => report.severity === severityMap[status]);
+    }
+    
+    return reportsList;
+  };
+
+  // Apply filter when reports or selectedStatus changes
+  useEffect(() => {
+    const filtered = filterReports(reports, selectedStatus);
+    setFilteredReports(filtered);
+  }, [reports, selectedStatus]);
+
+  // Expose filter modal control to parent
+  useImperativeHandle(ref, () => ({
+    openFilterModal: () => setShowFilterModal(true)
+  }));
 
   useEffect(() => {
     loadOtherUsersReports();
     
     // Set up real-time listener for status updates from all users
-    const allReportsRef = ref(database, 'civilian/civilian crime reports');
+    const allReportsRef = firebaseRef(database, 'civilian/civilian crime reports');
     
     const handleStatusChange = (snapshot: any) => {
       if (snapshot.exists()) {
@@ -63,10 +127,19 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
             }
           });
           
-          // Sort by date (newest first)
-          otherUsersReports.sort((a, b) => 
-            new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-          );
+          // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
+          otherUsersReports.sort((a, b) => {
+            const upvotesA = a.upvotes || 0;
+            const upvotesB = b.upvotes || 0;
+            
+            // First sort by upvotes (descending)
+            if (upvotesA !== upvotesB) {
+              return upvotesB - upvotesA;
+            }
+            
+            // If upvotes are equal, sort by date (newest first)
+            return new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime();
+          });
           
           setReports(otherUsersReports);
         }
@@ -113,6 +186,20 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
         )
       );
       console.log('Other users verified crime reports:', otherUsersReports.length);
+      
+      // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
+      otherUsersReports.sort((a, b) => {
+        const upvotesA = a.upvotes || 0;
+        const upvotesB = b.upvotes || 0;
+        
+        // First sort by upvotes (descending)
+        if (upvotesA !== upvotesB) {
+          return upvotesB - upvotesA;
+        }
+        
+        // If upvotes are equal, sort by date (newest first)
+        return new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime();
+      });
       
       setReports(otherUsersReports);
     } catch (error) {
@@ -302,7 +389,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
       alignItems: 'center',
     },
     voteButton: {
-      flex: 1,
+      flex: 0.4,
       padding: 8,
       marginHorizontal: 4,
       borderRadius: 6,
@@ -310,6 +397,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
       borderColor: theme.border,
       backgroundColor: theme.background,
       alignItems: 'center',
+      maxWidth: 80,
     },
     voteButtonActive: {
       backgroundColor: theme.primary,
@@ -322,6 +410,80 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
     },
     voteButtonTextActive: {
       color: 'white',
+    },
+    voteButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    voteIcon: {
+      width: 16,
+      height: 16,
+      marginRight: 4,
+    },
+    headerContainer: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+    },
+    filterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 6,
+    },
+    filterIcon: {
+      width: 20,
+      height: 20,
+      marginRight: 6,
+    },
+    filterButtonText: {
+      color: '#374151',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContainer: {
+      width: '80%',
+      maxWidth: 300,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    closeButton: {
+      padding: 4,
+    },
+    closeButtonText: {
+      fontSize: 24,
+      fontWeight: 'bold',
+    },
+    filterOptions: {
+      paddingVertical: 8,
+    },
+    filterOption: {
+      padding: 16,
+      borderBottomWidth: 1,
+    },
+    filterOptionText: {
+      fontSize: 16,
+      fontWeight: '500',
     },
   });
 
@@ -409,12 +571,19 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
             onPress={() => handleVote(item.reportId || '', 'upvote')}
             disabled={votingReports.has(item.reportId || '')}
           >
-            <Text style={[
-              styles.voteButtonText,
-              getUserVote(item) === 'upvote' && styles.voteButtonTextActive
-            ]}>
-              👍 {item.upvotes || 0}
-            </Text>
+            <View style={styles.voteButtonContent}>
+              <Image 
+                source={require('./assets/upvote.png')} 
+                style={styles.voteIcon}
+                resizeMode="contain"
+              />
+              <Text style={[
+                styles.voteButtonText,
+                getUserVote(item) === 'upvote' && styles.voteButtonTextActive
+              ]}>
+                {item.upvotes || 0}
+              </Text>
+            </View>
           </TouchableOpacity>
           
           <TouchableOpacity
@@ -425,12 +594,19 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
             onPress={() => handleVote(item.reportId || '', 'downvote')}
             disabled={votingReports.has(item.reportId || '')}
           >
-            <Text style={[
-              styles.voteButtonText,
-              getUserVote(item) === 'downvote' && styles.voteButtonTextActive
-            ]}>
-              👎 {item.downvotes || 0}
-            </Text>
+            <View style={styles.voteButtonContent}>
+              <Image 
+                source={require('./assets/downvote.png')} 
+                style={styles.voteIcon}
+                resizeMode="contain"
+              />
+              <Text style={[
+                styles.voteButtonText,
+                getUserVote(item) === 'downvote' && styles.voteButtonTextActive
+              ]}>
+                {item.downvotes || 0}
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </View>
@@ -457,7 +633,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
     );
   }
 
-  if (reports.length === 0) {
+  if (filteredReports.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>{t('crimeList.noReports')}</Text>
@@ -471,7 +647,7 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
   return (
     <View style={styles.listContainer}>
       <FlatList
-        data={reports}
+        data={filteredReports}
         renderItem={renderReportCard}
         keyExtractor={(item) => item.reportId || item.createdAt}
         style={styles.list}
@@ -481,8 +657,66 @@ const CrimeListFromOthers = ({ onViewReport }: CrimeListFromOthersProps) => {
         refreshing={isLoading}
         nestedScrollEnabled={true}
       />
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Filter Reports</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.closeButton}>
+                <Text style={[styles.closeButtonText, { color: theme.secondaryText }]}>×</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.filterOptions}>
+              {[
+                { key: 'all', label: 'All Reports' },
+                { key: 'pending', label: 'Pending' },
+                { key: 'received', label: 'Received' },
+                { key: 'in progress', label: 'In Progress' },
+                { key: 'resolved', label: 'Resolved' },
+                { key: 'recent', label: 'Recent (7 days)' },
+                { key: 'this_month', label: 'This Month' },
+                { key: 'immediate', label: 'Immediate' },
+                { key: 'high', label: 'High Priority' },
+                { key: 'moderate', label: 'Moderate' },
+                { key: 'low', label: 'Low Priority' }
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.filterOption,
+                    { borderBottomColor: theme.border },
+                    selectedStatus === option.key && { backgroundColor: theme.primary }
+                  ]}
+                  onPress={() => {
+                    setSelectedStatus(option.key);
+                    setShowFilterModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.filterOptionText,
+                    { color: theme.text },
+                    selectedStatus === option.key && { color: 'white' }
+                  ]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
-};
+});
+
+CrimeListFromOthers.displayName = 'CrimeListFromOthers';
 
 export default CrimeListFromOthers;

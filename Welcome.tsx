@@ -98,6 +98,7 @@ const Welcome = () => {
             fontSize: 18, 
             fontWeight: '600',
             letterSpacing: 0.5,
+            textAlign: 'center',
           }}>
             Sign up
           </Text>
@@ -128,6 +129,7 @@ const Welcome = () => {
             fontSize: 18, 
             fontWeight: '600',
             letterSpacing: 0.5,
+            textAlign: 'center',
           }}>
             Log in
           </Text>

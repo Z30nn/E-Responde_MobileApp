@@ -1,5 +1,5 @@
 {
-  "name": "MobileApp",
+  "name": "E-Responde",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -23,7 +23,7 @@
     "expo-sensors": "^15.0.7",
     "expo-splash-screen": "^0.30.10",
     "expo-status-bar": "^2.2.3",
-    "firebase": "^12.1.0",
+    "firebase": "^12.3.0",
     "react": "19.1.0",
     "react-native": "0.80.2",
     "react-native-image-picker": "^5.7.0",

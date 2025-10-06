@@ -18,6 +18,7 @@ export const createStyles = (theme: any) => StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
     backgroundColor: theme.menuBackground,
+    marginTop: 40,
   },
   title: {
     fontWeight: '700',

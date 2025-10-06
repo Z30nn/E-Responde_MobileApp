@@ -88,6 +88,7 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
     }
   };
 
+
   const handleDeleteContact = () => {
     if (selectedContact) {
       Alert.alert(
@@ -184,9 +185,6 @@ const EmergencyContactsList: React.FC<EmergencyContactsListProps> = ({ userId })
       <Text style={[styles.emptyStateText, { color: theme.secondaryText, fontSize: fonts.body }]}>
         {t('emergency.noContactsDesc')}
       </Text>
-      <TouchableOpacity style={[styles.addFirstButton, { backgroundColor: theme.primary }]} onPress={handleAddContact}>
-        <Text style={[styles.addFirstButtonText, { fontSize: fonts.body }]}>{t('emergency.addFirstContact')}</Text>
-      </TouchableOpacity>
     </View>
   );
 

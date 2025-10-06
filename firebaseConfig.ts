@@ -3,7 +3,6 @@ import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 // Your Firebase configuration
-// Replace these values with your actual Firebase project configuration
 const firebaseConfig = {
     apiKey: "AIzaSyBZzn8kYUjqTo1-Wpu9vT4jZ9-UB2BDL4Y",
     authDomain: "e-responde.firebaseapp.com",

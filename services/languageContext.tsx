@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ref, get, set } from 'firebase/database';
+import { database } from '../firebaseConfig';
 
 type LanguageType = 'en' | 'fil';
 
@@ -53,10 +55,10 @@ const translations = {
     'notifications.enableCrimeReportsDesc': 'Receive notifications about crime reports',
     'notifications.newReports': 'New Crime Reports',
     'notifications.newReportsDesc': 'Get notified when other users publish crime reports',
-    'notifications.reportSolved': 'Report Solved',
-    'notifications.reportSolvedDesc': 'Get notified when your crime report is solved',
+    'notifications.reportSolved': 'Report Resolved',
+    'notifications.reportSolvedDesc': 'Get notified when your crime report is resolved',
     'notifications.reportUpdated': 'Report Updated',
-    'notifications.reportUpdatedDesc': 'Get notified when your crime report status is updated',
+    'notifications.reportUpdatedDesc': 'Get notified when your report status changes to received or in progress',
     'notifications.enableEmergency': 'Enable Emergency Notifications',
     'notifications.enableEmergencyDesc': 'Receive emergency-related notifications',
     'notifications.sosAlerts': 'SOS Alerts',
@@ -72,8 +74,19 @@ const translations = {
     'notifications.endTime': 'End Time',
     'notifications.updateFailed': 'Failed to update notification settings',
     'notifications.loadError': 'Failed to load notification settings',
-    'notifications.reportSubmitted': 'Crime Report Submitted',
-    'notifications.reportSubmittedDesc': 'Your crime report has been submitted successfully and is under review.',
+    'notifications.reportSubmitted': 'Report Submitted Confirmation',
+    'notifications.reportSubmittedDesc': 'Get notified when you submit a crime report',
+    'notifications.loading': 'Loading notifications...',
+    'notifications.empty': 'No notifications yet',
+    'notifications.markAllRead': 'Mark all as read',
+    'notifications.reportResolved': 'Report Resolved',
+    'notifications.reportResolvedBody': 'Your report "{title}" has been resolved!',
+    'notifications.reportResolvedBodyGeneric': 'Your crime report has been resolved!',
+    'notifications.reportStatusUpdated': 'Report Status Updated',
+    'notifications.reportStatusUpdatedBody': 'Your report "{title}" status has been updated to {status}',
+    'notifications.reportStatusUpdatedBodyGeneric': 'Your crime report status has been updated to {status}',
+    'notifications.reportStatusChangedBody': 'Your report "{title}" status has been updated from {oldStatus} to {newStatus}',
+    'notifications.reportStatusChangedBodyGeneric': 'Your crime report status has been updated from {oldStatus} to {newStatus}',
 
     // Navigation
     'nav.home': 'Home',
@@ -198,7 +211,7 @@ const translations = {
     // Messages
     'message.passwordChanged': 'Password changed successfully',
     'message.passwordResetSent': 'Password reset email sent',
-    'message.reportSubmitted': 'Crime report submitted successfully',
+    'message.reportSubmitted': 'Your crime report has been submitted successfully. Tap to view details.',
     'message.loginSuccess': 'Login successful',
     'message.logoutSuccess': 'Logout successful',
     'message.errorOccurred': 'An error occurred',
@@ -274,6 +287,20 @@ const translations = {
     'emergency.sosTriggeredBy': 'An SOS was triggered by',
     'emergency.near': 'Near',
     'emergency.sosAlertInfo': 'SOS Alert Information',
+    'emergency.from': 'From',
+    'emergency.senderPhone': 'Sender Phone',
+    'emergency.date': 'Date',
+    'emergency.time': 'Time',
+    'emergency.location': 'Location',
+    'emergency.coordinates': 'Coordinates',
+    'emergency.locationNotAvailable': 'Location not available',
+    'emergency.unknown': 'Unknown',
+    'emergency.cleanOldAlerts': 'Clean Old SOS Alerts',
+    'emergency.cleanOldAlertsDesc': 'This will remove {count} SOS alerts older than 1 week. Continue?',
+    'emergency.cleanUp': 'Clean Up',
+    'emergency.noOldAlerts': 'No Old Alerts',
+    'emergency.noOldAlertsDesc': 'No SOS alerts older than 1 week were found.',
+    'emergency.alertsOlderThanWeek': '{count} alerts older than 1 week',
     'emergency.whatIsSosAlert': 'What is SOS Alert?',
     'emergency.whatIsSosAlertDesc': 'The SOS Alert feature allows you to quickly send emergency notifications to your trusted contacts when you feel unsafe or need immediate assistance.',
     'emergency.howToUse': 'How to Use',
@@ -325,11 +352,13 @@ const translations = {
     'notifications.reportSolved': 'Nalutas na ang Report',
     'notifications.reportSolvedDesc': 'Makatanggap ng notification kapag nalutas na ang inyong crime report',
     'notifications.reportUpdated': 'Na-update ang Report',
-    'notifications.reportUpdatedDesc': 'Makatanggap ng notification kapag na-update ang status ng inyong crime report',
+    'notifications.reportUpdatedDesc': 'Makatanggap ng notification kapag ang status ng inyong report ay nagiging received o in progress',
     'notifications.enableEmergency': 'I-enable ang Emergency Notifications',
     'notifications.enableEmergencyDesc': 'Tumanggap ng mga notification na may kinalaman sa emergency',
     'notifications.sosAlerts': 'Mga SOS Alert',
     'notifications.sosAlertsDesc': 'Makatanggap ng notification kapag may nag-send ng SOS na may inyo bilang primary contact',
+    'notifications.primaryContactAdded': 'Primary Contact Added',
+    'notifications.primaryContactAddedDesc': 'Makatanggap ng notification kapag may nag-add sa inyo bilang primary contact',
     'notifications.pushNotifications': 'Push Notifications',
     'notifications.pushNotificationsDesc': 'I-enable ang push notifications sa inyong device',
     'notifications.emailNotifications': 'Email Notifications',
@@ -341,8 +370,19 @@ const translations = {
     'notifications.endTime': 'Oras ng Tapos',
     'notifications.updateFailed': 'Hindi na-update ang notification settings',
     'notifications.loadError': 'Hindi na-load ang notification settings',
-    'notifications.reportSubmitted': 'Na-submit na ang Crime Report',
-    'notifications.reportSubmittedDesc': 'Matagumpay na na-submit ang inyong crime report at kasalukuyang sinusuri.',
+    'notifications.reportSubmitted': 'Kumpirmasyon ng Naipasang Report',
+    'notifications.reportSubmittedDesc': 'Makatanggap ng notification kapag kayo ay nag-submit ng crime report',
+    'notifications.loading': 'Naglo-load ng mga notification...',
+    'notifications.empty': 'Wala pang mga notification',
+    'notifications.markAllRead': 'Markahan lahat bilang nabasa',
+    'notifications.reportResolved': 'Nalutas na ang Report',
+    'notifications.reportResolvedBody': 'Nalutas na ang inyong report na "{title}"!',
+    'notifications.reportResolvedBodyGeneric': 'Nalutas na ang inyong crime report!',
+    'notifications.reportStatusUpdated': 'Na-update ang Status ng Report',
+    'notifications.reportStatusUpdatedBody': 'Na-update ang status ng inyong report na "{title}" sa {status}',
+    'notifications.reportStatusUpdatedBodyGeneric': 'Na-update ang status ng inyong crime report sa {status}',
+    'notifications.reportStatusChangedBody': 'Na-update ang status ng inyong report na "{title}" mula {oldStatus} patungong {newStatus}',
+    'notifications.reportStatusChangedBodyGeneric': 'Na-update ang status ng inyong crime report mula {oldStatus} patungong {newStatus}',
 
     // Navigation
     'nav.home': 'Home',
@@ -467,7 +507,7 @@ const translations = {
     // Messages
     'message.passwordChanged': 'Matagumpay na napalitan ang password',
     'message.passwordResetSent': 'Naipadala ang email para sa pag-reset ng password',
-    'message.reportSubmitted': 'Matagumpay na naipasa ang ulat ng krimen',
+    'message.reportSubmitted': 'Matagumpay na naipasa ang inyong ulat ng krimen. I-tap para makita ang detalye.',
     'message.loginSuccess': 'Matagumpay na nag-login',
     'message.logoutSuccess': 'Matagumpay na nag-logout',
     'message.errorOccurred': 'May naganap na error',
@@ -543,6 +583,20 @@ const translations = {
     'emergency.sosTriggeredBy': 'Ang SOS ay na-trigger ni',
     'emergency.near': 'Malapit sa',
     'emergency.sosAlertInfo': 'Impormasyon ng SOS Alert',
+    'emergency.from': 'Mula kay',
+    'emergency.senderPhone': 'Numero ng Nagpadala',
+    'emergency.date': 'Petsa',
+    'emergency.time': 'Oras',
+    'emergency.location': 'Lokasyon',
+    'emergency.coordinates': 'Mga Coordinate',
+    'emergency.locationNotAvailable': 'Hindi available ang lokasyon',
+    'emergency.unknown': 'Hindi kilala',
+    'emergency.cleanOldAlerts': 'Linisin ang mga Lumang SOS Alert',
+    'emergency.cleanOldAlertsDesc': 'Ito ay magtatanggal ng {count} na SOS alerts na mas matanda sa 1 linggo. Ituloy?',
+    'emergency.cleanUp': 'Linisin',
+    'emergency.noOldAlerts': 'Walang Lumang Alerts',
+    'emergency.noOldAlertsDesc': 'Walang nahanap na SOS alerts na mas matanda sa 1 linggo.',
+    'emergency.alertsOlderThanWeek': '{count} na alerts na mas matanda sa 1 linggo',
     'emergency.whatIsSosAlert': 'Ano ang SOS Alert?',
     'emergency.whatIsSosAlertDesc': 'Ang SOS Alert feature ay nagbibigay-daan sa inyo na mabilis na magpadala ng emergency notifications sa inyong mga pinagkakatiwalaang contact kapag pakiramdam ninyo ay hindi ligtas o kailangan ninyo ng agarang tulong.',
     'emergency.howToUse': 'Paano Gamitin',
@@ -575,12 +629,36 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const loadLanguage = async (userId: string) => {
     try {
+      // First try to load from Firebase
+      const userRef = ref(database, `civilian/civilian account/${userId}`);
+      const userSnapshot = await get(userRef);
+      
+      if (userSnapshot.exists()) {
+        const userData = userSnapshot.val();
+        if (userData.language) {
+          setLanguageState(userData.language as LanguageType);
+          // Also save to AsyncStorage for offline access
+          await AsyncStorage.setItem(`language_${userId}`, userData.language);
+          return;
+        }
+      }
+      
+      // Fallback to AsyncStorage if no Firebase data
       const savedLanguage = await AsyncStorage.getItem(`language_${userId}`);
       if (savedLanguage) {
         setLanguageState(savedLanguage as LanguageType);
       }
     } catch (error) {
       console.error('Error loading language:', error);
+      // Fallback to AsyncStorage on error
+      try {
+        const savedLanguage = await AsyncStorage.getItem(`language_${userId}`);
+        if (savedLanguage) {
+          setLanguageState(savedLanguage as LanguageType);
+        }
+      } catch (storageError) {
+        console.error('Error loading language from storage:', storageError);
+      }
     }
   };
 
@@ -589,7 +667,12 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     setLanguageState(newLanguage);
     try {
+      // Save to AsyncStorage for offline access
       await AsyncStorage.setItem(`language_${currentUserId}`, newLanguage);
+      
+      // Save to Firebase for cross-device sync
+      const userRef = ref(database, `civilian/civilian account/${currentUserId}/language`);
+      await set(userRef, newLanguage);
     } catch (error) {
       console.error('Error saving language:', error);
     }
