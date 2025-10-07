@@ -11,19 +11,76 @@ import {
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { auth, database } from './firebaseConfig';
 import { ref, onValue, off } from 'firebase/database';
-import { useTheme, colors } from './services/themeContext';
+import { useTheme, colors, fontSizes } from './services/themeContext';
+// import { notificationService } from './services/notificationService'; // Removed to avoid duplicate notifications
 
 interface CrimeReportsListProps {
   onViewReport: (reportId: string) => void;
+  selectedStatus?: string;
 }
 
-const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
-  const { isDarkMode } = useTheme();
+const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReportsListProps) => {
+  const { isDarkMode, fontSize } = useTheme();
   const theme = isDarkMode ? colors.dark : colors.light;
+  const fonts = fontSizes[fontSize];
   const [reports, setReports] = useState<CrimeReport[]>([]);
+  const [filteredReports, setFilteredReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // const [previousReports, setPreviousReports] = useState<{[key: string]: CrimeReport}>({}); // Removed to avoid duplicate notifications
+
+  // Filter reports based on selected status
+  const filterReports = (reportsList: CrimeReport[], status: string) => {
+    if (status === 'all') {
+      return reportsList;
+    }
+    
+    // Status-based filters
+    if (['pending', 'received', 'in progress', 'resolved'].includes(status)) {
+      return reportsList.filter(report => report.status && report.status.toLowerCase() === status.toLowerCase());
+    }
+    
+    // Time-based filters
+    if (status === 'recent') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return reportsList.filter(report => {
+        const reportDate = new Date(report.createdAt);
+        return reportDate >= sevenDaysAgo;
+      });
+    }
+    
+    if (status === 'this_month') {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return reportsList.filter(report => {
+        const reportDate = new Date(report.createdAt);
+        return reportDate >= startOfMonth;
+      });
+    }
+    
+    // Severity-based filters
+    if (['immediate', 'high', 'moderate', 'low'].includes(status)) {
+      const severityMap: { [key: string]: string } = {
+        'immediate': 'Immediate',
+        'high': 'High',
+        'moderate': 'Moderate',
+        'low': 'Low'
+      };
+      return reportsList.filter(report => report.severity === severityMap[status]);
+    }
+    
+    return reportsList;
+  };
+
+  // Apply filter when reports or selectedStatus changes
+  useEffect(() => {
+    const filtered = filterReports(reports, selectedStatus);
+    setFilteredReports(filtered);
+  }, [reports, selectedStatus]);
+
+  // Note: Status change monitoring is handled by Dashboard.tsx to avoid duplicate notifications
 
   useEffect(() => {
     loadUserReports();
@@ -31,21 +88,16 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
     // Set up real-time listener for status updates
     const currentUser = auth.currentUser;
     if (currentUser) {
+      
       const reportsRef = ref(database, `civilian/civilian account/${currentUser.uid}/crime reports`);
       
       const handleStatusChange = (snapshot: any) => {
-        console.log('CrimeReportsList: Real-time update detected');
         if (snapshot.exists()) {
           const reportsData = snapshot.val();
-          console.log('CrimeReportsList: Reports data updated:', reportsData);
-          const reportsArray = Object.keys(reportsData).map(key => {
-            const report = {
-              ...reportsData[key],
-              reportId: key
-            };
-            console.log('CrimeReportsList: Report status:', key, report.status);
-            return report;
-          });
+          const reportsArray = Object.keys(reportsData).map(key => ({
+            ...reportsData[key],
+            reportId: key
+          }));
           
           // Sort by creation date (newest first)
           const sortedReports = reportsArray.sort((a, b) => 
@@ -53,47 +105,17 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
           );
           setReports(sortedReports);
         } else {
-          console.log('CrimeReportsList: No reports found');
           setReports([]);
         }
       };
       
       onValue(reportsRef, handleStatusChange);
       
-      // Also listen to the main civilian crime reports path to catch admin updates
-      const allReportsRef = ref(database, 'civilian/civilian crime reports');
-      const handleAllReportsChange = (snapshot: any) => {
-        console.log('CrimeReportsList: All reports update detected');
-        if (snapshot.exists()) {
-          const allReportsData = snapshot.val();
-          console.log('CrimeReportsList: All reports data:', allReportsData);
-          // Filter reports for current user
-          const userReports: CrimeReport[] = [];
-          Object.keys(allReportsData).forEach(reportId => {
-            const report = allReportsData[reportId];
-            if (report.reporterUid === currentUser.uid) {
-              userReports.push({
-                ...report,
-                reportId: reportId
-              });
-            }
-          });
-          console.log('CrimeReportsList: User reports from all reports:', userReports);
-          
-          // Sort by creation date (newest first)
-          const sortedReports = userReports.sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-          setReports(sortedReports);
-        }
-      };
-      
-      onValue(allReportsRef, handleAllReportsChange);
+      // Note: Status change monitoring removed to avoid duplicate notifications with Dashboard
       
       // Cleanup listeners on unmount
       return () => {
         off(reportsRef, 'value', handleStatusChange);
-        off(allReportsRef, 'value', handleAllReportsChange);
       };
     }
   }, []);
@@ -118,6 +140,8 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
       const userReports = await FirebaseService.getUserCrimeReports(currentUser.uid);
       console.log('Loaded crime reports:', userReports.length, userReports);
       setReports(userReports);
+      
+      // Status change monitoring removed to avoid duplicate notifications with Dashboard
     } catch (error) {
       console.error('Error loading crime reports:', error);
       setError('Failed to load crime reports');
@@ -210,7 +234,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
       marginBottom: 8,
     },
     crimeType: {
-      fontSize: 18,
+      fontSize: fonts.subtitle,
       fontWeight: 'bold',
       color: isDarkMode ? '#f8f9ed' : theme.primary,
       flex: 1,
@@ -224,20 +248,20 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
     },
     statusText: {
       color: '#FFFFFF',
-      fontSize: 12,
+      fontSize: fonts.caption,
       fontWeight: '600',
       textAlign: 'center',
       textTransform: 'capitalize',
     },
     dateTime: {
-      fontSize: 14,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       fontStyle: 'italic',
     },
     description: {
-      fontSize: 16,
+      fontSize: fonts.body,
       color: theme.text,
-      lineHeight: 22,
+      lineHeight: fonts.body + 6,
       marginBottom: 16,
     },
     cardFooter: {
@@ -246,12 +270,12 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
       alignItems: 'center',
     },
     location: {
-      fontSize: 14,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       flex: 1,
     },
     reporter: {
-      fontSize: 14,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       fontStyle: 'italic',
       textAlign: 'right',
@@ -262,7 +286,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
     },
     loadingText: {
       marginTop: 16,
-      fontSize: 16,
+      fontSize: fonts.body,
       color: theme.secondaryText,
     },
     errorContainer: {
@@ -270,7 +294,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
       padding: 40,
     },
     errorText: {
-      fontSize: 16,
+      fontSize: fonts.body,
       color: '#EF4444',
       textAlign: 'center',
       marginBottom: 16,
@@ -283,7 +307,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
     },
     retryButtonText: {
       color: theme.background,
-      fontSize: 14,
+      fontSize: fonts.caption,
       fontWeight: '600',
     },
     emptyContainer: {
@@ -291,16 +315,16 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
       padding: 40,
     },
     emptyText: {
-      fontSize: 18,
+      fontSize: fonts.subtitle,
       color: theme.secondaryText,
       fontWeight: '600',
       marginBottom: 8,
     },
     emptySubtext: {
-      fontSize: 14,
+      fontSize: fonts.caption,
       color: theme.secondaryText,
       textAlign: 'center',
-      lineHeight: 20,
+      lineHeight: fonts.caption + 6,
     },
   });
 
@@ -347,7 +371,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={loadUserReports}>
+        <TouchableOpacity style={styles.retryButton} onPress={() => loadUserReports()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -368,7 +392,7 @@ const CrimeReportsList = ({ onViewReport }: CrimeReportsListProps) => {
   return (
     <View style={styles.listContainer}>
       <FlatList
-        data={reports}
+        data={filteredReports}
         renderItem={renderReportCard}
         keyExtractor={(item) => item.reportId || item.createdAt}
         style={styles.list}

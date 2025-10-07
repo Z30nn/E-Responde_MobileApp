@@ -550,16 +550,18 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         severity: formData.severity || 'Low',
       };
 
-      // Submit to Firebase
-      await FirebaseService.submitCrimeReport(crimeReport);
+      // Submit to Firebase and get the report ID
+      const reportId = await FirebaseService.submitCrimeReport(crimeReport);
 
       // Send confirmation notification to the user
-      await sendNotification(
-        'crime_report_new',
-        t('notifications.reportSubmitted') || 'Crime Report Submitted',
-        t('notifications.reportSubmittedDesc') || 'Your crime report has been submitted successfully and is under review.',
-        { reportId: crimeReport.reporterUid, crimeType: crimeReport.crimeType }
+      console.log('CrimeReportForm: Sending confirmation notification for report:', reportId);
+      const notificationSent = await sendNotification(
+        'crime_report_submitted',
+        'Crime Report Submitted',
+        'Your crime report has been submitted successfully and is under review. Tap to view details.',
+        { reportId, crimeType: crimeReport.crimeType }
       );
+      console.log('CrimeReportForm: Notification sent result:', notificationSent);
 
       Alert.alert('Success', 'Crime report submitted successfully!', [
         {
@@ -609,6 +611,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: 20,
+      marginTop: 40,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
       backgroundColor: theme.menuBackground,
@@ -792,6 +795,22 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       borderBottomRightRadius: 8,
       zIndex: 1000,
       elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    crimeTypeDropdownList: {
+      position: 'absolute',
+      top: 120, // Position it to overlay above severity field
+      left: 20, // Match the form padding
+      right: 20, // Match the form padding
+      backgroundColor: theme.background,
+      borderWidth: 1,
+      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.3)' : theme.border,
+      borderRadius: 8,
+      zIndex: 4000, // Much higher z-index to ensure it appears above everything
+      elevation: 20,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
@@ -999,38 +1018,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               </Text>
             </TouchableOpacity>
             
-            {/* Dropdown List */}
-            {showCrimeTypeDropdown && (
-              <>
-                <TouchableOpacity 
-                  style={styles.dropdownOverlay}
-                  activeOpacity={1}
-                  onPress={() => setShowCrimeTypeDropdown(false)}
-                />
-                <View style={styles.dropdownList}>
-                  {crimeTypes.map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[
-                        styles.dropdownItem,
-                        formData.crimeType === type && styles.selectedDropdownItem
-                      ]}
-                      onPress={() => {
-                        setFormData(prev => ({ ...prev, crimeType: type }));
-                        setShowCrimeTypeDropdown(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.dropdownItemText,
-                        formData.crimeType === type && styles.selectedDropdownItemText
-                      ]}>
-                        {type}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
           </View>
         </View>
 
@@ -1221,6 +1208,38 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Crime Type Dropdown - Positioned outside form to overlay above severity */}
+      {showCrimeTypeDropdown && (
+        <>
+          <TouchableOpacity 
+            style={[styles.dropdownOverlay, { zIndex: 2999, elevation: 14 }]}
+            onPress={() => setShowCrimeTypeDropdown(false)}
+          />
+          <View style={styles.crimeTypeDropdownList}>
+            {crimeTypes.map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.dropdownItem,
+                  formData.crimeType === type && styles.selectedDropdownItem
+                ]}
+                onPress={() => {
+                  setFormData(prev => ({ ...prev, crimeType: type }));
+                  setShowCrimeTypeDropdown(false);
+                }}
+              >
+                <Text style={[
+                  styles.dropdownItemText,
+                  formData.crimeType === type && styles.selectedDropdownItemText
+                ]}>
+                  {type}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
 
       {/* Date/Time Pickers */}
       {showDatePicker && (

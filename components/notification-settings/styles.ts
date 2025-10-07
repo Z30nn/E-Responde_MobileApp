@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
+import { ThemeColors, FontSizes } from '../../services/themeContext';
 
-export const createStyles = (theme: any) => StyleSheet.create({
+export const createStyles = (theme: ThemeColors, fonts: FontSizes) => StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
@@ -9,13 +10,13 @@ export const createStyles = (theme: any) => StyleSheet.create({
     marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: fonts.title + 6,
     fontWeight: 'bold',
     marginBottom: 8,
     color: theme.text,
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: fonts.body,
     lineHeight: 22,
     color: theme.secondaryText,
   },
@@ -34,7 +35,7 @@ export const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: theme.menuBackground,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: fonts.subtitle,
     fontWeight: '600',
     marginBottom: 16,
     color: theme.text,
@@ -52,13 +53,13 @@ export const createStyles = (theme: any) => StyleSheet.create({
     marginRight: 16,
   },
   settingLabel: {
-    fontSize: 16,
+    fontSize: fonts.body,
     fontWeight: '500',
     marginBottom: 4,
     color: theme.text,
   },
   settingDescription: {
-    fontSize: 14,
+    fontSize: fonts.caption,
     lineHeight: 18,
     color: theme.secondaryText,
   },
@@ -69,18 +70,18 @@ export const createStyles = (theme: any) => StyleSheet.create({
     alignItems: 'center',
   },
   quietHoursButtonText: {
-    fontSize: 14,
+    fontSize: fonts.caption,
     fontWeight: '500',
     color: theme.primary,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: fonts.body,
     textAlign: 'center',
     marginTop: 50,
     color: theme.secondaryText,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: fonts.body,
     textAlign: 'center',
     marginTop: 50,
     color: '#FF6B6B',

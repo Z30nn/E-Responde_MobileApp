@@ -10,7 +10,7 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { useTheme, colors } from '../../services/themeContext';
+import { useTheme, colors, fontSizes } from '../../services/themeContext';
 import { useLanguage } from '../../services/languageContext';
 import { useNotification } from '../../services/notificationContext';
 import { NotificationPreferences } from '../../services/types/notification-types';
@@ -22,7 +22,8 @@ const NotificationSettings: React.FC = () => {
   const { settings, isLoading, updatePreferences } = useNotification();
   const [localPreferences, setLocalPreferences] = useState<NotificationPreferences | null>(null);
   const theme = isDarkMode ? colors.dark : colors.light;
-  const styles = createStyles(theme);
+  const fonts = fontSizes[fontSize];
+  const styles = createStyles(theme, fonts);
 
   useEffect(() => {
     if (settings) {
@@ -131,7 +132,7 @@ const NotificationSettings: React.FC = () => {
         t('notifications.crimeReports'),
         'crimeReports',
         [
-          { key: 'enabled', label: t('notifications.enableCrimeReports'), description: t('notifications.enableCrimeReportsDesc') },
+          { key: 'reportSubmitted', label: t('notifications.reportSubmitted'), description: t('notifications.reportSubmittedDesc') },
           { key: 'newReports', label: t('notifications.newReports'), description: t('notifications.newReportsDesc') },
           { key: 'reportSolved', label: t('notifications.reportSolved'), description: t('notifications.reportSolvedDesc') },
           { key: 'reportUpdated', label: t('notifications.reportUpdated'), description: t('notifications.reportUpdatedDesc') },
@@ -139,40 +140,8 @@ const NotificationSettings: React.FC = () => {
       )}
 
       {/* Emergency Section */}
-      {renderSection(
-        t('notifications.emergency'),
-        'emergency',
-        [
-          { key: 'enabled', label: t('notifications.enableEmergency'), description: t('notifications.enableEmergencyDesc') },
-          { key: 'sosAlerts', label: t('notifications.sosAlerts'), description: t('notifications.sosAlertsDesc') },
-        ]
-      )}
 
 
-      {/* Delivery Settings Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          {t('notifications.delivery')}
-        </Text>
-        
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>
-              {t('notifications.emailNotifications')}
-            </Text>
-            <Text style={styles.settingDescription}>
-              {t('notifications.emailNotificationsDesc')}
-            </Text>
-          </View>
-          <Switch
-            value={localPreferences.delivery.emailNotifications}
-            onValueChange={(value) => handlePreferenceChange('delivery', 'emailNotifications', value)}
-            trackColor={{ false: '#767577', true: '#1E3A8A' }}
-            thumbColor={localPreferences.delivery.emailNotifications ? '#FFFFFF' : '#F4F3F4'}
-          />
-        </View>
-
-      </View>
     </ScrollView>
   );
 };

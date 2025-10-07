@@ -43,9 +43,11 @@ interface SOSAlert {
 
 interface SOSAlertsHistoryProps {
   userId: string;
+  selectedAlertId?: string | null;
+  onAlertSelected?: (alertId: string | null) => void;
 }
 
-const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
+const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId, selectedAlertId, onAlertSelected }) => {
   const [sosAlerts, setSosAlerts] = useState<SOSAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,7 +66,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
     if (!userId) return;
 
     console.log('SOSAlertsHistory: Setting up real-time listener for user:', userId);
-    console.log('SOSAlertsHistory: Database path:', `notifications/${userId}`);
+    console.log('SOSAlertsHistory: Database path:', `civilian/civilian account/${userId}/notifications`);
     
     // Set up authentication state listener
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -93,7 +95,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
         setLoading(true);
 
     // Set up real-time listener for notifications
-    const notificationsRef = ref(database, `notifications/${userId}`);
+    const notificationsRef = ref(database, `civilian/civilian account/${userId}/notifications`);
     
     const unsubscribe = onValue(notificationsRef, (snapshot) => {
       try {
@@ -244,7 +246,21 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
   const closeDetailsModal = () => {
     setShowDetailsModal(false);
     setSelectedAlert(null);
+    if (onAlertSelected) {
+      onAlertSelected(null);
+    }
   };
+
+  // Handle selectedAlertId prop changes
+  useEffect(() => {
+    if (selectedAlertId && sosAlerts.length > 0) {
+      const alert = sosAlerts.find(alert => alert.id === selectedAlertId);
+      if (alert) {
+        setSelectedAlert(alert);
+        setShowDetailsModal(true);
+      }
+    }
+  }, [selectedAlertId, sosAlerts]);
 
   const renderSOSAlert = ({ item }: { item: SOSAlert }) => (
     <TouchableOpacity
@@ -350,13 +366,13 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
           )}
 
           {/* No Alerts Message */}
-          {receivedAlerts.length === 0 && (
+          {receivedAlerts.length === 0 && !loading && (
             <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.secondaryText, fontSize: fonts.body }]}>
-                {t('emergency.noSosAlerts')}
+              <Text style={[styles.emptyText, { color: theme.text, fontSize: fonts.body }]}>
+                🚨 No SOS Alerts Yet
               </Text>
               <Text style={[styles.emptySubtext, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                {t('emergency.noSosAlertsDesc')}
+                SOS alerts from your emergency contacts will appear here when someone triggers an emergency.
               </Text>
             </View>
           )}
@@ -387,17 +403,17 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
               <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.detailSection}>
                   <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    👤 From
+                    👤 {t('emergency.from')}
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
-                    {selectedAlert.data?.fromUserName || 'Unknown'}
+                    {selectedAlert.data?.fromUserName || t('emergency.unknown')}
                   </Text>
                 </View>
 
                 {selectedAlert.data?.fromUserPhone && (
                   <View style={styles.detailSection}>
                     <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                      📞 Sender Phone
+                      📞 {t('emergency.senderPhone')}
                     </Text>
                     <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                       {selectedAlert.data.fromUserPhone}
@@ -407,7 +423,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
 
                 <View style={styles.detailSection}>
                   <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    📅 Date
+                    📅 {t('emergency.date')}
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                     {formatFullTimestamp(selectedAlert.timestamp).date}
@@ -416,7 +432,7 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
 
                 <View style={styles.detailSection}>
                   <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                    🕐 Time
+                    🕐 {t('emergency.time')}
                   </Text>
                   <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
                     {formatFullTimestamp(selectedAlert.timestamp).time}
@@ -426,13 +442,13 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId }) => {
                 {selectedAlert.data?.location && (
                   <View style={styles.detailSection}>
                     <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                      📍 Location
+                      📍 {t('emergency.location')}
                     </Text>
                     <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
-                      {selectedAlert.data.location.address || 'Location not available'}
+                      {selectedAlert.data.location.address || t('emergency.locationNotAvailable')}
                     </Text>
                     <Text style={[styles.detailSubValue, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                      Coordinates: {selectedAlert.data.location.latitude.toFixed(6)}, {selectedAlert.data.location.longitude.toFixed(6)}
+                      {t('emergency.coordinates')}: {selectedAlert.data.location.latitude.toFixed(6)}, {selectedAlert.data.location.longitude.toFixed(6)}
                     </Text>
                   </View>
                 )}
@@ -466,7 +482,8 @@ const styles = StyleSheet.create({
   },
   scrollableList: {
     flex: 1,
-    maxHeight: 300, // Limit height to make it scrollable
+    minHeight: 400, // Increased minimum height for better visibility
+    maxHeight: 600, // Increased maximum height
   },
   listContainer: {
     paddingVertical: 10,
@@ -505,6 +522,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.5,
     marginTop: 4,
+  },
+  debugText: {
+    textAlign: 'center',
+    fontStyle: 'italic',
+    opacity: 0.7,
   },
   alertItem: {
     padding: 12,

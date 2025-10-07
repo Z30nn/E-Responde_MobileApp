@@ -45,24 +45,31 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
     // Remove all non-digit characters
     const cleaned = text.replace(/\D/g, '');
     
-    // If it starts with 63, add + prefix
+    // If it starts with 63, add + prefix and limit to 10 digits after 63
     if (cleaned.startsWith('63')) {
-      return '+' + cleaned;
+      const digitsAfter63 = cleaned.substring(2);
+      const limitedDigits = digitsAfter63.substring(0, 10);
+      return '+' + '63' + limitedDigits;
     }
-    // If it doesn't start with 63, add +63 prefix
+    // If it doesn't start with 63, add +63 prefix and limit to 10 digits
     if (cleaned.length > 0 && !cleaned.startsWith('63')) {
-      return '+63' + cleaned;
+      const limitedDigits = cleaned.substring(0, 10);
+      return '+63' + limitedDigits;
     }
     // If empty, return empty
     if (cleaned.length === 0) {
       return '';
     }
-    // If it starts with 0, replace with +63
+    // If it starts with 0, replace with +63 and limit to 10 digits
     if (cleaned.startsWith('0')) {
-      return '+63' + cleaned.substring(1);
+      const digitsAfter0 = cleaned.substring(1);
+      const limitedDigits = digitsAfter0.substring(0, 10);
+      return '+63' + limitedDigits;
     }
     
-    return '+' + cleaned;
+    // For any other case, limit to 10 digits after +63
+    const limitedDigits = cleaned.substring(0, 10);
+    return '+63' + limitedDigits;
   };
 
   const validateContactNumber = (contactNumber: string) => {

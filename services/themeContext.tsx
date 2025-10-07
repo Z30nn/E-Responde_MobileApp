@@ -105,20 +105,28 @@ export const colors = {
     background: '#FFFFFF',
     text: '#1F2937',
     secondaryText: '#666666',
+    textSecondary: '#666666', // Alias for compatibility
     placeholder: '#9CA3AF',
     border: '#E5E7EB',
     menuBackground: '#F8F9FA',
     settingsBackground: '#F3F4F6',
+    cardBackground: '#FFFFFF',
+    iconBackground: '#F3F4F6',
+    iconColor: '#6B7280',
   },
   dark: {
     primary: '#2d3480',
     background: '#1A1A1A',
     text: '#E5E5E5',
     secondaryText: '#B0B0B0',
+    textSecondary: '#B0B0B0', // Alias for compatibility
     placeholder: '#808080',
     border: '#404040',
     menuBackground: '#2A2A2A',
     settingsBackground: '#333333',
+    cardBackground: '#2A2A2A',
+    iconBackground: '#404040',
+    iconColor: '#B0B0B0',
   },
 };
 

@@ -78,6 +78,10 @@ export const createStyles = (theme: any) => StyleSheet.create({
     color: '#EF4444',
     marginTop: 4,
   },
+  helperText: {
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   switchGroup: {
     flexDirection: 'row',
     alignItems: 'flex-start', // Changed from 'center' to 'flex-start' for better large font support

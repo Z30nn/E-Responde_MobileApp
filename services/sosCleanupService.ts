@@ -31,7 +31,7 @@ export class SOSCleanupService {
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       const oneWeekAgoISO = oneWeekAgo.toISOString();
 
-      const notificationsRef = ref(database, `notifications/${userId}`);
+      const notificationsRef = ref(database, `civilian/civilian account/${userId}/notifications`);
       const snapshot = await get(notificationsRef);
       
       if (!snapshot.exists()) {
@@ -59,7 +59,7 @@ export class SOSCleanupService {
       let deletedCount = 0;
       for (const alertId of alertsToDelete) {
         try {
-          const alertRef = ref(database, `notifications/${userId}/${alertId}`);
+          const alertRef = ref(database, `civilian/civilian account/${userId}/notifications/${alertId}`);
           await remove(alertRef);
           deletedCount++;
           console.log(`SOSCleanupService: Deleted old SOS alert ${alertId}`);
@@ -89,7 +89,7 @@ export class SOSCleanupService {
     newestAlert?: string;
   }> {
     try {
-      const notificationsRef = ref(database, `notifications/${userId}`);
+      const notificationsRef = ref(database, `civilian/civilian account/${userId}/notifications`);
       const snapshot = await get(notificationsRef);
       
       if (!snapshot.exists()) {

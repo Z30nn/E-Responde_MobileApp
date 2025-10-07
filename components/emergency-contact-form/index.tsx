@@ -62,7 +62,31 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
     setErrors({});
   }, [editingContact, visible]);
 
-  const validateForm = () => {
+
+  const checkIfPhoneNumberIsRegistered = async (phoneNumber: string): Promise<boolean> => {
+    try {
+      const { ref, get } = require('firebase/database');
+      const { database } = require('../../firebaseConfig');
+      
+      const usersRef = ref(database, 'civilian/civilian account');
+      const snapshot = await get(usersRef);
+      
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        for (const [userId, userData] of Object.entries(users)) {
+          if (userData.contactNumber === phoneNumber) {
+            return true; // Phone number is registered
+          }
+        }
+      }
+      return false; // Phone number is not registered
+    } catch (error) {
+      console.error('Error checking if phone number is registered:', error);
+      return false;
+    }
+  };
+
+  const validateForm = async () => {
     const newErrors: { [key: string]: string } = {};
 
     if (!formData.name.trim()) {
@@ -72,11 +96,19 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
     if (!formData.phoneNumber.trim()) {
       newErrors.phoneNumber = t('emergency.phoneRequired');
     } else if (!/^\+63[0-9]{10}$/.test(formData.phoneNumber.trim())) {
-      newErrors.phoneNumber = t('emergency.phoneInvalid');
+      newErrors.phoneNumber = 'Phone number must be in format +63XXXXXXXXXX (exactly 10 digits after +63)';
     }
 
     if (!formData.relationship.trim()) {
       newErrors.relationship = t('emergency.relationshipRequired');
+    }
+
+    // If this is a primary contact, check if the phone number is registered
+    if (formData.isPrimary && formData.phoneNumber.trim() && /^\+63[0-9]{10}$/.test(formData.phoneNumber.trim())) {
+      const isRegistered = await checkIfPhoneNumberIsRegistered(formData.phoneNumber.trim());
+      if (!isRegistered) {
+        newErrors.phoneNumber = 'Primary contact cannot be added, because the Phone number is not registered in E-Responde';
+      }
     }
 
     setErrors(newErrors);
@@ -84,7 +116,8 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
   };
 
   const handleSave = async () => {
-    if (!validateForm()) {
+    const isValid = await validateForm();
+    if (!isValid) {
       return;
     }
 
@@ -96,11 +129,87 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
     }
   };
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+  const formatPhoneNumber = (text: string) => {
+    // Remove all non-digit characters
+    const cleaned = text.replace(/\D/g, '');
+    
+    // If it starts with 63, add + prefix
+    if (cleaned.startsWith('63')) {
+      return '+' + cleaned;
+    }
+    // If it doesn't start with 63, add +63 prefix
+    if (cleaned.length > 0 && !cleaned.startsWith('63')) {
+      return '+63' + cleaned;
+    }
+    // If empty, return empty
+    if (cleaned.length === 0) {
+      return '';
+    }
+    // If it starts with 0, replace with +63
+    if (cleaned.startsWith('0')) {
+      return '+63' + cleaned.substring(1);
+    }
+    
+    return '+' + cleaned;
+  };
+
+  const handleInputChange = async (field: string, value: string | boolean) => {
+    if (field === 'phoneNumber' && typeof value === 'string') {
+      const formatted = formatPhoneNumber(value);
+      setFormData(prev => ({ ...prev, [field]: formatted }));
+      
+      // If primary contact is enabled, validate the phone number
+      if (formData.isPrimary && formatted.trim() && /^\+63[0-9]{10}$/.test(formatted.trim())) {
+        const isRegistered = await checkIfPhoneNumberIsRegistered(formatted.trim());
+        if (!isRegistered) {
+          setErrors(prev => ({ 
+            ...prev, 
+            phoneNumber: 'Primary contact cannot be added, because the Phone number is not registered in E-Responde' 
+          }));
+        } else {
+          setErrors(prev => ({ ...prev, phoneNumber: '' }));
+        }
+      } else {
+        // Clear error when user starts typing
+        if (errors[field]) {
+          setErrors(prev => ({ ...prev, [field]: '' }));
+        }
+      }
+    } else {
+      setFormData(prev => ({ ...prev, [field]: value }));
+      
+      // Clear error when user starts typing
+      if (errors[field]) {
+        setErrors(prev => ({ ...prev, [field]: '' }));
+      }
+    }
+  };
+
+
+  const handlePrimaryToggle = async (value: boolean) => {
+    setFormData(prev => ({ ...prev, isPrimary: value }));
+    
+    // If enabling primary contact, validate phone number registration
+    if (value && formData.phoneNumber.trim() && /^\+63[0-9]{10}$/.test(formData.phoneNumber.trim())) {
+      try {
+        const isRegistered = await checkIfPhoneNumberIsRegistered(formData.phoneNumber.trim());
+        if (!isRegistered) {
+          setErrors(prev => ({ 
+            ...prev, 
+            phoneNumber: 'Primary contact cannot be added, because the Phone number is not registered in E-Responde' 
+          }));
+        } else {
+          setErrors(prev => ({ 
+            ...prev, 
+            phoneNumber: '' 
+          }));
+        }
+      } catch (error) {
+        console.error('Error checking phone number registration:', error);
+      }
+    } else if (!value) {
+      // If turning off primary contact, clear phone number errors
+      setErrors(prev => ({ ...prev, phoneNumber: '' }));
     }
   };
 
@@ -136,11 +245,20 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.name')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.menuBackground, borderColor: theme.border, color: theme.text }, errors.name && styles.inputError]}
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: errors.name ? '#EF4444' : '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
               value={formData.name}
               onChangeText={(value) => handleInputChange('name', value)}
-              placeholder={t('emergency.namePlaceholder')}
-              placeholderTextColor={theme.placeholderText}
+              placeholder="Name"
+              placeholderTextColor="#9CA3AF"
             />
             {errors.name && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.name}</Text>}
           </View>
@@ -148,24 +266,45 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.phoneNumber')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.menuBackground, borderColor: theme.border, color: theme.text }, errors.phoneNumber && styles.inputError]}
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: errors.phoneNumber ? '#EF4444' : '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
               value={formData.phoneNumber}
               onChangeText={(value) => handleInputChange('phoneNumber', value)}
-              placeholder="+63XXXXXXXXXX"
-              placeholderTextColor={theme.placeholderText}
+              placeholder="Phone Number"
+              placeholderTextColor="#9CA3AF"
               keyboardType="phone-pad"
             />
+            <Text style={[styles.helperText, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+              Philippine mobile number format: +63 followed by 10 digits (e.g., +639123456789)
+            </Text>
             {errors.phoneNumber && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.phoneNumber}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.relationship')} *</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.menuBackground, borderColor: theme.border, color: theme.text }, errors.relationship && styles.inputError]}
+              style={{
+                backgroundColor: '#ffffff',
+                borderWidth: 1,
+                borderColor: errors.relationship ? '#EF4444' : '#E5E7EB',
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                borderRadius: 25,
+                color: '#1F2937',
+              }}
               value={formData.relationship}
               onChangeText={(value) => handleInputChange('relationship', value)}
-              placeholder={t('emergency.relationshipPlaceholder')}
-              placeholderTextColor={theme.placeholderText}
+              placeholder="Relationship"
+              placeholderTextColor="#9CA3AF"
             />
             {errors.relationship && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.relationship}</Text>}
           </View>
@@ -179,7 +318,7 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
             </View>
             <Switch
               value={formData.isPrimary}
-              onValueChange={(value) => handleInputChange('isPrimary', value)}
+              onValueChange={handlePrimaryToggle}
               trackColor={{ false: theme.border, true: theme.primary }}
               thumbColor={formData.isPrimary ? '#FFFFFF' : '#FFFFFF'}
             />

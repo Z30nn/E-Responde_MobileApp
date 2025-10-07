@@ -43,10 +43,14 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       setIsLoading(true);
       setError(null);
       
+      console.log('CrimeReportDetail: Loading report with ID:', reportId);
       const reportDetails = await FirebaseService.getCrimeReport(reportId);
+      console.log('CrimeReportDetail: Report details result:', reportDetails);
+      
       if (reportDetails) {
         setReport(reportDetails);
       } else {
+        console.log('CrimeReportDetail: Report not found for ID:', reportId);
         setError('Report not found');
       }
     } catch (error) {
@@ -76,6 +80,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
   const closeMap = () => {
     setShowMap(false);
   };
+
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -133,6 +138,22 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     }
   };
 
+  const getSeverityColor = (severity: string) => {
+    switch (severity?.toLowerCase()) {
+      case 'immediate':
+        return '#DC2626'; // Red - Critical/Immediate danger
+      case 'high':
+        return '#EA580C'; // Orange - High priority
+      case 'moderate':
+        return '#D97706'; // Amber - Medium priority
+      case 'low':
+        return '#16A34A'; // Green - Low priority
+      default:
+        return '#6B7280'; // Gray - Unknown
+    }
+  };
+
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -143,6 +164,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: 20,
+      paddingTop: 50,
       backgroundColor: theme.menuBackground,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
@@ -215,6 +237,21 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       color: theme.secondaryText,
       flex: 1,
       lineHeight: 22,
+    },
+    severityInfoContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    severityIndicator: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginRight: 8,
+    },
+    severityText: {
+      fontWeight: '600',
+      color: theme.text,
     },
     multimediaItem: {
       backgroundColor: isDarkMode ? theme.settingsBackground : '#F3F4F6',
@@ -386,7 +423,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backButton} onPress={onClose}>
-          <Text style={styles.backButtonText}>Go Back</Text>
+          <Text style={styles.backButtonText}>Go</Text>
         </TouchableOpacity>
       </View>
     );
@@ -397,7 +434,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Report Details</Text>
         <View style={styles.headerSpacer} />
@@ -449,6 +486,18 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
             <Text style={styles.infoLabel}>Date & Time:</Text>
             <Text style={styles.infoValue}>{formatDateTime(report.dateTime.toString())}</Text>
           </View>
+
+          {report.severity && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Severity:</Text>
+              <View style={styles.severityInfoContainer}>
+                <View style={[styles.severityIndicator, { backgroundColor: getSeverityColor(report.severity) }]} />
+                <Text style={[styles.infoValue, styles.severityText]}>
+                  {report.severity.charAt(0).toUpperCase() + report.severity.slice(1)}
+                </Text>
+              </View>
+            </View>
+          )}
           
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Description:</Text>
@@ -523,6 +572,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
             <Text style={styles.mapButtonText}>🗺️ View Location on Map</Text>
           </TouchableOpacity>
         )}
+        
       </ScrollView>
 
       {/* Map Modal */}
