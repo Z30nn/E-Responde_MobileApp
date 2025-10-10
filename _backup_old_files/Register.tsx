@@ -10,8 +10,8 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
-import { FirebaseService } from './services/firebaseService';
-import EmailVerification from './components/email-verification';
+import { FirebaseService } from '../services/firebaseService';
+import EmailVerification from '../components/email-verification';
 
 const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   const [formData, setFormData] = useState({

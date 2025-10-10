@@ -13,9 +13,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Register from './Register';
-import ForgotPassword from './ForgotPassword';
-import { useAuth } from './services/authContext';
-import EmailVerification from './components/email-verification';
+import ForgotPassword from '../ForgotPassword';
+import { useAuth } from '../services/authContext';
+import EmailVerification from '../components/email-verification';
 
 const Login = () => {
   const { width } = useWindowDimensions();
