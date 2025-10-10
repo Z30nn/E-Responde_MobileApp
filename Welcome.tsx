@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
-import Login from './Login';
-import Register from './Register';
+import Login from './app/login';
+import Register from './app/register';
 
 const Welcome = () => {
   const [currentScreen, setCurrentScreen] = useState<'welcome' | 'login' | 'register'>('welcome');

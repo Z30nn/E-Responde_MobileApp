@@ -1,0 +1,117 @@
+import { StyleSheet } from 'react-native';
+
+export const createStyles = (theme: any, isDarkMode: boolean) => StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  formContainer: {
+    backgroundColor: isDarkMode ? '#2A2A2A' : '#ffffff',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 350,
+    padding: 30,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  formTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: isDarkMode ? '#f8f9ed' : '#475e3d',
+    textAlign: 'center',
+    marginBottom: 20,
+    letterSpacing: 0.5,
+  },
+  formFields: {
+    gap: 18,
+  },
+  passwordContainer: {
+    position: 'relative',
+  },
+  input: {
+    backgroundColor: isDarkMode ? '#3A3A3A' : '#ffffff',
+    borderWidth: 1,
+    borderColor: isDarkMode ? '#555555' : '#E5E7EB',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingRight: 50,
+    fontSize: 14,
+    borderRadius: 25,
+    color: isDarkMode ? '#f8f9ed' : '#1F2937',
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 5,
+    top: -5,
+    padding: 5,
+  },
+  eyeIcon: {
+    width: 50,
+    height: 50,
+    tintColor: '#193a3c',
+  },
+  errorText: {
+    color: '#FF6B6B',
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  submitButton: {
+    backgroundColor: '#4c643b',
+    borderRadius: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    marginTop: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
+  submitButtonText: {
+    color: '#f8f9ed',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  cancelButton: {
+    backgroundColor: isDarkMode ? '#555555' : '#6B7280',
+    borderRadius: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+});
+
