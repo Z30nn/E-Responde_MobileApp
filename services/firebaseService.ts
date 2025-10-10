@@ -122,12 +122,65 @@ export class FirebaseService {
     }
   }
 
-  // Check if user exists in civilian database - Fixed to avoid index requirement
+  // Check if user exists in civilian database by email
   static async checkCivilianUser(email: string): Promise<boolean> {
     try {
-      return false; 
+      const usersRef = ref(database, 'civilian/civilian account');
+      const snapshot = await get(usersRef);
+      
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        // Check if any user has this email
+        for (const userId in users) {
+          if (users[userId].email?.toLowerCase() === email.toLowerCase()) {
+            return true; // Email already exists
+          }
+        }
+      }
+      return false; // Email is available
     } catch (error) {
       console.error('Check user error:', error);
+      return false;
+    }
+  }
+
+  // Check if phone number already exists
+  static async checkPhoneNumber(phoneNumber: string): Promise<boolean> {
+    try {
+      const phoneMappingRef = ref(database, `phone_mappings/${phoneNumber}`);
+      const snapshot = await get(phoneMappingRef);
+      return snapshot.exists(); // Returns true if phone number exists
+    } catch (error) {
+      console.error('Check phone number error:', error);
+      return false;
+    }
+  }
+
+  // Check if full name (first + last name) already exists
+  static async checkFullNameExists(firstName: string, lastName: string): Promise<boolean> {
+    try {
+      const usersRef = ref(database, 'civilian/civilian account');
+      const snapshot = await get(usersRef);
+      
+      if (snapshot.exists()) {
+        const users = snapshot.val();
+        const searchFirstName = firstName.trim().toLowerCase();
+        const searchLastName = lastName.trim().toLowerCase();
+        
+        // Check if any user has this exact first name AND last name combination
+        for (const userId in users) {
+          const user = users[userId];
+          const userFirstName = user.firstName?.trim().toLowerCase();
+          const userLastName = user.lastName?.trim().toLowerCase();
+          
+          if (userFirstName === searchFirstName && userLastName === searchLastName) {
+            return true; // Full name combination already exists
+          }
+        }
+      }
+      return false; // Full name combination is available
+    } catch (error) {
+      console.error('Check full name error:', error);
       return false;
     }
   }

@@ -83,8 +83,19 @@ const Login: FC = () => {
         errorMessage = 'Network error. Please check your internet connection';
       } else if (error.code === 'auth/email-not-verified') {
         // Show email verification screen for unverified users
-        setUserEmail(formData.email);
-        setShowEmailVerification(true);
+        Alert.alert(
+          'Email Not Verified',
+          'Please verify your email address before logging in. We will redirect you to the verification screen.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setUserEmail(formData.email);
+                setShowEmailVerification(true);
+              },
+            },
+          ]
+        );
         setIsLoading(false);
         return;
       } else if (error.message) {

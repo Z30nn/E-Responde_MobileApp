@@ -76,16 +76,19 @@ const EmailVerification: React.FC<EmailVerificationProps> = ({
 
     setIsCheckingVerification(true);
     try {
-      await FirebaseService.reloadUser(user);
-      const isVerified = FirebaseService.isEmailVerified(user);
+      // Reload the user to get the latest verification status from Firebase
+      await user.reload();
       
-      if (isVerified) {
+      // Get the updated user from auth
+      const updatedUser = auth.currentUser;
+      
+      if (updatedUser && updatedUser.emailVerified) {
         Alert.alert(
           'Email Verified!',
-          'Your email has been successfully verified. You can now access all features of the app.',
+          'Your email has been successfully verified. You can now login to access all features of the app.',
           [
             {
-              text: 'Continue',
+              text: 'Continue to Login',
               onPress: onVerificationComplete,
             },
           ]

@@ -9,7 +9,9 @@ import {
   View,
   ActivityIndicator,
 } from 'react-native';
+import { signOut } from 'firebase/auth';
 import { FirebaseService } from '../../services/firebaseService';
+import { auth } from '../../firebaseConfig';
 import EmailVerification from '../../components/email-verification';
 import { createStyles } from './styles';
 
@@ -132,9 +134,33 @@ const Register: FC<RegisterProps> = ({ onGoToLogin }) => {
 
     setIsLoading(true);
     try {
-      const userExists = await FirebaseService.checkCivilianUser(formData.email);
-      if (userExists) {
+      // Check for duplicate email
+      const emailExists = await FirebaseService.checkCivilianUser(formData.email);
+      if (emailExists) {
         Alert.alert('Error', 'An account with this email already exists');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check for duplicate phone number
+      const phoneExists = await FirebaseService.checkPhoneNumber(formData.contactNumber.trim());
+      if (phoneExists) {
+        Alert.alert('Error', 'An account with this phone number already exists');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check for duplicate full name (first name + last name)
+      const fullNameExists = await FirebaseService.checkFullNameExists(
+        formData.firstName.trim(),
+        formData.lastName.trim()
+      );
+      if (fullNameExists) {
+        Alert.alert(
+          'Error', 
+          'An account with this first name and last name combination already exists. Please contact support if this is your name.'
+        );
+        setIsLoading(false);
         return;
       }
 
@@ -150,11 +176,20 @@ const Register: FC<RegisterProps> = ({ onGoToLogin }) => {
       if (userCredential.user) {
         try {
           await FirebaseService.sendEmailVerification(userCredential.user);
+          // Sign out the user immediately after registration
+          // They must verify their email before they can login
+          await signOut(auth);
           setRegisteredEmail(formData.email.trim());
           setShowEmailVerification(true);
+          Alert.alert(
+            'Registration Successful',
+            'A verification email has been sent to your email address. Please verify your email before logging in.',
+            [{ text: 'OK' }]
+          );
         } catch (verificationError) {
           console.error('Email verification error:', verificationError);
-          // Still show verification screen even if sending fails
+          // Sign out even if sending fails
+          await signOut(auth);
           setRegisteredEmail(formData.email.trim());
           setShowEmailVerification(true);
         }

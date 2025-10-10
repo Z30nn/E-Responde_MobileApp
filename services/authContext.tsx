@@ -47,7 +47,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Check if email is verified
       if (userCredential.user && !userCredential.user.emailVerified) {
-        throw { code: 'auth/email-not-verified' };
+        // Sign out the user immediately if email is not verified
+        await signOut(auth);
+        throw { code: 'auth/email-not-verified', message: 'Please verify your email before logging in.' };
       }
       
       // Firebase Auth will handle setting the user state via onAuthStateChanged
