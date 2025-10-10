@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { FirebaseService } from './services/firebaseService';
+import EmailVerification from './components/email-verification';
 
 const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   const [formData, setFormData] = useState({
@@ -28,6 +29,8 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
   const [contactNumberError, setContactNumberError] = useState('');
   const [passwordErrors, setPasswordErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   useEffect(() => {
     setEmailError(validateEmail(formData.email));
@@ -139,7 +142,7 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
       }
 
       // Register user with Firebase
-      await FirebaseService.registerCivilian({
+      const userCredential = await FirebaseService.registerCivilian({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
@@ -147,22 +150,35 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
         password: formData.password,
       });
 
-      Alert.alert('Success', 'Registration successful!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            setFormData({
-              firstName: '',
-              lastName: '',
-              email: '',
-              contactNumber: '',
-              password: '',
-              confirmPassword: '',
-            });
-            if (onGoToLogin) onGoToLogin();
-          },
-        },
-      ]);
+      // Send email verification
+      try {
+        await FirebaseService.sendEmailVerification(userCredential.user);
+        setRegisteredEmail(formData.email);
+        setShowEmailVerification(true);
+      } catch (verificationError) {
+        console.error('Email verification error:', verificationError);
+        // Still show success message even if verification email fails
+        Alert.alert(
+          'Registration Successful!', 
+          'Your account has been created. Please check your email for verification instructions.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                setFormData({
+                  firstName: '',
+                  lastName: '',
+                  email: '',
+                  contactNumber: '',
+                  password: '',
+                  confirmPassword: '',
+                });
+                if (onGoToLogin) onGoToLogin();
+              },
+            },
+          ]
+        );
+      }
     } catch (error: any) {
       let errorMessage = 'Registration failed. Please try again.';
       console.error('Registration error details:', error);
@@ -194,6 +210,34 @@ const Register = ({ onGoToLogin }: { onGoToLogin?: () => void }) => {
     !contactNumberError &&
     !passwordErrors.length &&
     formData.password === formData.confirmPassword;
+
+  const handleVerificationComplete = () => {
+    setShowEmailVerification(false);
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      contactNumber: '',
+      password: '',
+      confirmPassword: '',
+    });
+    if (onGoToLogin) onGoToLogin();
+  };
+
+  const handleGoToLogin = () => {
+    setShowEmailVerification(false);
+    if (onGoToLogin) onGoToLogin();
+  };
+
+  if (showEmailVerification) {
+    return (
+      <EmailVerification
+        userEmail={registeredEmail}
+        onVerificationComplete={handleVerificationComplete}
+        onGoToLogin={handleGoToLogin}
+      />
+    );
+  }
 
   return (
     <View style={{ 

@@ -2,16 +2,19 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  UserCredential
+  UserCredential,
+  User
 } from 'firebase/auth';
 import { 
   ref, 
   set, 
   get, 
   push,
+  update,
   query, 
   orderByChild, 
   equalTo 
@@ -176,6 +179,34 @@ export class FirebaseService {
       await sendPasswordResetEmail(auth, email);
     } catch (error) {
       console.error('Password reset error:', error);
+      throw error;
+    }
+  }
+
+  // Send email verification
+  static async sendEmailVerification(user: User): Promise<void> {
+    try {
+      if (user.emailVerified) {
+        throw new Error('Email is already verified');
+      }
+      await sendEmailVerification(user);
+    } catch (error) {
+      console.error('Email verification error:', error);
+      throw error;
+    }
+  }
+
+  // Check if user's email is verified
+  static isEmailVerified(user: User): boolean {
+    return user.emailVerified;
+  }
+
+  // Reload user data to get latest verification status
+  static async reloadUser(user: User): Promise<void> {
+    try {
+      await user.reload();
+    } catch (error) {
+      console.error('Reload user error:', error);
       throw error;
     }
   }

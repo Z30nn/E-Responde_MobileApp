@@ -15,6 +15,7 @@ import {
 import Register from './Register';
 import ForgotPassword from './ForgotPassword';
 import { useAuth } from './services/authContext';
+import EmailVerification from './components/email-verification';
 
 const Login = () => {
   const { width } = useWindowDimensions();
@@ -29,6 +30,8 @@ const Login = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const { login } = useAuth();
 
   const validateEmail = (email: string) => {
@@ -78,6 +81,11 @@ const Login = () => {
         errorMessage = 'Too many failed attempts. Please try again later';
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your internet connection';
+      } else if (error.code === 'auth/email-not-verified') {
+        // Handle unverified email
+        setUserEmail(formData.email);
+        setShowEmailVerification(true);
+        return;
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -90,11 +98,26 @@ const Login = () => {
 
   const isFormValid = formData.email && !emailError && formData.password;
 
+  const handleVerificationComplete = () => {
+    setShowEmailVerification(false);
+    // User can now proceed to login normally
+  };
+
+  const handleGoToLogin = () => {
+    setShowEmailVerification(false);
+  };
+
   return (
     showForgotPassword ? (
       <ForgotPassword onGoToLogin={() => setShowForgotPassword(false)} />
     ) : showSignUp ? (
       <Register onGoToLogin={() => setShowSignUp(false)} />
+    ) : showEmailVerification ? (
+      <EmailVerification
+        userEmail={userEmail}
+        onVerificationComplete={handleVerificationComplete}
+        onGoToLogin={handleGoToLogin}
+      />
     ) : (
       <View style={{ 
         flex: 1, 
