@@ -6,7 +6,7 @@ import { AuthProvider, useAuth } from './services/authContext';
 import { NotificationProvider } from './services/notificationContext';
 import { backgroundService } from './services/backgroundService';
 import Welcome from './Welcome';
-import Dashboard from './Dashboard';
+import Dashboard from './app/dashboard';
 
 const SplashScreen = () => {
   const fadeAnim = useRef(new Animated.Value(1)).current;

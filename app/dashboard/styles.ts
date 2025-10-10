@@ -1,0 +1,136 @@
+import { StyleSheet } from 'react-native';
+
+export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.background,
+  },
+  mainContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 0,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#2d3480',
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    paddingVertical: 16,
+    paddingHorizontal: 2,
+    paddingBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 8,
+    minHeight: 120,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    position: 'relative',
+  },
+  regularTabButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    marginHorizontal: 1,
+    minWidth: 40,
+    flex: 1,
+  },
+  activeTabButton: {
+    backgroundColor: 'rgba(74, 144, 226, 0.3)',
+    paddingHorizontal: 0,
+    marginHorizontal: -2,
+  },
+  tabIconContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabIconImage: {
+    width: 20,
+    height: 20,
+    marginBottom: 3,
+    tintColor: isDarkMode ? '#FFFFFF' : theme.background,
+    resizeMode: 'contain',
+  },
+  notificationIconImage: {
+    width: 28,
+    height: 28,
+    marginBottom: 3,
+    tintColor: isDarkMode ? '#FFFFFF' : theme.background,
+    resizeMode: 'contain',
+  },
+  activeTabIconImage: {
+    transform: [{ scale: 1.1 }],
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  sosFab: {
+    position: 'absolute',
+    top: -40,
+    left: '50%',
+    marginLeft: -40,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#2d3480',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  sosFabActive: {
+    backgroundColor: '#4A90E2',
+  },
+  sosFabIcon: {
+    width: 64,
+    height: 64,
+    resizeMode: 'contain',
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalCloseText: {
+    fontSize: fonts.body,
+    fontWeight: '600',
+  },
+  modalTitle: {
+    fontSize: fonts.subtitle,
+    fontWeight: '600',
+  },
+  modalHeaderSpacer: {
+    width: 60,
+  },
+});
+
