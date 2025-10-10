@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Register from '../register';
 import ForgotPassword from '../forgot-password';
+import EmailVerification from '../../components/email-verification';
 import { useAuth } from '../../services/authContext';
 import { createStyles } from './styles';
 
@@ -19,6 +20,8 @@ const Login: FC = () => {
   const { width } = useWindowDimensions();
   const [showSignUp, setShowSignUp] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -78,6 +81,12 @@ const Login: FC = () => {
         errorMessage = 'Too many failed attempts. Please try again later';
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your internet connection';
+      } else if (error.code === 'auth/email-not-verified') {
+        // Show email verification screen for unverified users
+        setUserEmail(formData.email);
+        setShowEmailVerification(true);
+        setIsLoading(false);
+        return;
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -88,10 +97,25 @@ const Login: FC = () => {
     }
   };
 
+  const handleVerificationComplete = () => {
+    setShowEmailVerification(false);
+    // User can now login normally
+  };
+
+  const handleGoToLogin = () => {
+    setShowEmailVerification(false);
+  };
+
   const isFormValid = formData.email && !emailError && formData.password;
 
   return (
-    showForgotPassword ? (
+    showEmailVerification ? (
+      <EmailVerification
+        userEmail={userEmail}
+        onVerificationComplete={handleVerificationComplete}
+        onGoToLogin={handleGoToLogin}
+      />
+    ) : showForgotPassword ? (
       <ForgotPassword onGoToLogin={() => setShowForgotPassword(false)} />
     ) : showSignUp ? (
       <Register onGoToLogin={() => setShowSignUp(false)} />
