@@ -7,8 +7,11 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isEmailVerified: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  sendEmailVerification: () => Promise<void>;
+  reloadUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +25,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user;
+  const isEmailVerified = user?.emailVerified || false;
 
   // Listen to Firebase auth state changes - Firebase handles persistence automatically
   useEffect(() => {
@@ -39,7 +43,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      await FirebaseService.loginCivilian({ email, password });
+      const userCredential = await FirebaseService.loginCivilian({ email, password });
+      
+      // Check if email is verified
+      if (userCredential.user && !userCredential.user.emailVerified) {
+        throw { code: 'auth/email-not-verified' };
+      }
+      
       // Firebase Auth will handle setting the user state via onAuthStateChanged
       console.log('AuthProvider: Login successful, waiting for auth state change');
     } catch (error) {
@@ -64,12 +74,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const sendEmailVerification = async () => {
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+    await FirebaseService.sendEmailVerification(user);
+  };
+
+  const reloadUser = async () => {
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+    await FirebaseService.reloadUser(user);
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated,
+    isEmailVerified,
     login,
     logout,
+    sendEmailVerification,
+    reloadUser,
   };
 
   return (
