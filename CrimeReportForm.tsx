@@ -795,18 +795,17 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     },
     submitButton: {
       backgroundColor: '#1E8A32',
-      paddingHorizontal: 32,
-      paddingVertical: 16,
-      borderRadius: 12,
+      paddingHorizontal: 28,
+      paddingVertical: 14,
+      borderRadius: 25,
       alignItems: 'center',
       marginTop: 5,
       width: '70%',
       alignSelf: 'center',
-      minHeight: 56,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.25,
-      shadowRadius: 4,
+      shadowRadius: 3.84,
       elevation: 5,
     },
     submitButtonDisabled: {
@@ -814,8 +813,9 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     },
     submitButtonText: {
       color: 'white',
-      fontSize: 18,
-      fontWeight: '700',
+      fontSize: 16,
+      fontWeight: '600',
+      letterSpacing: 0.5,
     },
     // Dropdown Container and List Styles
     dropdownContainer: {

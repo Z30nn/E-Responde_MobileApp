@@ -24,7 +24,6 @@ interface UserProfile {
 
 interface ProfileTabProps {
   onChangePassword: () => void;
-  onNotificationSettings: () => void;
   onFontSizeSettings: () => void;
   onLanguageSettings: () => void;
   onCleanupOldAlerts: () => void;
@@ -40,7 +39,6 @@ interface ProfileTabProps {
 
 const ProfileTab: FC<ProfileTabProps> = ({
   onChangePassword,
-  onNotificationSettings,
   onFontSizeSettings,
   onLanguageSettings,
   onCleanupOldAlerts,
@@ -136,14 +134,6 @@ const ProfileTab: FC<ProfileTabProps> = ({
           </TouchableOpacity>
 
           <Text style={styles.sectionTitle}>SETTINGS</Text>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={onNotificationSettings}
-          >
-            <Text style={styles.menuItemText}>{t('settings.notifications')}</Text>
-            <Text style={styles.chevronRight}>›</Text>
-          </TouchableOpacity>
 
           <View style={styles.menuItem}>
             <Text style={styles.menuItemText}>{t('settings.darkMode')}</Text>
