@@ -50,28 +50,32 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
 
   const loadPoliceLocations = async () => {
     try {
-      // In a real app, this would fetch from your backend/Firebase
-      // For now, we'll simulate police locations
-      const mockPoliceLocations: PoliceLocation[] = [
-        {
-          id: 'police_1',
-          latitude: crimeLocation.latitude + 0.005,
-          longitude: crimeLocation.longitude + 0.005,
-          name: 'Officer Johnson',
-          status: 'en_route',
-          lastUpdated: new Date().toISOString(),
-        },
-        {
-          id: 'police_2',
-          latitude: crimeLocation.latitude - 0.003,
-          longitude: crimeLocation.longitude + 0.008,
-          name: 'Officer Smith',
-          status: 'dispatched',
-          lastUpdated: new Date().toISOString(),
-        },
-      ];
+      // Fetch real police locations from Firebase
+      const { FirebaseService } = await import('./services/firebaseService');
+      const policeUsers = await FirebaseService.getAllPoliceLocations();
       
-      setPoliceLocations(mockPoliceLocations);
+      console.log('Loaded police locations:', policeUsers.length);
+      
+      // Convert police users to police locations
+      const locations: PoliceLocation[] = policeUsers.map((police) => {
+        const name = police.firstName && police.lastName 
+          ? `${police.firstName} ${police.lastName}` 
+          : police.badgeNumber 
+            ? `Officer ${police.badgeNumber}` 
+            : 'Police Officer';
+        
+        return {
+          id: police.uid,
+          latitude: police.currentLocation!.latitude,
+          longitude: police.currentLocation!.longitude,
+          name: name,
+          status: 'en_route' as const, // Default status
+          lastUpdated: police.currentLocation!.lastUpdated,
+        };
+      });
+      
+      console.log('Converted police locations:', locations);
+      setPoliceLocations(locations);
     } catch (error) {
       console.error('Error loading police locations:', error);
     } finally {

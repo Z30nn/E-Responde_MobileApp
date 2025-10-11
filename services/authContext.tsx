@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { auth } from '../firebaseConfig';
+import { ref, onValue } from 'firebase/database';
+import { Alert } from 'react-native';
+import { auth, database } from '../firebaseConfig';
 import { FirebaseService } from './firebaseService';
 
 interface AuthContextType {
   user: User | null;
+  userType: 'police' | 'civilian' | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isEmailVerified: boolean;
@@ -22,6 +25,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [userType, setUserType] = useState<'police' | 'civilian' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const isAuthenticated = !!user;
@@ -31,25 +35,102 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     console.log('AuthProvider: Setting up Firebase auth state listener');
     
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('AuthProvider: Firebase auth state changed, user:', firebaseUser ? firebaseUser.email : 'null');
       setUser(firebaseUser);
+      
+      if (firebaseUser) {
+        // Determine user type
+        const type = await FirebaseService.getUserType(firebaseUser.uid);
+        console.log('AuthProvider: User type:', type);
+        setUserType(type);
+      } else {
+        setUserType(null);
+      }
+      
       setIsLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
+  // Monitor suspension status for currently logged-in civilian users
+  useEffect(() => {
+    if (!user || userType !== 'civilian') {
+      console.log('AuthProvider: Skipping suspension listener - not a civilian user');
+      return; // Only monitor civilian users
+    }
+
+    console.log('AuthProvider: Setting up suspension listener for user:', user.uid);
+    
+    // Listen to suspension status changes in real-time
+    const suspensionRef = ref(database, `civilian/civilian account/${user.uid}/isSuspended`);
+    
+    const handleSuspensionChange = (snapshot: any) => {
+      const isSuspended = snapshot.val();
+      
+      console.log('AuthProvider: Suspension status changed:', isSuspended);
+      
+      if (isSuspended === true) {
+        console.log('AuthProvider: User has been suspended, forcing logout');
+        
+        // Immediately sign out without waiting for user to click OK
+        signOut(auth).then(() => {
+          console.log('AuthProvider: User signed out due to suspension');
+        }).catch((error) => {
+          console.error('Error signing out suspended user:', error);
+        });
+        
+        // Show alert to inform user (after logout starts)
+        setTimeout(() => {
+          Alert.alert(
+            'Account Suspended',
+            'Your account has been suspended by an administrator. Please contact support for more information.',
+            [{ text: 'OK' }]
+          );
+        }, 100);
+      }
+    };
+    
+    // Attach listener with error handling
+    const unsubscribe = onValue(
+      suspensionRef, 
+      handleSuspensionChange,
+      (error) => {
+        console.error('AuthProvider: Error in suspension listener:', error);
+      }
+    );
+    
+    // Cleanup listener on unmount or when user changes
+    return () => {
+      console.log('AuthProvider: Cleaning up suspension listener');
+      unsubscribe();
+    };
+  }, [user, userType]);
+
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const userCredential = await FirebaseService.loginCivilian({ email, password });
       
-      // Check if email is verified
-      if (userCredential.user && !userCredential.user.emailVerified) {
-        // Sign out the user immediately if email is not verified
-        await signOut(auth);
-        throw { code: 'auth/email-not-verified', message: 'Please verify your email before logging in.' };
+      // Check if email belongs to police or civilian
+      const isPolice = await FirebaseService.isPoliceEmail(email);
+      console.log('AuthProvider: Is police email?', isPolice);
+      
+      let userCredential;
+      if (isPolice) {
+        // Login as police
+        userCredential = await FirebaseService.loginPolice({ email, password });
+        // Police accounts don't require email verification
+      } else {
+        // Login as civilian
+        userCredential = await FirebaseService.loginCivilian({ email, password });
+        
+        // Check if email is verified for civilians only
+        if (userCredential.user && !userCredential.user.emailVerified) {
+          // Sign out the user immediately if email is not verified
+          await signOut(auth);
+          throw { code: 'auth/email-not-verified', message: 'Please verify your email before logging in.' };
+        }
       }
       
       // Firebase Auth will handle setting the user state via onAuthStateChanged
@@ -92,6 +173,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const value: AuthContextType = {
     user,
+    userType,
     isLoading,
     isAuthenticated,
     isEmailVerified,

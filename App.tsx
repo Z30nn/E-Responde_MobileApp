@@ -58,14 +58,24 @@ const SplashScreen = () => {
 };
 
 const AppContent = () => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, userType } = useAuth();
   const { setCurrentUserId: setThemeUserId } = useTheme();
   const { setCurrentUserId: setLanguageUserId } = useLanguage();
   const [showSplash, setShowSplash] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
+  const [PoliceDashboard, setPoliceDashboard] = useState<any>(null);
+
+  // Dynamically import police dashboard
+  useEffect(() => {
+    if (userType === 'police') {
+      import('./app/police-dashboard').then(module => {
+        setPoliceDashboard(() => module.default);
+      });
+    }
+  }, [userType]);
 
   useEffect(() => {
-    console.log('AppContent: Auth state changed - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated);
+    console.log('AppContent: Auth state changed - isLoading:', isLoading, 'isAuthenticated:', isAuthenticated, 'userType:', userType);
     
     // Update theme and language providers with current user ID
     if (user) {
@@ -80,7 +90,7 @@ const AppContent = () => {
     if (!isLoading) {
       setAuthChecked(true);
     }
-  }, [isLoading, isAuthenticated, user, setThemeUserId, setLanguageUserId]);
+  }, [isLoading, isAuthenticated, user, userType, setThemeUserId, setLanguageUserId]);
 
   useEffect(() => {
     // Show splash for 0.3 seconds, but only if auth hasn't been checked yet
@@ -99,8 +109,13 @@ const AppContent = () => {
   }
 
   if (isAuthenticated) {
-    console.log('AppContent: User is authenticated, showing Dashboard');
-    return <Dashboard />;
+    if (userType === 'police') {
+      console.log('AppContent: Police user authenticated, showing Police Dashboard');
+      return PoliceDashboard ? <PoliceDashboard /> : <ActivityIndicator size="large" color="#4c643b" />;
+    } else {
+      console.log('AppContent: Civilian user authenticated, showing Dashboard');
+      return <Dashboard />;
+    }
   }
 
   console.log('AppContent: User not authenticated, showing Welcome');

@@ -15,13 +15,23 @@ import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 import { useAuth } from './services/authContext';
 import CrimeReportMap from './CrimeReportMap';
+import PoliceCrimeReportMap from './components/police-crime-map';
 
 interface CrimeReportDetailProps {
   reportId: string;
-  onClose: () => void;
+  onClose?: () => void;
+  onBack?: () => void;
+  isPoliceView?: boolean;
 }
 
-const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
+const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: CrimeReportDetailProps) => {
+  const handleBackPress = () => {
+    if (onBack) {
+      onBack();
+    } else if (onClose) {
+      onClose();
+    }
+  };
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
   const { user } = useAuth();
@@ -422,8 +432,8 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
         <TouchableOpacity style={styles.retryButton} onPress={loadReportDetails}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.backButton} onPress={onClose}>
-          <Text style={styles.backButtonText}>Go</Text>
+        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
     );
@@ -433,7 +443,7 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Report Details</Text>
@@ -566,8 +576,8 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
           </Text>
         </View>
 
-        {/* Map Button - Only show for current user's reports */}
-        {user && report && report.reporterUid === user.uid && (
+        {/* Map Button - Show for police users or for current user's reports */}
+        {user && report && (isPoliceView || report.reporterUid === user.uid) && (
           <TouchableOpacity style={styles.mapButton} onPress={openMap}>
             <Text style={styles.mapButtonText}>🗺️ View Location on Map</Text>
           </TouchableOpacity>
@@ -582,11 +592,21 @@ const CrimeReportDetail = ({ reportId, onClose }: CrimeReportDetailProps) => {
           animationType="slide"
           onRequestClose={closeMap}
         >
-          <CrimeReportMap
-            reportId={reportId}
-            crimeLocation={report.location}
-            onClose={closeMap}
-          />
+          {isPoliceView ? (
+            <PoliceCrimeReportMap
+              reportId={reportId}
+              crimeLocation={report.location}
+              crimeType={report.crimeType}
+              reporterUid={report.reporterUid}
+              onClose={closeMap}
+            />
+          ) : (
+            <CrimeReportMap
+              reportId={reportId}
+              crimeLocation={report.location}
+              onClose={closeMap}
+            />
+          )}
         </Modal>
       )}
 

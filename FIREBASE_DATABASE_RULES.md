@@ -1,8 +1,8 @@
-# Firebase Database Rules for Crime Reports
+# Firebase Database Rules for E-Responde
 
-The current error `PERMISSION_DENIED: Permission denied` occurs because the Firebase database security rules don't allow writing to the crime reports paths. You need to update your Firebase database rules to allow authenticated users to submit crime reports.
+Complete Firebase Realtime Database security rules for the E-Responde application, including crime reports, notifications, emergency contacts, and VoIP calling.
 
-## Updated Database Rules
+## Complete Database Rules
 
 Go to your Firebase Console → Realtime Database → Rules and replace the current rules with these:
 
@@ -23,6 +23,20 @@ Go to your Firebase Console → Realtime Database → Rules and replace the curr
       "civilian crime reports": {
         ".read": "auth != null",
         ".write": "auth != null"
+      }
+    },
+    "police": {
+      "police account": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        }
+      },
+      "police location": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "$uid === auth.uid"
+        }
       }
     },
     "emergency_contacts": {
@@ -48,6 +62,17 @@ Go to your Firebase Console → Realtime Database → Rules and replace the curr
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "voip_calls": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$callId": {
+        ".indexOn": ["status", "caller/userId", "callee/userId"]
+      }
+    },
+    "voip_signaling": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
@@ -58,10 +83,14 @@ Go to your Firebase Console → Realtime Database → Rules and replace the curr
 1. **`civilian/civilian account/{uid}`** - Users can only read/write their own account data
 2. **`civilian/civilian account/{uid}/crime reports`** - Users can only read/write their own crime reports
 3. **`civilian/civilian crime reports`** - Any authenticated user can read/write to the main crime reports collection
-4. **`emergency_contacts/{uid}`** - Users can only read/write their own emergency contacts
-5. **`notificationSettings/{uid}`** - Users can only read/write their own notification preferences
-6. **`notifications/{uid}`** - Users can only read/write their own notification history (except SOS alerts can be sent by any authenticated user)
-7. **`phone_mappings/{phoneNumber}`** - Maps phone numbers to user IDs for emergency contact notifications
+4. **`police/police account/{uid}`** - All authenticated users can read police data, but only owner can write
+5. **`police/police location/{uid}`** - All authenticated users can read police locations for map display
+6. **`emergency_contacts/{uid}`** - Users can only read/write their own emergency contacts
+7. **`notificationSettings/{uid}`** - Users can only read/write their own notification preferences
+8. **`notifications/{uid}`** - Users can only read/write their own notification history (except SOS alerts can be sent by any authenticated user)
+9. **`phone_mappings/{phoneNumber}`** - Maps phone numbers to user IDs for emergency contact notifications
+10. **`voip_calls`** - All authenticated users can read/write call records (for VoIP functionality)
+11. **`voip_signaling`** - All authenticated users can read/write signaling data (for WebRTC connection setup)
 
 ## Alternative: More Restrictive Rules
 

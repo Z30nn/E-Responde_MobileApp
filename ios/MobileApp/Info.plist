@@ -33,7 +33,22 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>E-Responde needs access to your location to show police officers' positions on the map for crime reporting.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>E-Responde needs access to your location to continuously update police positions on the map.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>E-Responde needs access to your location to help civilians see police positions on the map in real-time.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>E-Responde needs camera access for video calls with emergency responders and for uploading crime report evidence.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>E-Responde needs microphone access for voice calls with emergency responders and police officers.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>E-Responde needs access to your photo library to upload images for crime reports.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>voip</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

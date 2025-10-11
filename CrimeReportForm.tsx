@@ -525,6 +525,46 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         return;
       }
 
+      // Upload files to Firebase Storage if any
+      let multimediaURLs: string[] = [];
+      if (uploadedFiles.length > 0) {
+        try {
+          console.log('Uploading files to Firebase Storage...');
+          Alert.alert('Uploading', 'Please wait while we upload your files...');
+          
+          multimediaURLs = await FirebaseService.uploadMultipleFiles(uploadedFiles);
+          console.log('Files uploaded successfully. URLs:', multimediaURLs);
+        } catch (uploadError) {
+          console.error('Error uploading files:', uploadError);
+          Alert.alert(
+            'Upload Error',
+            'Failed to upload one or more files. Do you want to submit the report without attachments?',
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => {
+                  setIsLoading(false);
+                  return;
+                }
+              },
+              {
+                text: 'Submit Anyway',
+                onPress: () => {
+                  // Continue without files
+                  multimediaURLs = [];
+                }
+              }
+            ]
+          );
+          if (multimediaURLs.length === 0 && uploadedFiles.length > 0) {
+            // User cancelled
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
       // Get user profile data
       let userName = 'Unknown User';
       try {
@@ -540,7 +580,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         crimeType: formData.crimeType!,
         dateTime: formData.dateTime!,
         description: formData.description!,
-        multimedia: formData.multimedia || [],
+        multimedia: multimediaURLs, // Use uploaded URLs instead of local URIs
         location: formData.location!,
         anonymous: formData.anonymous!,
         reporterName: formData.anonymous ? 'Anonymous' : userName,

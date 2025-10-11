@@ -69,7 +69,9 @@ const Login: FC = () => {
       let errorMessage = 'Login failed. Please try again.';
       console.error('Login error details:', error);
 
-      if (error.code === 'auth/user-not-found') {
+      if (error.code === 'auth/account-suspended') {
+        errorMessage = 'Your account has been suspended. Please contact support for assistance.';
+      } else if (error.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email address';
       } else if (error.code === 'auth/wrong-password') {
         errorMessage = 'Incorrect password';

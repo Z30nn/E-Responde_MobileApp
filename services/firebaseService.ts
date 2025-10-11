@@ -7,7 +7,8 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider,
   UserCredential,
-  User
+  User,
+  signOut
 } from 'firebase/auth';
 import { 
   ref, 
@@ -19,7 +20,13 @@ import {
   orderByChild, 
   equalTo 
 } from 'firebase/database';
-import { auth, database } from '../firebaseConfig';
+import { 
+  ref as storageRef, 
+  uploadBytes, 
+  getDownloadURL,
+  deleteObject 
+} from 'firebase/storage';
+import { auth, database, storage } from '../firebaseConfig';
 
 export interface CivilianUser {
   firstName: string;
@@ -33,6 +40,20 @@ export interface CivilianUser {
 export interface LoginCredentials {
   email: string;
   password: string;
+}
+
+export interface PoliceUser {
+  uid: string;
+  email: string;
+  badgeNumber?: string;
+  firstName?: string;
+  lastName?: string;
+  station?: string;
+  currentLocation?: {
+    latitude: number;
+    longitude: number;
+    lastUpdated: string;
+  };
 }
 
 export interface CrimeReport {
@@ -58,6 +79,67 @@ export interface CrimeReport {
 }
 
 export class FirebaseService {
+  // Upload file to Firebase Storage and return download URL
+  static async uploadFileToStorage(fileUri: string, fileName: string, folder: string = 'crime-reports'): Promise<string> {
+    try {
+      console.log('Uploading file to Firebase Storage:', fileName);
+      
+      // Fetch the file from the local URI
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+      
+      // Create a reference to the file in Firebase Storage
+      const fileRef = storageRef(storage, `${folder}/${Date.now()}_${fileName}`);
+      
+      // Upload the file
+      const snapshot = await uploadBytes(fileRef, blob);
+      console.log('File uploaded successfully:', snapshot.metadata.fullPath);
+      
+      // Get the download URL
+      const downloadURL = await getDownloadURL(fileRef);
+      console.log('Download URL obtained:', downloadURL);
+      
+      return downloadURL;
+    } catch (error) {
+      console.error('Error uploading file to Firebase Storage:', error);
+      throw error;
+    }
+  }
+
+  // Upload multiple files to Firebase Storage
+  static async uploadMultipleFiles(files: Array<{uri: string, name: string, type: string}>): Promise<string[]> {
+    try {
+      console.log(`Uploading ${files.length} files to Firebase Storage`);
+      
+      const uploadPromises = files.map(file => {
+        // Determine folder based on file type
+        const folder = file.type.startsWith('image/') ? 'crime-reports/images' : 'crime-reports/videos';
+        return this.uploadFileToStorage(file.uri, file.name, folder);
+      });
+      
+      const downloadURLs = await Promise.all(uploadPromises);
+      console.log('All files uploaded successfully');
+      
+      return downloadURLs;
+    } catch (error) {
+      console.error('Error uploading multiple files:', error);
+      throw error;
+    }
+  }
+
+  // Delete file from Firebase Storage (optional - for cleanup)
+  static async deleteFileFromStorage(fileURL: string): Promise<void> {
+    try {
+      // Extract the file path from the URL
+      const fileRef = storageRef(storage, fileURL);
+      await deleteObject(fileRef);
+      console.log('File deleted successfully from Firebase Storage');
+    } catch (error) {
+      console.error('Error deleting file from Firebase Storage:', error);
+      throw error;
+    }
+  }
+
   // Register a new civilian user
   static async registerCivilian(userData: Omit<CivilianUser, 'createdAt'>): Promise<UserCredential> {
     try {
@@ -98,6 +180,96 @@ export class FirebaseService {
     }
   }
 
+  // Check if user is police or civilian
+  static async getUserType(uid: string): Promise<'police' | 'civilian' | null> {
+    try {
+      // Check police database first
+      const policeRef = ref(database, `police/police account/${uid}`);
+      const policeSnapshot = await get(policeRef);
+      
+      if (policeSnapshot.exists()) {
+        return 'police';
+      }
+
+      // Check civilian database
+      const civilianRef = ref(database, `civilian/civilian account/${uid}`);
+      const civilianSnapshot = await get(civilianRef);
+      
+      if (civilianSnapshot.exists()) {
+        return 'civilian';
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error checking user type:', error);
+      return null;
+    }
+  }
+
+  // Check if email belongs to police account
+  static async isPoliceEmail(email: string): Promise<boolean> {
+    try {
+      const policeRef = ref(database, 'police/police account');
+      const snapshot = await get(policeRef);
+      
+      if (snapshot.exists()) {
+        const police = snapshot.val();
+        for (const userId in police) {
+          if (police[userId].email?.toLowerCase() === email.toLowerCase()) {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking police email:', error);
+      return false;
+    }
+  }
+
+  // Login police user
+  static async loginPolice(credentials: LoginCredentials): Promise<UserCredential> {
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        credentials.email,
+        credentials.password
+      );
+
+      // Verify user exists in police database
+      const userRef = ref(database, `police/police account/${userCredential.user.uid}`);
+      const snapshot = await get(userRef);
+      
+      if (!snapshot.exists()) {
+        // Sign out if not in police database
+        await signOut(auth);
+        throw new Error('User not found in police database');
+      }
+
+      return userCredential;
+    } catch (error) {
+      console.error('Police login error:', error);
+      throw error;
+    }
+  }
+
+  // Check if civilian user is suspended
+  static async checkUserSuspension(uid: string): Promise<boolean> {
+    try {
+      const userRef = ref(database, `civilian/civilian account/${uid}/isSuspended`);
+      const snapshot = await get(userRef);
+      
+      if (snapshot.exists()) {
+        return snapshot.val() === true;
+      }
+      
+      return false; // Not suspended if field doesn't exist
+    } catch (error) {
+      console.error('Error checking suspension status:', error);
+      return false;
+    }
+  }
+
   // Login civilian user
   static async loginCivilian(credentials: LoginCredentials): Promise<UserCredential> {
     try {
@@ -112,13 +284,93 @@ export class FirebaseService {
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
+        // Sign out if not in civilian database
+        await signOut(auth);
         throw new Error('User not found in civilian database');
+      }
+
+      // Check if user is suspended
+      const isSuspended = await this.checkUserSuspension(userCredential.user.uid);
+      if (isSuspended) {
+        // Sign out suspended user
+        await signOut(auth);
+        throw { 
+          code: 'auth/account-suspended', 
+          message: 'Your account has been suspended. Please contact support for more information.' 
+        };
       }
 
       return userCredential;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
+    }
+  }
+
+  // Get police user data
+  static async getPoliceUser(uid: string): Promise<PoliceUser | null> {
+    try {
+      const userRef = ref(database, `police/police account/${uid}`);
+      const snapshot = await get(userRef);
+      
+      if (snapshot.exists()) {
+        return snapshot.val() as PoliceUser;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Get police user error:', error);
+      return null;
+    }
+  }
+
+  // Update police location
+  static async updatePoliceLocation(uid: string, latitude: number, longitude: number): Promise<void> {
+    try {
+      const locationRef = ref(database, `police/police account/${uid}/currentLocation`);
+      await set(locationRef, {
+        latitude,
+        longitude,
+        lastUpdated: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Update police location error:', error);
+      throw error;
+    }
+  }
+
+  // Get all police locations
+  static async getAllPoliceLocations(): Promise<PoliceUser[]> {
+    try {
+      const policeRef = ref(database, 'police/police account');
+      const snapshot = await get(policeRef);
+      
+      if (snapshot.exists()) {
+        const policeData = snapshot.val();
+        const policeArray: PoliceUser[] = [];
+        
+        for (const uid in policeData) {
+          const policeUser = policeData[uid];
+          if (policeUser.currentLocation) {
+            policeArray.push({
+              uid,
+              email: policeUser.email,
+              badgeNumber: policeUser.badgeNumber,
+              firstName: policeUser.firstName,
+              lastName: policeUser.lastName,
+              station: policeUser.station,
+              currentLocation: policeUser.currentLocation,
+            });
+          }
+        }
+        
+        return policeArray;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Get all police locations error:', error);
+      return [];
     }
   }
 
