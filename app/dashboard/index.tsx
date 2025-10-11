@@ -19,7 +19,8 @@ import { sosCleanupService } from '../../services/sosCleanupService';
 import CrimeReportForm from '../crime-report/form';
 import CrimeReportDetail from '../crime-report/detail';
 import ChangePassword from '../change-password';
-import NotificationSettings from '../../components/notification-settings';
+import TermsOfService from '../terms-of-service';
+import PrivacyPolicy from '../privacy-policy';
 import { CrimeListFromOthersRef } from '../../CrimeListFromOthers';
 
 // Tab Components
@@ -42,7 +43,6 @@ const Dashboard: React.FC = () => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [showNotificationModal, setShowNotificationModal] = useState(false);
   const [showSOSInfoModal, setShowSOSInfoModal] = useState(false);
   const [sosStats, setSosStats] = useState({
     total: 0,
@@ -219,7 +219,6 @@ const Dashboard: React.FC = () => {
         return (
           <ProfileTab
             onChangePassword={() => setShowChangePassword(true)}
-            onNotificationSettings={() => setShowNotificationModal(true)}
             onFontSizeSettings={() => setShowFontSizeModal(true)}
             onLanguageSettings={() => setShowLanguageModal(true)}
             onCleanupOldAlerts={cleanupOldSOSAlerts}
@@ -309,34 +308,15 @@ const Dashboard: React.FC = () => {
         <ChangePassword onClose={() => setShowChangePassword(false)} />
       )}
 
-      {showNotificationModal && (
-        <Modal
-          visible={showNotificationModal}
-          animationType="slide"
-          presentationStyle="pageSheet"
-          onRequestClose={() => setShowNotificationModal(false)}
-        >
-          <SafeAreaView style={[styles.modalContainer, { backgroundColor: theme.menuBackground }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setShowNotificationModal(false)}
-              >
-                <Text style={[styles.modalCloseText, { color: theme.text }]}>
-                  Done
-                </Text>
-              </TouchableOpacity>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>
-                Notification Settings
-              </Text>
-              <View style={styles.modalHeaderSpacer} />
-            </View>
-            <NotificationSettings />
-          </SafeAreaView>
-        </Modal>
+      {showTermsModal && (
+        <TermsOfService onClose={() => setShowTermsModal(false)} />
       )}
 
-      {/* Add other modals as needed (Font Size, Language, Terms, Privacy, SOS Info, Filter) */}
+      {showPrivacyModal && (
+        <PrivacyPolicy onClose={() => setShowPrivacyModal(false)} />
+      )}
+
+      {/* Add other modals as needed (Font Size, Language, SOS Info, Filter) */}
     </View>
   );
 };

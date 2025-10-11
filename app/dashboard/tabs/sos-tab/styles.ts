@@ -46,12 +46,28 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
     marginVertical: 40,
     position: 'relative',
   },
-  sosOuterButton: {
+  sosOuterCircle: {
     position: 'absolute',
     width: 280,
     height: 280,
     borderRadius: 140,
-    backgroundColor: 'rgba(255, 68, 68, 0.2)',
+    backgroundColor: 'rgba(255, 120, 120, 0.25)',
+  },
+  sosOuterCircle2: {
+    position: 'absolute',
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(255, 150, 150, 0.18)',
+  },
+  rippleCircle: {
+    position: 'absolute',
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(255, 150, 150, 0.25)',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 160, 160, 0.3)',
   },
   sosButton: {
     width: 240,

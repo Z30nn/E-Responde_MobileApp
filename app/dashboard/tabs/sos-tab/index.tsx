@@ -1,4 +1,4 @@
-import React, { FC, useState, useCallback, useEffect } from 'react';
+import React, { FC, useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Alert,
   PermissionsAndroid,
   Platform,
+  Animated,
 } from 'react-native';
 import { auth } from '../../../../firebaseConfig';
 import { useTheme, colors, fontSizes } from '../../../../services/themeContext';
@@ -33,6 +34,46 @@ const SOSTab: FC<SOSTabProps> = ({ userId, selectedAlertId, onAlertSelected, onS
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const styles = createStyles(theme, fonts, isDarkMode);
+
+  // Animated values for ripple effect
+  const rippleAnim1 = useRef(new Animated.Value(0)).current;
+  const rippleAnim2 = useRef(new Animated.Value(0)).current;
+  const rippleAnim3 = useRef(new Animated.Value(0)).current;
+
+  // Ripple animation effect
+  useEffect(() => {
+    const createRippleAnimation = (animValue: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(animValue, {
+            toValue: 1,
+            duration: 2500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animValue, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    const animation1 = createRippleAnimation(rippleAnim1, 0);
+    const animation2 = createRippleAnimation(rippleAnim2, 833);
+    const animation3 = createRippleAnimation(rippleAnim3, 1666);
+
+    animation1.start();
+    animation2.start();
+    animation3.start();
+
+    return () => {
+      animation1.stop();
+      animation2.stop();
+      animation3.stop();
+    };
+  }, [rippleAnim1, rippleAnim2, rippleAnim3]);
 
   // Request location permission for SOS alerts
   const requestLocationPermission = async (): Promise<boolean> => {
@@ -305,8 +346,68 @@ const SOSTab: FC<SOSTabProps> = ({ userId, selectedAlertId, onAlertSelected, onS
 
       {/* SOS Button */}
       <View style={styles.sosButtonContainer}>
-        {/* Outer light red button */}
-        <View style={styles.sosOuterButton} />
+        {/* Static Outer Circles */}
+        <View style={styles.sosOuterCircle2} />
+        <View style={styles.sosOuterCircle} />
+
+        {/* Animated Ripple Circles */}
+        <Animated.View
+          style={[
+            styles.rippleCircle,
+            {
+              opacity: rippleAnim1.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.5, 0],
+              }),
+              transform: [
+                {
+                  scale: rippleAnim1.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.4],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.rippleCircle,
+            {
+              opacity: rippleAnim2.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.35, 0],
+              }),
+              transform: [
+                {
+                  scale: rippleAnim2.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.4],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+        <Animated.View
+          style={[
+            styles.rippleCircle,
+            {
+              opacity: rippleAnim3.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.2, 0],
+              }),
+              transform: [
+                {
+                  scale: rippleAnim3.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 1.4],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
 
         {/* Main SOS Button */}
         <TouchableOpacity

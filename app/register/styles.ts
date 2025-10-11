@@ -114,5 +114,46 @@ export const createStyles = () => StyleSheet.create({
     color: '#f8f9ed',
     fontWeight: 'bold',
   },
+  passwordPolicyContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginTop: -8,
+  },
+  passwordPolicyTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  passwordPolicyItem: {
+    fontSize: 12,
+    marginBottom: 4,
+    paddingLeft: 4,
+  },
+  passwordPolicyValid: {
+    color: '#059669',
+    fontWeight: '500',
+  },
+  passwordPolicyInvalid: {
+    color: '#DC2626',
+    fontWeight: '500',
+  },
+  passwordMatchContainer: {
+    marginTop: -8,
+    paddingHorizontal: 4,
+  },
+  passwordMatchValid: {
+    fontSize: 13,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  passwordMatchInvalid: {
+    fontSize: 13,
+    color: '#DC2626',
+    fontWeight: '600',
+  },
 });
 

@@ -52,28 +52,36 @@ const Register: FC<RegisterProps> = ({ onGoToLogin }) => {
   };
 
   const formatPhoneNumber = (text: string) => {
+    // Remove all non-digit characters
     const cleaned = text.replace(/\D/g, '');
 
-    if (cleaned.startsWith('63')) {
-      const digitsAfter63 = cleaned.substring(2);
-      const limitedDigits = digitsAfter63.substring(0, 10);
-      return '+' + '63' + limitedDigits;
-    }
-    if (cleaned.length > 0 && !cleaned.startsWith('63')) {
-      const limitedDigits = cleaned.substring(0, 10);
-      return '+63' + limitedDigits;
-    }
+    // If empty, return empty string
     if (cleaned.length === 0) {
       return '';
     }
-    if (cleaned.startsWith('0')) {
+
+    let result = '';
+
+    // If starts with '63', limit to exactly 10 digits after '63'
+    if (cleaned.startsWith('63')) {
+      const digitsAfter63 = cleaned.substring(2);
+      const limitedDigits = digitsAfter63.substring(0, 10);
+      result = '+63' + limitedDigits;
+    }
+    // If starts with '0', remove it and add '+63', then limit to 10 digits
+    else if (cleaned.startsWith('0')) {
       const digitsAfter0 = cleaned.substring(1);
       const limitedDigits = digitsAfter0.substring(0, 10);
-      return '+63' + limitedDigits;
+      result = '+63' + limitedDigits;
+    }
+    // For any other input, add '+63' prefix and limit to 10 digits
+    else {
+      const limitedDigits = cleaned.substring(0, 10);
+      result = '+63' + limitedDigits;
     }
 
-    const limitedDigits = cleaned.substring(0, 10);
-    return '+63' + limitedDigits;
+    // Final safety check: ensure result is never more than 13 characters (+63 + 10 digits)
+    return result.substring(0, 13);
   };
 
   const validateContactNumber = (contactNumber: string) => {
@@ -121,6 +129,11 @@ const Register: FC<RegisterProps> = ({ onGoToLogin }) => {
     }
     if (contactNumberError) {
       Alert.alert('Error', contactNumberError);
+      return;
+    }
+    // Additional strict validation: ensure phone number is exactly 13 characters (+63 + 10 digits)
+    if (formData.contactNumber.trim().length !== 13) {
+      Alert.alert('Error', 'Phone number must be exactly 10 digits after +63');
       return;
     }
     if (passwordErrors.length > 0) {
@@ -296,11 +309,15 @@ const Register: FC<RegisterProps> = ({ onGoToLogin }) => {
               value={formData.contactNumber}
               onChangeText={value => {
                 const formatted = formatPhoneNumber(value);
-                handleInputChange('contactNumber', formatted);
+                // Only update if the formatted value is 13 characters or less (+63 + 10 digits = 13)
+                if (formatted.length <= 13) {
+                  handleInputChange('contactNumber', formatted);
+                }
               }}
               onFocus={() => handleFocus('contactNumber')}
               onBlur={handleBlur}
               keyboardType="phone-pad"
+              maxLength={13}
             />
 
             <TextInput
@@ -358,6 +375,39 @@ const Register: FC<RegisterProps> = ({ onGoToLogin }) => {
                 />
               </TouchableOpacity>
             </View>
+
+            {/* Password Policy - Only visible when typing password */}
+            {focusedField === 'password' && (
+              <View style={styles.passwordPolicyContainer}>
+                <Text style={styles.passwordPolicyTitle}>Password must contain:</Text>
+                <Text style={[styles.passwordPolicyItem, (formData.password.length >= 8 && formData.password.length <= 20) ? styles.passwordPolicyValid : styles.passwordPolicyInvalid]}>
+                  {(formData.password.length >= 8 && formData.password.length <= 20) ? '✓' : '✗'} 8-20 characters
+                </Text>
+                <Text style={[styles.passwordPolicyItem, /[A-Z]/.test(formData.password) ? styles.passwordPolicyValid : styles.passwordPolicyInvalid]}>
+                  {/[A-Z]/.test(formData.password) ? '✓' : '✗'} At least 1 uppercase letter
+                </Text>
+                <Text style={[styles.passwordPolicyItem, /[a-z]/.test(formData.password) ? styles.passwordPolicyValid : styles.passwordPolicyInvalid]}>
+                  {/[a-z]/.test(formData.password) ? '✓' : '✗'} At least 1 lowercase letter
+                </Text>
+                <Text style={[styles.passwordPolicyItem, /\d/.test(formData.password) ? styles.passwordPolicyValid : styles.passwordPolicyInvalid]}>
+                  {/\d/.test(formData.password) ? '✓' : '✗'} At least 1 number
+                </Text>
+                <Text style={[styles.passwordPolicyItem, /[^A-Za-z\d]/.test(formData.password) ? styles.passwordPolicyValid : styles.passwordPolicyInvalid]}>
+                  {/[^A-Za-z\d]/.test(formData.password) ? '✓' : '✗'} At least 1 special character
+                </Text>
+              </View>
+            )}
+
+            {/* Password Match Indicator */}
+            {formData.confirmPassword.length > 0 && (
+              <View style={styles.passwordMatchContainer}>
+                {formData.password === formData.confirmPassword ? (
+                  <Text style={styles.passwordMatchValid}>✓ Passwords match</Text>
+                ) : (
+                  <Text style={styles.passwordMatchInvalid}>✗ Passwords do not match</Text>
+                )}
+              </View>
+            )}
 
             <TouchableOpacity
               style={[

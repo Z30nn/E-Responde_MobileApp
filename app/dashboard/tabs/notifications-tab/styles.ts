@@ -12,9 +12,10 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    backgroundColor: isDarkMode ? 'transparent' : theme.menuBackground,
     borderBottomColor: theme.border,
-    marginTop: 0,
+    backgroundColor: theme.menuBackground,
+    marginTop: 40,
+    width: '100%',
   },
   sectionHeaderTitle: {
     fontSize: fonts.subtitle,
