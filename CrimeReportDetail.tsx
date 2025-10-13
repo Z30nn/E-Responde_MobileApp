@@ -16,6 +16,9 @@ import { useLanguage } from './services/languageContext';
 import { useAuth } from './services/authContext';
 import CrimeReportMap from './CrimeReportMap';
 import PoliceCrimeReportMap from './components/police-crime-map';
+import VoIPService, { CallData } from './services/voipService';
+import VoiceCallScreen from './components/voice-call-screen';
+import IncomingCallModal from './components/incoming-call-modal';
 
 interface CrimeReportDetailProps {
   reportId: string;
@@ -43,10 +46,29 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
   const [showMap, setShowMap] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [activeCall, setActiveCall] = useState<CallData | null>(null);
+  const [incomingCall, setIncomingCall] = useState<CallData | null>(null);
+  const [isCallScreenVisible, setIsCallScreenVisible] = useState(false);
 
   useEffect(() => {
     loadReportDetails();
-  }, [reportId]);
+    
+    // Set up listener for incoming calls
+    let unsubscribe: (() => void) | undefined;
+    
+    if (user) {
+      unsubscribe = VoIPService.listenForIncomingCalls(user.uid, (callData) => {
+        setIncomingCall(callData);
+      });
+    }
+
+    return () => {
+      // Clean up listener on unmount
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [reportId, user]);
 
   const loadReportDetails = async () => {
     try {
@@ -89,6 +111,144 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
 
   const closeMap = () => {
     setShowMap(false);
+  };
+
+  const handleCallOfficer = async () => {
+    if (!report || !report.respondingOfficerId || !user) {
+      Alert.alert('Error', 'No officer assigned to this report');
+      return;
+    }
+
+    try {
+      const officerName = report.respondingOfficerName || 'Officer';
+      
+      const callId = await VoIPService.initiateCall(
+        report.respondingOfficerId,
+        'police',
+        officerName,
+        reportId
+      );
+
+      if (callId) {
+        // Get the call data
+        const callData: CallData = {
+          callId,
+          caller: {
+            userId: user.uid,
+            userType: 'civilian',
+            name: `${user.displayName || 'Civilian'}`,
+          },
+          callee: {
+            userId: report.respondingOfficerId,
+            userType: 'police',
+            name: officerName,
+          },
+          status: 'ringing',
+          createdAt: new Date().toISOString(),
+          reportId,
+        };
+        
+        setActiveCall(callData);
+        setIsCallScreenVisible(true);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to initiate call');
+    }
+  };
+
+  const handleCallCivilian = async () => {
+    if (!report || !report.reporterUid || !user) {
+      Alert.alert('Error', 'Cannot call reporter');
+      return;
+    }
+
+    try {
+      const civilianName = report.anonymous ? 'Anonymous Reporter' : (report.reporterName || 'Civilian');
+      
+      if (report.anonymous) {
+        Alert.alert('Error', 'Cannot call anonymous reporters');
+        return;
+      }
+      
+      const callId = await VoIPService.initiateCall(
+        report.reporterUid,
+        'civilian',
+        civilianName,
+        reportId
+      );
+
+      if (callId) {
+        // Get police user data
+        const policeUser = await FirebaseService.getPoliceUser(user.uid);
+        const policeName = policeUser && policeUser.firstName && policeUser.lastName
+          ? `${policeUser.firstName} ${policeUser.lastName}`
+          : policeUser?.badgeNumber
+            ? `Officer ${policeUser.badgeNumber}`
+            : 'Police Officer';
+
+        const callData: CallData = {
+          callId,
+          caller: {
+            userId: user.uid,
+            userType: 'police',
+            name: policeName,
+          },
+          callee: {
+            userId: report.reporterUid,
+            userType: 'civilian',
+            name: civilianName,
+          },
+          status: 'ringing',
+          createdAt: new Date().toISOString(),
+          reportId,
+        };
+        
+        setActiveCall(callData);
+        setIsCallScreenVisible(true);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to initiate call');
+    }
+  };
+
+  const handleEndCall = async () => {
+    try {
+      if (activeCall) {
+        await VoIPService.endCall(activeCall.callId);
+      }
+      setActiveCall(null);
+      setIsCallScreenVisible(false);
+    } catch (error) {
+      console.error('Error ending call:', error);
+      setActiveCall(null);
+      setIsCallScreenVisible(false);
+    }
+  };
+
+  const handleAcceptCall = async () => {
+    if (!incomingCall) return;
+
+    try {
+      await VoIPService.answerCall(incomingCall.callId);
+      setActiveCall(incomingCall);
+      setIncomingCall(null);
+      setIsCallScreenVisible(true);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to accept call');
+      setIncomingCall(null);
+    }
+  };
+
+  const handleRejectCall = async () => {
+    if (!incomingCall) return;
+
+    try {
+      await VoIPService.rejectCall(incomingCall.callId);
+      setIncomingCall(null);
+    } catch (error) {
+      console.error('Error rejecting call:', error);
+      setIncomingCall(null);
+    }
   };
 
 
@@ -364,6 +524,28 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       color: theme.secondaryText,
       textAlign: 'center',
     },
+    callButton: {
+      backgroundColor: '#10B981',
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+      marginHorizontal: 16,
+      marginTop: 16,
+      marginBottom: 8,
+      minHeight: 48,
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    callButtonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '700',
+    },
     mapButton: {
       backgroundColor: theme.primary,
       paddingHorizontal: 24,
@@ -576,6 +758,19 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
           </Text>
         </View>
 
+        {/* VoIP Call Buttons */}
+        {!isPoliceView && user && report && report.respondingOfficerId && report.reporterUid === user.uid && (
+          <TouchableOpacity style={styles.callButton} onPress={handleCallOfficer}>
+            <Text style={styles.callButtonText}>📞 Call Assigned Officer</Text>
+          </TouchableOpacity>
+        )}
+
+        {isPoliceView && user && report && !report.anonymous && (
+          <TouchableOpacity style={styles.callButton} onPress={handleCallCivilian}>
+            <Text style={styles.callButtonText}>📞 Call Civilian Reporter</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Map Button - Show for police users or for current user's reports */}
         {user && report && (isPoliceView || report.reporterUid === user.uid) && (
           <TouchableOpacity style={styles.mapButton} onPress={openMap}>
@@ -608,6 +803,31 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
             />
           )}
         </Modal>
+      )}
+
+      {/* VoIP Call Screen Modal */}
+      {isCallScreenVisible && activeCall && (
+        <Modal
+          visible={isCallScreenVisible}
+          animationType="slide"
+          onRequestClose={handleEndCall}
+        >
+          <VoiceCallScreen
+            callData={activeCall}
+            isOutgoing={activeCall.caller.userId === user?.uid}
+            onEndCall={handleEndCall}
+          />
+        </Modal>
+      )}
+
+      {/* Incoming Call Modal */}
+      {incomingCall && (
+        <IncomingCallModal
+          visible={!!incomingCall}
+          callData={incomingCall}
+          onAccept={handleAcceptCall}
+          onReject={handleRejectCall}
+        />
       )}
 
       {/* Image Modal */}
