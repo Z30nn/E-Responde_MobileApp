@@ -35,6 +35,11 @@ interface CivilianLocation {
   timestamp: string;
 }
 
+interface RouteCoordinate {
+  latitude: number;
+  longitude: number;
+}
+
 const PoliceCrimeReportMap = ({ 
   reportId, 
   crimeLocation, 
@@ -45,6 +50,9 @@ const PoliceCrimeReportMap = ({
   const [policeLocations, setPoliceLocations] = useState<PoliceLocation[]>([]);
   const [civilianLocation, setCivilianLocation] = useState<CivilianLocation | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [routeCoordinates, setRouteCoordinates] = useState<{ [key: string]: RouteCoordinate[] }>({});
+  const [etaMap, setEtaMap] = useState<{ [key: string]: number }>({});
+  const [distanceMap, setDistanceMap] = useState<{ [key: string]: number }>({});
   const [mapRegion, setMapRegion] = useState({
     latitude: crimeLocation.latitude,
     longitude: crimeLocation.longitude,
@@ -98,6 +106,17 @@ const PoliceCrimeReportMap = ({
       });
       
       setPoliceLocations(locations);
+
+      // Fetch routes for each police officer
+      locations.forEach(async (officer) => {
+        await fetchRoute(
+          officer.id,
+          officer.latitude,
+          officer.longitude,
+          crimeLocation.latitude,
+          crimeLocation.longitude
+        );
+      });
     } catch (error) {
       console.error('Error loading police locations:', error);
     }
@@ -121,6 +140,118 @@ const PoliceCrimeReportMap = ({
     }
   };
 
+  const fetchRoute = async (
+    officerId: string,
+    originLat: number,
+    originLng: number,
+    destLat: number,
+    destLng: number
+  ) => {
+    try {
+      // Use OSRM (Open Source Routing Machine) - Completely FREE, No API Key Required!
+      // Note: OSRM uses (longitude, latitude) order
+      const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
+      
+      console.log('🚗 [Police Map] Fetching route from OSRM for officer', officerId);
+      const response = await fetch(url);
+      const result = await response.json();
+
+      if (result.code === 'Ok' && result.routes && result.routes.length > 0) {
+        const route = result.routes[0];
+        
+        // Decode the polyline to get route coordinates
+        const points = decodePolyline(route.geometry);
+        setRouteCoordinates(prev => ({ ...prev, [officerId]: points }));
+
+        // Get duration (in seconds) and distance (in meters) from OSRM
+        const durationInMinutes = Math.ceil(route.duration / 60);
+        const distanceInKm = parseFloat((route.distance / 1000).toFixed(2));
+        
+        setEtaMap(prev => ({ ...prev, [officerId]: durationInMinutes }));
+        setDistanceMap(prev => ({ ...prev, [officerId]: distanceInKm }));
+        
+        console.log('✅ [Police Map] Route found for officer', officerId, '- Distance:', distanceInKm, 'km');
+      } else {
+        // Fallback to straight line if routing fails
+        console.warn('⚠️ [Police Map] OSRM routing failed for officer', officerId, ', using straight line');
+        setRouteCoordinates(prev => ({
+          ...prev,
+          [officerId]: [
+            { latitude: originLat, longitude: originLng },
+            { latitude: destLat, longitude: destLng },
+          ]
+        }));
+        
+        // Calculate straight-line distance and estimate ETA
+        const straightLineDistance = calculateDistance(originLat, originLng, destLat, destLng);
+        setDistanceMap(prev => ({ ...prev, [officerId]: straightLineDistance }));
+        
+        // Estimate ETA: assume average speed of 40 km/h in city
+        const estimatedMinutes = Math.ceil((straightLineDistance / 40) * 60);
+        setEtaMap(prev => ({ ...prev, [officerId]: estimatedMinutes }));
+      }
+    } catch (error) {
+      console.error('❌ [Police Map] Error fetching route for officer', officerId, ':', error);
+      
+      // Fallback to straight line
+      setRouteCoordinates(prev => ({
+        ...prev,
+        [officerId]: [
+          { latitude: originLat, longitude: originLng },
+          { latitude: destLat, longitude: destLng },
+        ]
+      }));
+      
+      const straightLineDistance = calculateDistance(originLat, originLng, destLat, destLng);
+      setDistanceMap(prev => ({ ...prev, [officerId]: straightLineDistance }));
+      const estimatedMinutes = Math.ceil((straightLineDistance / 40) * 60);
+      setEtaMap(prev => ({ ...prev, [officerId]: estimatedMinutes }));
+    }
+  };
+
+  // Decode Google Maps polyline to coordinates
+  const decodePolyline = (encoded: string): RouteCoordinate[] => {
+    const poly: RouteCoordinate[] = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < len) {
+      let b;
+      let shift = 0;
+      let result = 0;
+
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lng += dlng;
+
+      poly.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
+    }
+
+    return poly;
+  };
+
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; // Radius of the Earth in kilometers
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -131,7 +262,7 @@ const PoliceCrimeReportMap = ({
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     const distance = R * c;
-    return distance;
+    return parseFloat(distance.toFixed(2));
   };
 
   // Find closest police officer
@@ -139,7 +270,7 @@ const PoliceCrimeReportMap = ({
     if (policeLocations.length === 0) return null;
     
     let closest = policeLocations[0];
-    let minDistance = calculateDistance(
+    let minDistance = distanceMap[closest.id] || calculateDistance(
       closest.latitude,
       closest.longitude,
       crimeLocation.latitude,
@@ -147,7 +278,7 @@ const PoliceCrimeReportMap = ({
     );
 
     policeLocations.forEach((officer) => {
-      const distance = calculateDistance(
+      const distance = distanceMap[officer.id] || calculateDistance(
         officer.latitude,
         officer.longitude,
         crimeLocation.latitude,
@@ -202,10 +333,9 @@ const PoliceCrimeReportMap = ({
             }}
             title={isSOSReport ? "SOS Alert Location" : "Crime Location"}
             description={crimeLocation.address}
-            pinColor={isSOSReport ? "#EF4444" : "#DC2626"}
           >
-            <View style={styles.sosMarker}>
-              <Text style={styles.sosMarkerText}>{isSOSReport ? "🚨" : "📍"}</Text>
+            <View style={styles.crimeMarker}>
+              <Text style={styles.crimeMarkerText}>{isSOSReport ? "🚨" : "🚨"}</Text>
             </View>
           </Marker>
 
@@ -232,7 +362,6 @@ const PoliceCrimeReportMap = ({
               }}
               title="Civilian User Location"
               description="Last known location of the person in distress"
-              pinColor="#F59E0B"
             >
               <View style={styles.civilianMarker}>
                 <Text style={styles.civilianMarkerText}>👤</Text>
@@ -250,33 +379,28 @@ const PoliceCrimeReportMap = ({
               }}
               title={officer.name}
               description="Police Officer"
-              pinColor="#3B82F6"
             >
-              <View style={styles.policeMarker}>
-                <Text style={styles.policeMarkerText}>👮</Text>
+              <View style={styles.policeCarMarker}>
+                <Text style={styles.policeCarMarkerText}>🚔</Text>
               </View>
             </Marker>
           ))}
 
           {/* Polylines showing routes from police to crime location */}
-          {policeLocations.map((officer) => (
-            <Polyline
-              key={`route_${officer.id}`}
-              coordinates={[
-                {
-                  latitude: officer.latitude,
-                  longitude: officer.longitude,
-                },
-                {
-                  latitude: crimeLocation.latitude,
-                  longitude: crimeLocation.longitude,
-                },
-              ]}
-              strokeColor="#3B82F6"
-              strokeWidth={2}
-              lineDashPattern={[5, 5]}
-            />
-          ))}
+          {policeLocations.map((officer) => {
+            const coords = routeCoordinates[officer.id] || [];
+            if (coords.length > 0) {
+              return (
+                <Polyline
+                  key={`route_${officer.id}`}
+                  coordinates={coords}
+                  strokeColor="#3B82F6"
+                  strokeWidth={3}
+                />
+              );
+            }
+            return null;
+          })}
         </MapView>
       </View>
 
@@ -285,7 +409,7 @@ const PoliceCrimeReportMap = ({
         {/* Crime Information */}
         <View style={styles.crimeInfo}>
           <Text style={styles.crimeInfoTitle}>
-            {isSOSReport ? '🚨 SOS Emergency Alert' : '📍 Crime Location'}
+            {isSOSReport ? '🚨 SOS Emergency Alert' : '🚨 Crime Location'}
           </Text>
           <Text style={styles.crimeInfoText}>📍 {crimeLocation.address}</Text>
           <Text style={styles.crimeInfoText}>
@@ -306,12 +430,19 @@ const PoliceCrimeReportMap = ({
           {closestOfficerInfo ? (
             <View style={styles.policeOfficer}>
               <View>
-                <Text style={styles.officerName}>{closestOfficerInfo.officer.name}</Text>
+                <Text style={styles.officerName}>🚔 {closestOfficerInfo.officer.name}</Text>
                 <Text style={styles.officerStatus}>Available</Text>
               </View>
-              <Text style={styles.officerDistance}>
-                {closestOfficerInfo.distance.toFixed(2)} km away
-              </Text>
+              <View style={styles.officerRightInfo}>
+                <Text style={styles.officerDistance}>
+                  {closestOfficerInfo.distance.toFixed(2)} km away
+                </Text>
+                {etaMap[closestOfficerInfo.officer.id] && (
+                  <Text style={styles.officerEta}>
+                    ETA: ~{etaMap[closestOfficerInfo.officer.id]} min
+                  </Text>
+                )}
+              </View>
             </View>
           ) : (
             <Text style={styles.crimeInfoText}>No officers currently tracking location</Text>
@@ -365,7 +496,7 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  sosMarker: {
+  crimeMarker: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -380,7 +511,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 5,
   },
-  sosMarkerText: {
+  crimeMarkerText: {
     fontSize: 20,
   },
   civilianMarker: {
@@ -401,10 +532,10 @@ const styles = StyleSheet.create({
   civilianMarkerText: {
     fontSize: 18,
   },
-  policeMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  policeCarMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
@@ -416,8 +547,8 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 5,
   },
-  policeMarkerText: {
-    fontSize: 18,
+  policeCarMarkerText: {
+    fontSize: 20,
   },
   bottomInfo: {
     backgroundColor: '#FFFFFF',
@@ -486,10 +617,18 @@ const styles = StyleSheet.create({
     color: '#10B981',
     marginTop: 2,
   },
+  officerRightInfo: {
+    alignItems: 'flex-end',
+  },
   officerDistance: {
     fontSize: 14,
     color: '#3B82F6',
     fontWeight: '600',
+  },
+  officerEta: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
   },
   additionalOfficers: {
     fontSize: 12,
@@ -511,4 +650,3 @@ const styles = StyleSheet.create({
 });
 
 export default PoliceCrimeReportMap;
-

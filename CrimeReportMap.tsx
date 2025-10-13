@@ -25,14 +25,22 @@ interface PoliceLocation {
   latitude: number;
   longitude: number;
   name: string;
-  status: 'dispatched' | 'en_route' | 'arrived';
+  badgeNumber?: string;
   lastUpdated: string;
+}
+
+interface RouteCoordinate {
+  latitude: number;
+  longitude: number;
 }
 
 const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProps) => {
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? colors.dark : colors.light;
-  const [policeLocations, setPoliceLocations] = useState<PoliceLocation[]>([]);
+  const [policeLocation, setPoliceLocation] = useState<PoliceLocation | null>(null);
+  const [routeCoordinates, setRouteCoordinates] = useState<RouteCoordinate[]>([]);
+  const [eta, setEta] = useState<number | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mapRegion, setMapRegion] = useState({
     latitude: crimeLocation.latitude,
@@ -42,71 +50,176 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
   });
 
   useEffect(() => {
-    loadPoliceLocations();
-    // Set up real-time updates for police locations
-    const interval = setInterval(loadPoliceLocations, 5000); // Update every 5 seconds
+    loadRespondingOfficer();
+    // Set up real-time updates for the responding officer location
+    const interval = setInterval(loadRespondingOfficer, 5000); // Update every 5 seconds
     return () => clearInterval(interval);
   }, [reportId]);
 
-  const loadPoliceLocations = async () => {
+  const loadRespondingOfficer = async () => {
     try {
-      // Fetch real police locations from Firebase
+      // Get the crime report to find the responding officer
       const { FirebaseService } = await import('./services/firebaseService');
-      const policeUsers = await FirebaseService.getAllPoliceLocations();
+      const report = await FirebaseService.getCrimeReport(reportId);
       
-      console.log('Loaded police locations:', policeUsers.length);
+      if (!report || !report.respondingOfficerId) {
+        console.log('No responding officer assigned yet');
+        setPoliceLocation(null);
+        setRouteCoordinates([]);
+        setEta(null);
+        setDistance(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Get the responding officer's data
+      const officer = await FirebaseService.getPoliceUser(report.respondingOfficerId);
       
-      // Convert police users to police locations
-      const locations: PoliceLocation[] = policeUsers.map((police) => {
-        const name = police.firstName && police.lastName 
-          ? `${police.firstName} ${police.lastName}` 
-          : police.badgeNumber 
-            ? `Officer ${police.badgeNumber}` 
-            : 'Police Officer';
-        
-        return {
-          id: police.uid,
-          latitude: police.currentLocation!.latitude,
-          longitude: police.currentLocation!.longitude,
-          name: name,
-          status: 'en_route' as const, // Default status
-          lastUpdated: police.currentLocation!.lastUpdated,
-        };
-      });
-      
-      console.log('Converted police locations:', locations);
-      setPoliceLocations(locations);
+      if (!officer || !officer.currentLocation) {
+        console.log('Officer location not available');
+        setPoliceLocation(null);
+        setRouteCoordinates([]);
+        setEta(null);
+        setDistance(null);
+        setIsLoading(false);
+        return;
+      }
+
+      const officerName = officer.firstName && officer.lastName 
+        ? `${officer.firstName} ${officer.lastName}` 
+        : officer.badgeNumber 
+          ? `Officer ${officer.badgeNumber}` 
+          : 'Police Officer';
+
+      const location: PoliceLocation = {
+        id: officer.uid,
+        latitude: officer.currentLocation.latitude,
+        longitude: officer.currentLocation.longitude,
+        name: officerName,
+        badgeNumber: officer.badgeNumber,
+        lastUpdated: officer.currentLocation.lastUpdated,
+      };
+
+      setPoliceLocation(location);
+
+      // Fetch route from Google Directions API
+      await fetchRoute(
+        officer.currentLocation.latitude,
+        officer.currentLocation.longitude,
+        crimeLocation.latitude,
+        crimeLocation.longitude
+      );
+
     } catch (error) {
-      console.error('Error loading police locations:', error);
+      console.error('Error loading responding officer:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const getPoliceMarkerColor = (status: string) => {
-    switch (status) {
-      case 'dispatched':
-        return '#F59E0B'; // Orange
-      case 'en_route':
-        return '#3B82F6'; // Blue
-      case 'arrived':
-        return '#10B981'; // Green
-      default:
-        return '#6B7280'; // Gray
+  const fetchRoute = async (
+    originLat: number,
+    originLng: number,
+    destLat: number,
+    destLng: number
+  ) => {
+    try {
+      // Use OSRM (Open Source Routing Machine) - Completely FREE, No API Key Required!
+      // Note: OSRM uses (longitude, latitude) order
+      const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=polyline`;
+      
+      console.log('🚗 Fetching route from OSRM (Free Routing API)...');
+      const response = await fetch(url);
+      const result = await response.json();
+
+      if (result.code === 'Ok' && result.routes && result.routes.length > 0) {
+        const route = result.routes[0];
+        
+        // Decode the polyline to get route coordinates
+        const points = decodePolyline(route.geometry);
+        setRouteCoordinates(points);
+
+        // Get duration (in seconds) and distance (in meters) from OSRM
+        const durationInMinutes = Math.ceil(route.duration / 60);
+        const distanceInKm = parseFloat((route.distance / 1000).toFixed(2));
+        
+        setEta(durationInMinutes);
+        setDistance(distanceInKm);
+        
+        console.log('✅ Route found! Distance:', distanceInKm, 'km, ETA:', durationInMinutes, 'min');
+      } else {
+        // Fallback to straight line if routing fails
+        console.warn('⚠️ OSRM routing failed, using straight line. Status:', result.code);
+        setRouteCoordinates([
+          { latitude: originLat, longitude: originLng },
+          { latitude: destLat, longitude: destLng },
+        ]);
+        
+        // Calculate straight-line distance and estimate ETA
+        const straightLineDistance = calculateDistance(originLat, originLng, destLat, destLng);
+        setDistance(straightLineDistance);
+        
+        // Estimate ETA: assume average speed of 40 km/h in city
+        const estimatedMinutes = Math.ceil((straightLineDistance / 40) * 60);
+        setEta(estimatedMinutes);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching route from OSRM:', error);
+      
+      // Fallback to straight line
+      setRouteCoordinates([
+        { latitude: originLat, longitude: originLng },
+        { latitude: destLat, longitude: destLng },
+      ]);
+      
+      const straightLineDistance = calculateDistance(originLat, originLng, destLat, destLng);
+      setDistance(straightLineDistance);
+      const estimatedMinutes = Math.ceil((straightLineDistance / 40) * 60);
+      setEta(estimatedMinutes);
     }
   };
 
-  const getPoliceStatusText = (status: string) => {
-    switch (status) {
-      case 'dispatched':
-        return 'Dispatched';
-      case 'en_route':
-        return 'En Route';
-      case 'arrived':
-        return 'Arrived';
-      default:
-        return 'Unknown';
+  // Decode Google Maps polyline to coordinates
+  const decodePolyline = (encoded: string): RouteCoordinate[] => {
+    const poly: RouteCoordinate[] = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < len) {
+      let b;
+      let shift = 0;
+      let result = 0;
+
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lng += dlng;
+
+      poly.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
     }
+
+    return poly;
   };
 
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -118,8 +231,8 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-    return distance;
+    const distanceCalc = R * c;
+    return parseFloat(distanceCalc.toFixed(2));
   };
 
   const styles = StyleSheet.create({
@@ -191,24 +304,43 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingVertical: 8,
+      paddingVertical: 12,
       paddingHorizontal: 12,
       backgroundColor: theme.background,
       borderRadius: 8,
       marginBottom: 8,
+    },
+    officerLeftInfo: {
+      flex: 1,
     },
     officerName: {
       fontSize: 14,
       fontWeight: '600',
       color: theme.text,
     },
-    officerStatus: {
+    officerBadge: {
       fontSize: 12,
       color: theme.secondaryText,
+      marginTop: 2,
+    },
+    officerRightInfo: {
+      alignItems: 'flex-end',
     },
     officerDistance: {
+      fontSize: 14,
+      color: '#3B82F6',
+      fontWeight: '600',
+    },
+    officerEta: {
       fontSize: 12,
       color: theme.secondaryText,
+      marginTop: 2,
+    },
+    noOfficerText: {
+      fontSize: 14,
+      color: theme.secondaryText,
+      textAlign: 'center',
+      fontStyle: 'italic',
     },
     loadingContainer: {
       flex: 1,
@@ -220,6 +352,42 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
       marginTop: 16,
       fontSize: 16,
       color: theme.secondaryText,
+    },
+    policeCarMarker: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#3B82F6',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 3,
+      borderColor: '#FFFFFF',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+      elevation: 5,
+    },
+    policeCarMarkerText: {
+      fontSize: 20,
+    },
+    crimeMarker: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: '#EF4444',
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 3,
+      borderColor: '#FFFFFF',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 3,
+      elevation: 5,
+    },
+    crimeMarkerText: {
+      fontSize: 20,
     },
   });
 
@@ -260,42 +428,36 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
             }}
             title="Crime Location"
             description={crimeLocation.address}
-            pinColor="red"
-          />
+          >
+            <View style={styles.crimeMarker}>
+              <Text style={styles.crimeMarkerText}>🚨</Text>
+            </View>
+          </Marker>
 
-          {/* Police Officer Markers */}
-          {policeLocations.map((officer) => (
+          {/* Police Officer Marker - Only if officer is assigned */}
+          {policeLocation && (
             <Marker
-              key={officer.id}
               coordinate={{
-                latitude: officer.latitude,
-                longitude: officer.longitude,
+                latitude: policeLocation.latitude,
+                longitude: policeLocation.longitude,
               }}
-              title={officer.name}
-              description={`Status: ${getPoliceStatusText(officer.status)}`}
-              pinColor={getPoliceMarkerColor(officer.status)}
-            />
-          ))}
+              title={policeLocation.name}
+              description="Responding Officer"
+            >
+              <View style={styles.policeCarMarker}>
+                <Text style={styles.policeCarMarkerText}>🚔</Text>
+              </View>
+            </Marker>
+          )}
 
-          {/* Polylines showing routes from police to crime location */}
-          {policeLocations.map((officer) => (
+          {/* Route Polyline - Only if officer is assigned */}
+          {policeLocation && routeCoordinates.length > 0 && (
             <Polyline
-              key={`route_${officer.id}`}
-              coordinates={[
-                {
-                  latitude: officer.latitude,
-                  longitude: officer.longitude,
-                },
-                {
-                  latitude: crimeLocation.latitude,
-                  longitude: crimeLocation.longitude,
-                },
-              ]}
-              strokeColor={getPoliceMarkerColor(officer.status)}
-              strokeWidth={2}
-              lineDashPattern={[5, 5]}
+              coordinates={routeCoordinates}
+              strokeColor="#3B82F6"
+              strokeWidth={3}
             />
-          ))}
+          )}
         </MapView>
       </View>
 
@@ -312,31 +474,26 @@ const CrimeReportMap = ({ reportId, crimeLocation, onClose }: CrimeReportMapProp
 
         {/* Police Information */}
         <View style={styles.policeInfo}>
-          <Text style={styles.policeInfoTitle}>Responding Officers</Text>
-          {policeLocations.length > 0 ? (
-            policeLocations.map((officer) => {
-              const distance = calculateDistance(
-                officer.latitude,
-                officer.longitude,
-                crimeLocation.latitude,
-                crimeLocation.longitude
-              );
-              return (
-                <View key={officer.id} style={styles.policeOfficer}>
-                  <View>
-                    <Text style={styles.officerName}>{officer.name}</Text>
-                    <Text style={styles.officerStatus}>
-                      Status: {getPoliceStatusText(officer.status)}
-                    </Text>
-                  </View>
-                  <Text style={styles.officerDistance}>
-                    {distance.toFixed(1)} km away
-                  </Text>
-                </View>
-              );
-            })
+          <Text style={styles.policeInfoTitle}>Responding Officer</Text>
+          {policeLocation ? (
+            <View style={styles.policeOfficer}>
+              <View style={styles.officerLeftInfo}>
+                <Text style={styles.officerName}>🚔 {policeLocation.name}</Text>
+                {policeLocation.badgeNumber && (
+                  <Text style={styles.officerBadge}>Badge: {policeLocation.badgeNumber}</Text>
+                )}
+              </View>
+              <View style={styles.officerRightInfo}>
+                {distance && (
+                  <Text style={styles.officerDistance}>{distance} km away</Text>
+                )}
+                {eta && (
+                  <Text style={styles.officerEta}>ETA: ~{eta} min</Text>
+                )}
+              </View>
+            </View>
           ) : (
-            <Text style={styles.crimeInfoText}>No officers dispatched yet</Text>
+            <Text style={styles.noOfficerText}>No officer dispatched yet</Text>
           )}
         </View>
       </View>

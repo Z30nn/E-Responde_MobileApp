@@ -76,6 +76,9 @@ export interface CrimeReport {
   upvotes?: number;
   downvotes?: number;
   userVotes?: { [userId: string]: 'upvote' | 'downvote' };
+  respondingOfficerId?: string;
+  respondingOfficerName?: string;
+  respondingOfficerBadgeNumber?: string;
 }
 
 export class FirebaseService {
@@ -892,6 +895,106 @@ export class FirebaseService {
       return true;
     } catch (error) {
       console.error('Error removing vote from crime report:', error);
+      throw error;
+    }
+  }
+
+  // Assign responding officer to crime report
+  static async assignRespondingOfficer(reportId: string, officerId: string): Promise<boolean> {
+    try {
+      console.log(`Assigning officer ${officerId} to report ${reportId}`);
+      
+      // Get police user data
+      const policeUser = await this.getPoliceUser(officerId);
+      if (!policeUser) {
+        throw new Error('Police officer not found');
+      }
+
+      const officerName = policeUser.firstName && policeUser.lastName 
+        ? `${policeUser.firstName} ${policeUser.lastName}` 
+        : policeUser.badgeNumber 
+          ? `Officer ${policeUser.badgeNumber}` 
+          : 'Police Officer';
+
+      // Update in main civilian crime reports collection
+      const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      const reportSnapshot = await get(reportRef);
+      
+      if (!reportSnapshot.exists()) {
+        throw new Error('Report not found');
+      }
+      
+      const report = reportSnapshot.val();
+      
+      // Check if another officer is already assigned
+      if (report.respondingOfficerId && report.respondingOfficerId !== officerId) {
+        throw new Error('Another officer is already assigned to this report');
+      }
+      
+      await update(reportRef, {
+        respondingOfficerId: officerId,
+        respondingOfficerName: officerName,
+        respondingOfficerBadgeNumber: policeUser.badgeNumber || '',
+        status: 'in progress'
+      });
+      
+      // Update in user's personal crime reports collection
+      const userCrimeReportsRef = ref(database, `civilian/civilian account/${report.reporterUid}/crime reports/${reportId}`);
+      await update(userCrimeReportsRef, {
+        respondingOfficerId: officerId,
+        respondingOfficerName: officerName,
+        respondingOfficerBadgeNumber: policeUser.badgeNumber || '',
+        status: 'in progress'
+      });
+      
+      console.log(`Successfully assigned officer ${officerId} to report ${reportId}`);
+      return true;
+    } catch (error) {
+      console.error('Error assigning responding officer:', error);
+      throw error;
+    }
+  }
+
+  // Remove responding officer from crime report
+  static async removeRespondingOfficer(reportId: string, officerId: string): Promise<boolean> {
+    try {
+      console.log(`Removing officer ${officerId} from report ${reportId}`);
+      
+      // Update in main civilian crime reports collection
+      const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      const reportSnapshot = await get(reportRef);
+      
+      if (!reportSnapshot.exists()) {
+        throw new Error('Report not found');
+      }
+      
+      const report = reportSnapshot.val();
+      
+      // Check if this officer is actually assigned
+      if (report.respondingOfficerId !== officerId) {
+        throw new Error('You are not assigned to this report');
+      }
+      
+      await update(reportRef, {
+        respondingOfficerId: null,
+        respondingOfficerName: null,
+        respondingOfficerBadgeNumber: null,
+        status: 'reported'
+      });
+      
+      // Update in user's personal crime reports collection
+      const userCrimeReportsRef = ref(database, `civilian/civilian account/${report.reporterUid}/crime reports/${reportId}`);
+      await update(userCrimeReportsRef, {
+        respondingOfficerId: null,
+        respondingOfficerName: null,
+        respondingOfficerBadgeNumber: null,
+        status: 'reported'
+      });
+      
+      console.log(`Successfully removed officer ${officerId} from report ${reportId}`);
+      return true;
+    } catch (error) {
+      console.error('Error removing responding officer:', error);
       throw error;
     }
   }
