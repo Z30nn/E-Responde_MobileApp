@@ -170,7 +170,7 @@ const PoliceCrimeReportMap = ({
         setEtaMap(prev => ({ ...prev, [officerId]: durationInMinutes }));
         setDistanceMap(prev => ({ ...prev, [officerId]: distanceInKm }));
         
-        console.log('✅ [Police Map] Route found for officer', officerId, '- Distance:', distanceInKm, 'km');
+        console.log('[Police Map] Route found for officer', officerId, '- Distance:', distanceInKm, 'km');
       } else {
         // Fallback to straight line if routing fails
         console.warn('⚠️ [Police Map] OSRM routing failed for officer', officerId, ', using straight line');
@@ -191,7 +191,7 @@ const PoliceCrimeReportMap = ({
         setEtaMap(prev => ({ ...prev, [officerId]: estimatedMinutes }));
       }
     } catch (error) {
-      console.error('❌ [Police Map] Error fetching route for officer', officerId, ':', error);
+      console.error('[Police Map] Error fetching route for officer', officerId, ':', error);
       
       // Fallback to straight line
       setRouteCoordinates(prev => ({
@@ -335,7 +335,7 @@ const PoliceCrimeReportMap = ({
             description={crimeLocation.address}
           >
             <View style={styles.crimeMarker}>
-              <Text style={styles.crimeMarkerText}>{isSOSReport ? "🚨" : "🚨"}</Text>
+              <Text style={styles.crimeMarkerText}>{isSOSReport ? "!" : "!"}</Text>
             </View>
           </Marker>
 
@@ -381,7 +381,7 @@ const PoliceCrimeReportMap = ({
               description="Police Officer"
             >
               <View style={styles.policeCarMarker}>
-                <Text style={styles.policeCarMarkerText}>🚔</Text>
+                <Text style={styles.policeCarMarkerText}>P</Text>
               </View>
             </Marker>
           ))}
@@ -409,15 +409,15 @@ const PoliceCrimeReportMap = ({
         {/* Crime Information */}
         <View style={styles.crimeInfo}>
           <Text style={styles.crimeInfoTitle}>
-            {isSOSReport ? '🚨 SOS Emergency Alert' : '🚨 Crime Location'}
+            {isSOSReport ? 'SOS Emergency Alert' : 'Crime Location'}
           </Text>
-          <Text style={styles.crimeInfoText}>📍 {crimeLocation.address}</Text>
+          <Text style={styles.crimeInfoText}>{crimeLocation.address}</Text>
           <Text style={styles.crimeInfoText}>
             Coordinates: {crimeLocation.latitude.toFixed(6)}, {crimeLocation.longitude.toFixed(6)}
           </Text>
           {isSOSReport && (
             <View style={styles.sosAlert}>
-              <Text style={styles.sosAlertText}>⚠️ IMMEDIATE RESPONSE REQUIRED</Text>
+              <Text style={styles.sosAlertText}>IMMEDIATE RESPONSE REQUIRED</Text>
             </View>
           )}
         </View>
@@ -425,12 +425,12 @@ const PoliceCrimeReportMap = ({
         {/* Police Information */}
         <View style={styles.policeInfo}>
           <Text style={styles.policeInfoTitle}>
-            {closestOfficerInfo ? '👮 Nearest Officer' : '👮 No Officers Available'}
+            {closestOfficerInfo ? 'Nearest Officer' : 'No Officers Available'}
           </Text>
           {closestOfficerInfo ? (
             <View style={styles.policeOfficer}>
               <View>
-                <Text style={styles.officerName}>🚔 {closestOfficerInfo.officer.name}</Text>
+                <Text style={styles.officerName}>{closestOfficerInfo.officer.name}</Text>
                 <Text style={styles.officerStatus}>Available</Text>
               </View>
               <View style={styles.officerRightInfo}>
@@ -462,17 +462,17 @@ const PoliceCrimeReportMap = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#1A1A1A',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    paddingTop: 50,
-    backgroundColor: '#2d3480',
+    padding: 16,
+    paddingTop: 20,
+    backgroundColor: '#000000',
     borderBottomWidth: 1,
-    borderBottomColor: '#1e2555',
+    borderBottomColor: '#333333',
   },
   backButton: {
     padding: 8,
@@ -551,10 +551,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
   bottomInfo: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2A2A2A',
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#404040',
     maxHeight: '40%',
   },
   crimeInfo: {
@@ -563,16 +563,16 @@ const styles = StyleSheet.create({
   crimeInfoTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#FFFFFF',
     marginBottom: 8,
   },
   crimeInfoText: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#D0D0D0',
     marginBottom: 4,
   },
   sosAlert: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#3A1A1A',
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
@@ -582,19 +582,19 @@ const styles = StyleSheet.create({
   sosAlertText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#DC2626',
+    color: '#FF6B6B',
     textAlign: 'center',
   },
   policeInfo: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#404040',
   },
   policeInfoTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#FFFFFF',
     marginBottom: 12,
   },
   policeOfficer: {
@@ -603,14 +603,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#1A1A1A',
     borderRadius: 8,
     marginBottom: 8,
   },
   officerName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#FFFFFF',
   },
   officerStatus: {
     fontSize: 12,
@@ -627,12 +627,12 @@ const styles = StyleSheet.create({
   },
   officerEta: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#A0A0A0',
     marginTop: 2,
   },
   additionalOfficers: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#A0A0A0',
     fontStyle: 'italic',
     textAlign: 'center',
   },
@@ -640,12 +640,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#1A1A1A',
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6B7280',
+    color: '#A0A0A0',
   },
 });
 

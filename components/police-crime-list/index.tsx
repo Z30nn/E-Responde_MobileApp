@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { FirebaseService, CrimeReport } from '../../services/firebaseService';
 import { database } from '../../firebaseConfig';
@@ -266,16 +267,24 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
         
         <View style={styles.cardFooter}>
           <View style={styles.locationRow}>
-            <Text style={styles.location}>📍 {item.location.address}</Text>
+            <Text style={styles.location}>{item.location.address}</Text>
           </View>
           
           {/* Vote Counts (Display Only - No Interaction) */}
           <View style={styles.votesContainer}>
             <View style={styles.voteItem}>
-              <Text style={styles.voteCount}>👍 {item.upvotes || 0}</Text>
+              <Image 
+                source={require('../../assets/upvote.png')} 
+                style={styles.voteIcon}
+              />
+              <Text style={styles.voteCount}>{item.upvotes || 0}</Text>
             </View>
             <View style={styles.voteItem}>
-              <Text style={styles.voteCount}>👎 {item.downvotes || 0}</Text>
+              <Image 
+                source={require('../../assets/downvote.png')} 
+                style={styles.voteIcon}
+              />
+              <Text style={styles.voteCount}>{item.downvotes || 0}</Text>
             </View>
           </View>
         </View>
@@ -284,7 +293,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
         {hasRespondingOfficer && (
           <View style={styles.respondingOfficerInfo}>
             <Text style={styles.respondingOfficerLabel}>
-              {isResponding ? '✅ You are responding' : `🚔 ${item.respondingOfficerName}`}
+              {isResponding ? 'You are responding' : `${item.respondingOfficerName}`}
             </Text>
             {item.respondingOfficerBadgeNumber && !isResponding && (
               <Text style={styles.respondingOfficerBadge}>
@@ -313,7 +322,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Text style={styles.actionButtonText}>❌ Cancel Response</Text>
+                  <Text style={styles.actionButtonText}>Cancel Response</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -327,13 +336,13 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <>
-                  <Text style={styles.actionButtonText}>🚔 Respond to Report</Text>
+                  <Text style={styles.actionButtonText}>Respond to Report</Text>
                 </>
               )}
             </TouchableOpacity>
           ) : (
             <View style={[styles.actionButton, styles.assignedButton]}>
-              <Text style={styles.actionButtonText}>📍 Already Assigned</Text>
+              <Text style={styles.actionButtonText}>Already Assigned</Text>
             </View>
           )}
         </View>
@@ -399,25 +408,25 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   reportCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2A2A2A',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#404040',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 3,
-    elevation: 3,
+    elevation: 5,
   },
   respondingReportCard: {
     borderColor: '#3B82F6',
     borderWidth: 2,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#1A2A3A',
   },
   cardHeader: {
     marginBottom: 12,
@@ -431,7 +440,7 @@ const styles = StyleSheet.create({
   crimeType: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#FFFFFF',
     flex: 1,
   },
   severityBadge: {
@@ -464,18 +473,18 @@ const styles = StyleSheet.create({
   },
   dateTime: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#A0A0A0',
     fontStyle: 'italic',
   },
   description: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#D0D0D0',
     lineHeight: 20,
     marginBottom: 12,
   },
   cardFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#404040',
     paddingTop: 12,
   },
   locationRow: {
@@ -483,7 +492,7 @@ const styles = StyleSheet.create({
   },
   location: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#B0B0B0',
   },
   votesContainer: {
     flexDirection: 'row',
@@ -493,13 +502,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  voteIcon: {
+    width: 16,
+    height: 16,
+    marginRight: 4,
+    tintColor: '#A0A0A0',
+  },
   voteCount: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#A0A0A0',
     fontWeight: '500',
   },
   respondingOfficerInfo: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#1A2A3A',
     padding: 10,
     borderRadius: 8,
     marginTop: 12,
@@ -509,16 +524,16 @@ const styles = StyleSheet.create({
   respondingOfficerLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: '#60A5FA',
   },
   respondingOfficerBadge: {
     fontSize: 11,
-    color: '#3B82F6',
+    color: '#93C5FD',
     marginTop: 2,
   },
   reporter: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: '#808080',
     fontStyle: 'italic',
     marginTop: 8,
     textAlign: 'right',
@@ -557,7 +572,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#6B7280',
+    color: '#A0A0A0',
   },
   errorContainer: {
     flex: 1,
@@ -590,13 +605,13 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: '#6B7280',
+    color: '#A0A0A0',
     fontWeight: '600',
     marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#808080',
     textAlign: 'center',
     lineHeight: 20,
   },

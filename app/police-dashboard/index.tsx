@@ -164,7 +164,7 @@ const PoliceDashboard = () => {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Image
-            source={require('../../assets/logo.png')}
+            source={require('../../assets/policeapp.png')}
             style={styles.logo}
           />
           <View>
@@ -192,17 +192,17 @@ const PoliceDashboard = () => {
           {/* Location Status */}
           <View style={styles.locationStatus}>
             <Text style={styles.locationLabel}>
-              📍 Location Tracking: 
+              Location Tracking: 
             </Text>
             {locationEnabled && currentLocation ? (
               <View>
-                <Text style={styles.locationEnabled}>✅ Active</Text>
+                <Text style={styles.locationEnabled}>Active</Text>
                 <Text style={styles.locationCoords}>
                   {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
                 </Text>
               </View>
             ) : (
-              <Text style={styles.locationDisabled}>❌ Disabled</Text>
+              <Text style={styles.locationDisabled}>Disabled</Text>
             )}
           </View>
         </View>
@@ -220,10 +220,10 @@ const PoliceDashboard = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#1A1A1A',
   },
   header: {
-    backgroundColor: '#2d3480',
+    backgroundColor: '#000000',
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   welcomeCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2A2A2A',
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
@@ -281,36 +281,38 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 3.84,
-    elevation: 3,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: '#333333',
   },
   welcomeText: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
   emailText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#B0B0B0',
     marginBottom: 12,
   },
   infoText: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#D0D0D0',
     lineHeight: 20,
   },
   locationStatus: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#404040',
   },
   locationLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: '#E0E0E0',
     marginBottom: 4,
   },
   locationEnabled: {
@@ -325,7 +327,7 @@ const styles = StyleSheet.create({
   },
   locationCoords: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#A0A0A0',
     marginTop: 2,
   },
   listContainer: {
@@ -334,7 +336,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: '#FFFFFF',
     marginBottom: 12,
   },
 });

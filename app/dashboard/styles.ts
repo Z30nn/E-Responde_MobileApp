@@ -129,9 +129,117 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
   modalTitle: {
     fontSize: fonts.subtitle,
     fontWeight: '600',
+    color: theme.text,
   },
   modalHeaderSpacer: {
     width: 60,
+  },
+  // Font Size Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fontSizeModal: {
+    backgroundColor: theme.background,
+    borderRadius: 16,
+    margin: 20,
+    maxWidth: '90%',
+    minWidth: '80%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: fonts.subtitle,
+    color: theme.secondaryText,
+    fontWeight: '600',
+  },
+  fontSizeOptions: {
+    padding: 20,
+  },
+  fontSizeOption: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.menuBackground,
+    marginBottom: 12,
+  },
+  fontSizeOptionSelected: {
+    backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'rgba(30, 58, 138, 0.1)',
+    borderColor: theme.primary,
+  },
+  fontSizeOptionText: {
+    fontSize: fonts.subtitle,
+    color: theme.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  fontSizeOptionTextSelected: {
+    color: theme.primary,
+  },
+  fontSizeDescription: {
+    fontSize: fonts.caption,
+    color: theme.secondaryText,
+  },
+  fontSizeDescriptionSelected: {
+    color: theme.primary,
+  },
+  // Language Modal Styles
+  languageModal: {
+    backgroundColor: theme.background,
+    borderRadius: 16,
+    margin: 20,
+    maxWidth: '90%',
+    minWidth: '80%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  languageOptions: {
+    padding: 20,
+  },
+  languageOption: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.menuBackground,
+    marginBottom: 12,
+  },
+  languageOptionSelected: {
+    backgroundColor: isDarkMode ? 'rgba(30, 58, 138, 0.3)' : 'rgba(30, 58, 138, 0.1)',
+    borderColor: theme.primary,
+  },
+  languageOptionText: {
+    fontSize: fonts.subtitle,
+    color: theme.text,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  languageOptionTextSelected: {
+    color: theme.primary,
+  },
+  languageOptionDesc: {
+    fontSize: fonts.caption,
+    color: theme.secondaryText,
+    lineHeight: 18,
+  },
+  languageOptionDescSelected: {
+    color: theme.primary,
+    opacity: 0.8,
   },
 });
 

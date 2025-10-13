@@ -64,13 +64,13 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
     const diffInDays = Math.floor(diffInHours / 24);
     
     if (diffInMinutes < 1) {
-      return 'Just now';
+      return t('notifications.justNow');
     } else if (diffInMinutes < 60) {
-      return `${diffInMinutes}m ago`;
+      return t('notifications.minutesAgo').replace('{minutes}', diffInMinutes.toString());
     } else if (diffInHours < 24) {
-      return `${diffInHours}h ago`;
+      return t('notifications.hoursAgo').replace('{hours}', diffInHours.toString());
     } else if (diffInDays < 7) {
-      return `${diffInDays}d ago`;
+      return t('notifications.daysAgo').replace('{days}', diffInDays.toString());
     } else {
       // For older notifications, show the actual date
       return date.toLocaleDateString('en-US', {
@@ -193,17 +193,17 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
     
     // Add mark as read/unread option
     if (notification.data?.read) {
-      options.push('Mark as Unread');
+      options.push(t('notifications.markAsUnread'));
     } else {
-      options.push('Mark as Read');
+      options.push(t('notifications.markAsRead'));
     }
     
     // Only add delete option for non-SOS alerts
     if (notification.type !== 'sos_alert') {
-      options.push('Delete');
+      options.push(t('notifications.delete'));
     }
     
-    options.push('Cancel');
+    options.push(t('common.cancel'));
     
     console.log('NotificationsList: Available options:', options);
 
@@ -213,7 +213,7 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
           {
             options,
             cancelButtonIndex: options.length - 1,
-            title: 'Notification Options',
+            title: t('notifications.notificationOptions'),
           },
           async (buttonIndex) => {
             await handleActionSheetSelection(buttonIndex, notification, options);
@@ -244,8 +244,8 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
         });
         
         Alert.alert(
-          'Notification Options',
-          'Choose an action',
+          t('notifications.notificationOptions'),
+          t('notifications.chooseAction'),
           alertButtons
         );
       }
@@ -257,11 +257,11 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
   const handleActionSheetSelection = async (buttonIndex: number, notification: NotificationPayload, options: string[]) => {
     const selectedOption = options[buttonIndex];
     
-    if (selectedOption === 'Mark as Read') {
+    if (selectedOption === t('notifications.markAsRead')) {
       await markNotificationAsRead(notification);
-    } else if (selectedOption === 'Mark as Unread') {
+    } else if (selectedOption === t('notifications.markAsUnread')) {
       await markNotificationAsUnread(notification);
-    } else if (selectedOption === 'Delete') {
+    } else if (selectedOption === t('notifications.delete')) {
       await deleteNotification(notification);
     }
   };
@@ -375,7 +375,7 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
           )
         );
         
-        Alert.alert('Request Accepted', 'You have accepted the primary contact request.');
+        Alert.alert(t('notifications.requestAccepted'), t('notifications.requestAcceptedDesc'));
       } else {
         Alert.alert('Error', 'Failed to accept contact request. Please try again.');
       }
@@ -425,7 +425,7 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
           )
         );
         
-        Alert.alert('Request Declined', 'You have declined the primary contact request.');
+        Alert.alert(t('notifications.requestDeclined'), t('notifications.requestDeclinedDesc'));
       } else {
         Alert.alert('Error', 'Failed to decline contact request');
       }
@@ -538,7 +538,7 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
                 </Text>
                 
                 <Text style={[styles.longPressHint, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                  Long press for options
+                  {t('notifications.longPressHint')}
                 </Text>
                 
               </View>

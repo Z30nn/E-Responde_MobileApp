@@ -316,7 +316,167 @@ const Dashboard: React.FC = () => {
         <PrivacyPolicy onClose={() => setShowPrivacyModal(false)} />
       )}
 
-      {/* Add other modals as needed (Font Size, Language, SOS Info, Filter) */}
+      {/* Font Size Modal */}
+      {showFontSizeModal && (
+        <Modal
+          visible={showFontSizeModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowFontSizeModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowFontSizeModal(false)}
+          >
+            <View style={styles.fontSizeModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{t('settings.fontSize')}</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowFontSizeModal(false)}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.fontSizeOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.fontSizeOption,
+                    fontSize === 'small' && styles.fontSizeOptionSelected
+                  ]}
+                  onPress={() => {
+                    setFontSize('small');
+                    setShowFontSizeModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.fontSizeOptionText,
+                    fontSize === 'small' && styles.fontSizeOptionTextSelected
+                  ]}>{t('settings.fontSize.small')}</Text>
+                  <Text style={[
+                    styles.fontSizeDescription,
+                    fontSize === 'small' && styles.fontSizeDescriptionSelected
+                  ]}>{t('settings.fontSize.smallDesc')}</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.fontSizeOption,
+                    fontSize === 'medium' && styles.fontSizeOptionSelected
+                  ]}
+                  onPress={() => {
+                    setFontSize('medium');
+                    setShowFontSizeModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.fontSizeOptionText,
+                    fontSize === 'medium' && styles.fontSizeOptionTextSelected
+                  ]}>{t('settings.fontSize.medium')}</Text>
+                  <Text style={[
+                    styles.fontSizeDescription,
+                    fontSize === 'medium' && styles.fontSizeDescriptionSelected
+                  ]}>{t('settings.fontSize.mediumDesc')}</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.fontSizeOption,
+                    fontSize === 'large' && styles.fontSizeOptionSelected
+                  ]}
+                  onPress={() => {
+                    setFontSize('large');
+                    setShowFontSizeModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.fontSizeOptionText,
+                    fontSize === 'large' && styles.fontSizeOptionTextSelected
+                  ]}>{t('settings.fontSize.large')}</Text>
+                  <Text style={[
+                    styles.fontSizeDescription,
+                    fontSize === 'large' && styles.fontSizeDescriptionSelected
+                  ]}>{t('settings.fontSize.largeDesc')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {/* Language Modal */}
+      {showLanguageModal && (
+        <Modal
+          visible={showLanguageModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowLanguageModal(false)}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlay}
+            activeOpacity={1}
+            onPress={() => setShowLanguageModal(false)}
+          >
+            <View style={styles.languageModal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{t('settings.language')}</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowLanguageModal(false)}
+                  style={styles.closeButton}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.languageOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.languageOption,
+                    language === 'en' && styles.languageOptionSelected
+                  ]}
+                  onPress={() => {
+                    setLanguage('en');
+                    setShowLanguageModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.languageOptionText,
+                    language === 'en' && styles.languageOptionTextSelected
+                  ]}>English</Text>
+                  <Text style={[
+                    styles.languageOptionDesc,
+                    language === 'en' && styles.languageOptionDescSelected
+                  ]}>English language</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity
+                  style={[
+                    styles.languageOption,
+                    language === 'fil' && styles.languageOptionSelected
+                  ]}
+                  onPress={() => {
+                    setLanguage('fil');
+                    setShowLanguageModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.languageOptionText,
+                    language === 'fil' && styles.languageOptionTextSelected
+                  ]}>Filipino</Text>
+                  <Text style={[
+                    styles.languageOptionDesc,
+                    language === 'fil' && styles.languageOptionDescSelected
+                  ]}>Wikang Filipino</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {/* Add other modals as needed (SOS Info, Filter) */}
     </View>
   );
 };
