@@ -15,6 +15,7 @@ import { useLanguage } from '../../services/languageContext';
 import { useAuth } from '../../services/authContext';
 import { useNotification } from '../../services/notificationContext';
 import { gyroscopeService } from '../../services/gyroscopeService';
+import { backgroundService } from '../../services/backgroundService';
 import { sosCleanupService } from '../../services/sosCleanupService';
 import CrimeReportForm from '../crime-report/form';
 import CrimeReportDetail from '../crime-report/detail';
@@ -26,15 +27,51 @@ import { CrimeListFromOthersRef } from '../../CrimeListFromOthers';
 // Tab Components
 import HomeTab from './tabs/home-tab';
 import ContactsTab from './tabs/contacts-tab';
-import SOSTab from './tabs/sos-tab';
+import SOSTab, { SOSTabRef } from './tabs/sos-tab';
 import ReportsTab from './tabs/reports-tab';
 import NotificationsTab from './tabs/notifications-tab';
 import ProfileTab from './tabs/profile-tab';
 
 import { createStyles } from './styles';
 
-const Dashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState(2);
+interface DashboardProps {
+  globalActiveTab?: number;
+  onGlobalTabChange?: (tab: number) => void;
+  globalSosTabRef?: React.RefObject<SOSTabRef>;
+  globalModalState?: {
+    showCrimeReportForm: boolean;
+    showCrimeReportDetail: boolean;
+    selectedReportId: string | null;
+    showTermsModal?: boolean;
+    showPrivacyModal?: boolean;
+    showChangePassword?: boolean;
+    showFontSizeModal?: boolean;
+    showLanguageModal?: boolean;
+    showSOSInfoModal?: boolean;
+    showUserReportsFilterModal?: boolean;
+  };
+  onGlobalModalChange?: (state: {
+    showCrimeReportForm: boolean;
+    showCrimeReportDetail: boolean;
+    selectedReportId: string | null;
+    showTermsModal?: boolean;
+    showPrivacyModal?: boolean;
+    showChangePassword?: boolean;
+    showFontSizeModal?: boolean;
+    showLanguageModal?: boolean;
+    showSOSInfoModal?: boolean;
+    showUserReportsFilterModal?: boolean;
+  }) => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ 
+  globalActiveTab, 
+  onGlobalTabChange, 
+  globalSosTabRef,
+  globalModalState,
+  onGlobalModalChange
+}) => {
+  const [activeTab, setActiveTab] = useState(globalActiveTab ?? 2);
   const [showCrimeReportForm, setShowCrimeReportForm] = useState(false);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedSOSAlertId, setSelectedSOSAlertId] = useState<string | null>(null);
@@ -55,6 +92,7 @@ const Dashboard: React.FC = () => {
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
   const crimeListRef = useRef<CrimeListFromOthersRef>(null);
+  const sosTabRef = globalSosTabRef || useRef<SOSTabRef>(null);
   const { isDarkMode, fontSize, setFontSize } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { user } = useAuth();
@@ -81,19 +119,65 @@ const Dashboard: React.FC = () => {
     }
   }, [activeTab, loadSOSStats]);
 
-  // Gyroscope SOS functionality
-  useEffect(() => {
-    const handleGyroscopeSOS = () => {
-      console.log('Dashboard: Gyroscope SOS triggered');
-      setActiveTab(2); // Switch to SOS tab
-    };
+  // Note: Gyroscope functionality is handled globally in App.tsx
 
-    gyroscopeService.startListening(handleGyroscopeSOS);
+
+  // Sync global active tab with local state
+  useEffect(() => {
+    if (globalActiveTab !== undefined && globalActiveTab !== activeTab) {
+      setActiveTab(globalActiveTab);
+    }
+  }, [globalActiveTab, activeTab]);
+
+  // Sync global modal state with local state
+  useEffect(() => {
+    if (globalModalState) {
+      setShowCrimeReportForm(globalModalState.showCrimeReportForm);
+      setSelectedReportId(globalModalState.selectedReportId);
+      if (globalModalState.showTermsModal !== undefined) {
+        setShowTermsModal(globalModalState.showTermsModal);
+      }
+      if (globalModalState.showPrivacyModal !== undefined) {
+        setShowPrivacyModal(globalModalState.showPrivacyModal);
+      }
+      if (globalModalState.showChangePassword !== undefined) {
+        setShowChangePassword(globalModalState.showChangePassword);
+      }
+      if (globalModalState.showFontSizeModal !== undefined) {
+        setShowFontSizeModal(globalModalState.showFontSizeModal);
+      }
+      if (globalModalState.showLanguageModal !== undefined) {
+        setShowLanguageModal(globalModalState.showLanguageModal);
+      }
+      if (globalModalState.showSOSInfoModal !== undefined) {
+        setShowSOSInfoModal(globalModalState.showSOSInfoModal);
+      }
+      if (globalModalState.showUserReportsFilterModal !== undefined) {
+        setShowUserReportsFilterModal(globalModalState.showUserReportsFilterModal);
+      }
+    }
+  }, [globalModalState]);
+
+  // Background service initialization
+  useEffect(() => {
+    if (!user) return;
+
+    try {
+      console.log('Dashboard: Starting background service');
+      backgroundService.start();
+    } catch (error) {
+      console.error('Dashboard: Error starting background service:', error);
+    }
 
     return () => {
-      gyroscopeService.stopListening();
+      try {
+        console.log('Dashboard: Stopping background service');
+        backgroundService.stop();
+      } catch (error) {
+        console.error('Dashboard: Error stopping background service:', error);
+      }
     };
-  }, []);
+  }, [user]);
 
   const tabs = [
     { id: 0, name: t('nav.crimeList'), icon: require('../../assets/reports.png') },
@@ -106,6 +190,65 @@ const Dashboard: React.FC = () => {
 
   const handleTabPress = (tabId: number) => {
     setActiveTab(tabId);
+    if (onGlobalTabChange) {
+      onGlobalTabChange(tabId);
+    }
+  };
+
+  const handleModalChange = (modalState: { 
+    showCrimeReportForm?: boolean; 
+    selectedReportId?: string | null;
+    showTermsModal?: boolean;
+    showPrivacyModal?: boolean;
+    showChangePassword?: boolean;
+    showFontSizeModal?: boolean;
+    showLanguageModal?: boolean;
+    showSOSInfoModal?: boolean;
+    showUserReportsFilterModal?: boolean;
+  }) => {
+    if (modalState.showCrimeReportForm !== undefined) {
+      setShowCrimeReportForm(modalState.showCrimeReportForm);
+    }
+    if (modalState.selectedReportId !== undefined) {
+      setSelectedReportId(modalState.selectedReportId);
+    }
+    if (modalState.showTermsModal !== undefined) {
+      setShowTermsModal(modalState.showTermsModal);
+    }
+    if (modalState.showPrivacyModal !== undefined) {
+      setShowPrivacyModal(modalState.showPrivacyModal);
+    }
+    if (modalState.showChangePassword !== undefined) {
+      setShowChangePassword(modalState.showChangePassword);
+    }
+    if (modalState.showFontSizeModal !== undefined) {
+      setShowFontSizeModal(modalState.showFontSizeModal);
+    }
+    if (modalState.showLanguageModal !== undefined) {
+      setShowLanguageModal(modalState.showLanguageModal);
+    }
+    if (modalState.showSOSInfoModal !== undefined) {
+      setShowSOSInfoModal(modalState.showSOSInfoModal);
+    }
+    if (modalState.showUserReportsFilterModal !== undefined) {
+      setShowUserReportsFilterModal(modalState.showUserReportsFilterModal);
+    }
+    
+    // Update global modal state
+    if (onGlobalModalChange) {
+      onGlobalModalChange({
+        showCrimeReportForm: modalState.showCrimeReportForm ?? showCrimeReportForm,
+        showCrimeReportDetail: modalState.selectedReportId !== null,
+        selectedReportId: modalState.selectedReportId ?? selectedReportId,
+        showTermsModal: modalState.showTermsModal ?? showTermsModal,
+        showPrivacyModal: modalState.showPrivacyModal ?? showPrivacyModal,
+        showChangePassword: modalState.showChangePassword ?? showChangePassword,
+        showFontSizeModal: modalState.showFontSizeModal ?? showFontSizeModal,
+        showLanguageModal: modalState.showLanguageModal ?? showLanguageModal,
+        showSOSInfoModal: modalState.showSOSInfoModal ?? showSOSInfoModal,
+        showUserReportsFilterModal: modalState.showUserReportsFilterModal ?? showUserReportsFilterModal,
+      });
+    }
   };
 
   const getUnreadCount = () => {
@@ -150,11 +293,18 @@ const Dashboard: React.FC = () => {
   };
 
   const handleNavigateToScreen = (screen: string, params?: any) => {
+    console.log('Dashboard: handleNavigateToScreen called with:', screen, params);
     switch (screen) {
       case 'SOS':
+        console.log('Dashboard: Navigating to SOS tab with alertId:', params?.alertId);
         setActiveTab(2);
         if (params?.alertId) {
+          console.log('Dashboard: Setting selectedSOSAlertId to:', params.alertId);
           setSelectedSOSAlertId(params.alertId);
+          // If showDetails is true, we'll let the SOS tab handle showing the modal immediately
+          if (params?.showDetails) {
+            console.log('Dashboard: showDetails flag is true, SOS tab should show modal immediately');
+          }
         }
         break;
       case 'CrimeReportDetail':
@@ -191,19 +341,20 @@ const Dashboard: React.FC = () => {
       case 2:
         return (
           <SOSTab
+            ref={sosTabRef}
             userId={user?.uid || ''}
             selectedAlertId={selectedSOSAlertId}
             onAlertSelected={setSelectedSOSAlertId}
-            onShowInfo={() => setShowSOSInfoModal(true)}
+            onShowInfo={() => handleModalChange({ showSOSInfoModal: true })}
           />
         );
       case 3:
         return (
           <ReportsTab
-            onViewReport={setSelectedReportId}
-            onCreateReport={() => setShowCrimeReportForm(true)}
+            onViewReport={(reportId) => handleModalChange({ selectedReportId: reportId })}
+            onCreateReport={() => handleModalChange({ showCrimeReportForm: true })}
             selectedStatus={selectedUserReportsStatus}
-            onFilterPress={() => setShowUserReportsFilterModal(true)}
+            onFilterPress={() => handleModalChange({ showUserReportsFilterModal: true })}
           />
         );
       case 4:
@@ -218,12 +369,12 @@ const Dashboard: React.FC = () => {
       case 5:
         return (
           <ProfileTab
-            onChangePassword={() => setShowChangePassword(true)}
-            onFontSizeSettings={() => setShowFontSizeModal(true)}
-            onLanguageSettings={() => setShowLanguageModal(true)}
+            onChangePassword={() => handleModalChange({ showChangePassword: true })}
+            onFontSizeSettings={() => handleModalChange({ showFontSizeModal: true })}
+            onLanguageSettings={() => handleModalChange({ showLanguageModal: true })}
             onCleanupOldAlerts={cleanupOldSOSAlerts}
-            onTermsOfService={() => setShowTermsModal(true)}
-            onPrivacyPolicy={() => setShowPrivacyModal(true)}
+            onTermsOfService={() => handleModalChange({ showTermsModal: true })}
+            onPrivacyPolicy={() => handleModalChange({ showPrivacyModal: true })}
             sosStats={sosStats}
             cleanupLoading={cleanupLoading}
           />
@@ -239,13 +390,13 @@ const Dashboard: React.FC = () => {
 
       {showCrimeReportForm ? (
         <CrimeReportForm
-          onClose={() => setShowCrimeReportForm(false)}
-          onSuccess={() => setShowCrimeReportForm(false)}
+          onClose={() => handleModalChange({ showCrimeReportForm: false })}
+          onSuccess={() => handleModalChange({ showCrimeReportForm: false })}
         />
       ) : selectedReportId ? (
         <CrimeReportDetail
           reportId={selectedReportId}
-          onClose={() => setSelectedReportId(null)}
+          onClose={() => handleModalChange({ selectedReportId: null })}
         />
       ) : (
         <>
@@ -305,15 +456,15 @@ const Dashboard: React.FC = () => {
 
       {/* Modals */}
       {showChangePassword && (
-        <ChangePassword onClose={() => setShowChangePassword(false)} />
+        <ChangePassword onClose={() => handleModalChange({ showChangePassword: false })} />
       )}
 
       {showTermsModal && (
-        <TermsOfService onClose={() => setShowTermsModal(false)} />
+        <TermsOfService onClose={() => handleModalChange({ showTermsModal: false })} />
       )}
 
       {showPrivacyModal && (
-        <PrivacyPolicy onClose={() => setShowPrivacyModal(false)} />
+        <PrivacyPolicy onClose={() => handleModalChange({ showPrivacyModal: false })} />
       )}
 
       {/* Font Size Modal */}
@@ -327,13 +478,13 @@ const Dashboard: React.FC = () => {
           <TouchableOpacity 
             style={styles.modalOverlay}
             activeOpacity={1}
-            onPress={() => setShowFontSizeModal(false)}
+                  onPress={() => handleModalChange({ showFontSizeModal: false })}
           >
             <View style={styles.fontSizeModal}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{t('settings.fontSize')}</Text>
                 <TouchableOpacity 
-                  onPress={() => setShowFontSizeModal(false)}
+                  onPress={() => handleModalChange({ showFontSizeModal: false })}
                   style={styles.closeButton}
                 >
                   <Text style={styles.closeButtonText}>✕</Text>
@@ -423,7 +574,7 @@ const Dashboard: React.FC = () => {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{t('settings.language')}</Text>
                 <TouchableOpacity 
-                  onPress={() => setShowLanguageModal(false)}
+                  onPress={() => handleModalChange({ showLanguageModal: false })}
                   style={styles.closeButton}
                 >
                   <Text style={styles.closeButtonText}>✕</Text>
@@ -476,7 +627,87 @@ const Dashboard: React.FC = () => {
         </Modal>
       )}
 
-      {/* Add other modals as needed (SOS Info, Filter) */}
+      {/* SOS Information Modal */}
+      {showSOSInfoModal && (
+        <Modal
+          visible={showSOSInfoModal}
+          animationType="slide"
+          transparent={false}
+          onRequestClose={() => setShowSOSInfoModal(false)}
+        >
+          <View style={styles.sosInfoContainer}>
+            {/* Header */}
+            <View style={styles.sosInfoHeader}>
+              <View style={styles.headerSpacer} />
+              <Text style={styles.sosInfoHeaderTitle}>{t('emergency.whatIsSosAlert')}</Text>
+              <TouchableOpacity 
+                onPress={() => handleModalChange({ showSOSInfoModal: false })}
+                style={styles.sosInfoCloseButton}
+              >
+                <Text style={styles.sosInfoCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            <ScrollView 
+              style={styles.sosInfoScrollView}
+              contentContainerStyle={styles.sosInfoContentContainer}
+              showsVerticalScrollIndicator={true}
+            >
+                <View style={styles.sosInfoSection}>
+                  <Text style={styles.sosInfoSectionTitle}>{t('emergency.whatIsSosAlert')}</Text>
+                  <Text style={styles.sosInfoSectionText}>
+                    {t('emergency.whatIsSosAlertDesc')}
+                  </Text>
+                </View>
+
+                <View style={styles.sosInfoSection}>
+                  <Text style={styles.sosInfoSectionTitle}>{t('emergency.howToUse')}</Text>
+                  <Text style={styles.sosInfoSectionText}>
+                    {t('emergency.howToUseDesc')}
+                  </Text>
+                  <View style={styles.sosMethodContainer}>
+                    <View style={styles.sosMethodItem}>
+                      <Text style={styles.sosMethodTitle}>{t('emergency.tapSOSButton')}</Text>
+                      <Text style={styles.sosMethodDesc}>{t('emergency.tapSOSButtonDesc')}</Text>
+                    </View>
+                    <View style={styles.sosMethodItem}>
+                      <Text style={styles.sosMethodTitle}>{t('emergency.tripleShakeFeature')}</Text>
+                      <Text style={styles.sosMethodDesc}>{t('emergency.tripleShakeFeatureDesc')}</Text>
+                    </View>
+                    <View style={styles.sosMethodItem}>
+                      <Text style={styles.sosMethodTitle}>{t('emergency.longPressFeature')}</Text>
+                      <Text style={styles.sosMethodDesc}>{t('emergency.longPressFeatureDesc')}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.sosInfoSection}>
+                  <Text style={styles.sosInfoSectionTitle}>{t('emergency.whenToUse')}</Text>
+                  <Text style={styles.sosInfoSectionText}>
+                    {t('emergency.whenToUseDesc')}
+                  </Text>
+                </View>
+
+                <View style={styles.sosInfoSection}>
+                  <Text style={styles.sosInfoSectionTitle}>{t('emergency.importantNotes')}</Text>
+                  <Text style={styles.sosInfoSectionText}>
+                    {t('emergency.importantNotesDesc')}
+                  </Text>
+                </View>
+
+                <View style={styles.sosInfoSection}>
+                  <Text style={styles.sosInfoSectionTitle}>{t('emergency.tripleShakeDetails')}</Text>
+                  <Text style={styles.sosInfoSectionText}>
+                    {t('emergency.tripleShakeDetailsDesc')}
+                  </Text>
+                </View>
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
+
+      {/* Add other modals as needed (Filter) */}
     </View>
   );
 };

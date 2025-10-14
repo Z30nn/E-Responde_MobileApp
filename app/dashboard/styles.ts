@@ -241,5 +241,84 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
     color: theme.primary,
     opacity: 0.8,
   },
+
+  // SOS Information Modal Styles
+  sosInfoContainer: {
+    flex: 1,
+    backgroundColor: theme.background,
+  },
+  sosInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingTop: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+    backgroundColor: theme.background,
+  },
+  headerSpacer: {
+    width: 60,
+  },
+  sosInfoHeaderTitle: {
+    fontSize: fonts.subtitle,
+    fontWeight: '600',
+    color: theme.text,
+  },
+  sosInfoCloseButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  sosInfoCloseButtonText: {
+    fontSize: fonts.body,
+    fontWeight: '600',
+    color: theme.primary,
+  },
+  sosInfoScrollView: {
+    flex: 1,
+  },
+  sosInfoContentContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  sosInfoSection: {
+    marginBottom: 24,
+  },
+  sosInfoSectionTitle: {
+    fontSize: fonts.subtitle,
+    fontWeight: '600',
+    color: theme.text,
+    marginBottom: 12,
+    lineHeight: 22,
+  },
+  sosInfoSectionText: {
+    fontSize: fonts.body,
+    color: theme.textSecondary,
+    lineHeight: fonts.body * 1.6,
+    textAlign: 'justify',
+  },
+  sosMethodContainer: {
+    marginTop: 12,
+    gap: 16,
+  },
+  sosMethodItem: {
+    backgroundColor: theme.menuBackground,
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: theme.primary,
+  },
+  sosMethodTitle: {
+    fontSize: fonts.body,
+    fontWeight: 'bold',
+    color: theme.primary,
+    marginBottom: 8,
+  },
+  sosMethodDesc: {
+    fontSize: fonts.caption,
+    color: theme.secondaryText,
+    lineHeight: 20,
+  },
 });
 

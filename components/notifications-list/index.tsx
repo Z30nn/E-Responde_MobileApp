@@ -10,6 +10,7 @@ import {
   ActionSheetIOS,
   Platform,
   Image,
+  Modal,
 } from 'react-native';
 import { useTheme, colors, fontSizes } from '../../services/themeContext';
 import { useLanguage } from '../../services/languageContext';
@@ -29,6 +30,8 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
   const { notifications, isLoading, loadNotifications, markAsRead } = useNotification();
   const [localNotifications, setLocalNotifications] = useState<NotificationPayload[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showSOSDetailsModal, setShowSOSDetailsModal] = useState(false);
+  const [selectedSOSNotification, setSelectedSOSNotification] = useState<NotificationPayload | null>(null);
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const styles = createStyles(theme, fonts);
@@ -127,6 +130,7 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
 
 
   const handleNotificationPress = async (notification: NotificationPayload) => {
+    console.log('NotificationsList: handleNotificationPress called with notification:', notification.type, notification.id);
     // Mark notification as read first
     if (!notification.data?.read && notification.id) {
       try {
@@ -146,10 +150,14 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
 
     // Handle navigation based on notification type
     if (onNavigateToScreen) {
+      console.log('NotificationsList: Calling onNavigateToScreen with type:', notification.type);
       switch (notification.type) {
         case 'sos_alert':
-          // Navigate to SOS alerts or emergency screen
-          onNavigateToScreen('SOS', { alertId: notification.id, data: notification.data });
+          // Show SOS alert details directly in modal instead of navigating
+          console.log('NotificationsList: Showing SOS alert details directly for notification:', notification.id);
+          console.log('NotificationsList: SOS notification data:', notification.data);
+          setSelectedSOSNotification(notification);
+          setShowSOSDetailsModal(true);
           break;
         case 'crime_report_submitted':
         case 'crime_report_new':
@@ -546,6 +554,99 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {/* SOS Alert Details Modal */}
+      <Modal
+        visible={showSOSDetailsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSOSDetailsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.text, fontSize: fonts.subtitle }]}>
+                🚨 SOS Alert Details
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setShowSOSDetailsModal(false)} 
+                style={styles.closeButton}
+              >
+                <Text style={[styles.closeButtonText, { color: theme.secondaryText, fontSize: fonts.subtitle }]}>
+                  ×
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            {selectedSOSNotification && (
+              <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
+                <View style={styles.detailSection}>
+                  <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                    👤 From
+                  </Text>
+                  <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
+                    {selectedSOSNotification.data?.fromUserName || 'Unknown User'}
+                  </Text>
+                </View>
+
+                {selectedSOSNotification.data?.fromUserPhone && (
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                      📞 Sender Phone
+                    </Text>
+                    <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
+                      {selectedSOSNotification.data.fromUserPhone}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.detailSection}>
+                  <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                    📅 Date
+                  </Text>
+                  <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
+                    {new Date(selectedSOSNotification.timestamp).toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                    🕐 Time
+                  </Text>
+                  <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
+                    {new Date(selectedSOSNotification.timestamp).toLocaleTimeString('en-US', { 
+                      hour: '2-digit', 
+                      minute: '2-digit', 
+                      second: '2-digit',
+                      hour12: true 
+                    })}
+                  </Text>
+                </View>
+
+                {selectedSOSNotification.data?.location && (
+                  <View style={styles.detailSection}>
+                    <Text style={[styles.detailLabel, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                      📍 Location
+                    </Text>
+                    <Text style={[styles.detailValue, { color: theme.text, fontSize: fonts.body }]}>
+                      {selectedSOSNotification.data.location.address || 'Location not available'}
+                    </Text>
+                    <Text style={[styles.detailSubValue, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+                      Coordinates: {selectedSOSNotification.data.location.latitude.toFixed(6)}, {selectedSOSNotification.data.location.longitude.toFixed(6)}
+                    </Text>
+                  </View>
+                )}
+
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };

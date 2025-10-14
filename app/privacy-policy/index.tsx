@@ -47,7 +47,7 @@ const PrivacyPolicy: FC<PrivacyPolicyProps> = ({ onClose }) => {
             style={styles.closeButton}
             onPress={onClose}
           >
-            <Text style={styles.closeButtonText}>{t('common.close')}</Text>
+            <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
         </View>
 
