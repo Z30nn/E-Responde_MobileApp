@@ -1,4 +1,4 @@
-import React, { FC, useState, useCallback, useEffect, useRef } from 'react';
+import React, { FC, useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,11 @@ interface SOSTabProps {
   onShowInfo: () => void;
 }
 
-const SOSTab: FC<SOSTabProps> = ({ userId, selectedAlertId, onAlertSelected, onShowInfo }) => {
+export interface SOSTabRef {
+  handleSOSPress: () => void;
+}
+
+const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, onAlertSelected, onShowInfo }, ref) => {
   const [sosLoading, setSosLoading] = useState(false);
   const [sosCountdown, setSosCountdown] = useState<number | null>(null);
   const [sosCountdownInterval, setSosCountdownInterval] = useState<NodeJS.Timeout | null>(null);
@@ -333,6 +337,11 @@ const SOSTab: FC<SOSTabProps> = ({ userId, selectedAlertId, onAlertSelected, onS
     }
   }, [userId, t, sosCountdown, sosCountdownInterval]);
 
+  // Expose handleSOSPress function to parent component
+  useImperativeHandle(ref, () => ({
+    handleSOSPress: handleSOSPress
+  }));
+
   return (
     <View style={styles.contentContainer}>
       <Text style={styles.sosTitle}>SOS</Text>
@@ -446,7 +455,9 @@ const SOSTab: FC<SOSTabProps> = ({ userId, selectedAlertId, onAlertSelected, onS
       </View>
     </View>
   );
-};
+});
+
+SOSTab.displayName = 'SOSTab';
 
 export default SOSTab;
 

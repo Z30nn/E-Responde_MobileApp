@@ -256,11 +256,27 @@ const SOSAlertsHistory: React.FC<SOSAlertsHistoryProps> = ({ userId, selectedAle
     if (selectedAlertId && sosAlerts.length > 0) {
       const alert = sosAlerts.find(alert => alert.id === selectedAlertId);
       if (alert) {
+        console.log('SOSAlertsHistory: Found selected alert, showing modal:', alert.id);
+        setSelectedAlert(alert);
+        setShowDetailsModal(true);
+      } else {
+        console.log('SOSAlertsHistory: Selected alert not found in current alerts:', selectedAlertId);
+      }
+    }
+  }, [selectedAlertId, sosAlerts]);
+
+  // Additional effect to handle selectedAlertId when alerts are loaded later
+  useEffect(() => {
+    if (selectedAlertId && sosAlerts.length > 0 && !showDetailsModal) {
+      const alert = sosAlerts.find(alert => alert.id === selectedAlertId);
+      if (alert) {
+        console.log('SOSAlertsHistory: Delayed alert found, showing modal:', alert.id);
         setSelectedAlert(alert);
         setShowDetailsModal(true);
       }
     }
-  }, [selectedAlertId, sosAlerts]);
+  }, [sosAlerts, selectedAlertId, showDetailsModal]);
+
 
   const renderSOSAlert = ({ item }: { item: SOSAlert }) => (
     <TouchableOpacity

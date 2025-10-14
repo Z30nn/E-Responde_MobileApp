@@ -65,10 +65,24 @@ class BackgroundService {
     this.isRunning = true;
 
     // Start gyroscope monitoring in background
-    gyroscopeService.startListening(() => {
-      console.log('BackgroundService: SOS triggered from background');
-      // The SOS will be handled by the gyroscope service callback
-    });
+    gyroscopeService.startListening(
+      () => {
+        console.log('BackgroundService: SOS triggered from background');
+        // The SOS will be handled by the gyroscope service callback
+      },
+      {
+        onNavigateToSOS: () => {
+          console.log('BackgroundService: Navigating to SOS screen from background');
+          // Navigation will be handled by the main app when it comes to foreground
+        },
+        onSOSAlertSent: (result) => {
+          console.log('BackgroundService: SOS alert sent from background:', result);
+        },
+        onError: (error) => {
+          console.error('BackgroundService: Gyroscope error:', error);
+        }
+      }
+    );
 
     // Set up periodic background checks
     this.backgroundTimer = setInterval(() => {

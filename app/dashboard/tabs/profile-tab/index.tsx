@@ -13,6 +13,7 @@ import { useTheme, colors, fontSizes } from '../../../../services/themeContext';
 import { useLanguage } from '../../../../services/languageContext';
 import { FirebaseService } from '../../../../services/firebaseService';
 import { useAuth } from '../../../../services/authContext';
+import { gyroscopeService } from '../../../../services/gyroscopeService';
 import { createStyles } from './styles';
 
 interface UserProfile {
@@ -48,6 +49,7 @@ const ProfileTab: FC<ProfileTabProps> = ({
   cleanupLoading,
 }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [gyroscopeEnabled, setGyroscopeEnabled] = useState(true);
   const { isDarkMode, toggleTheme, fontSize } = useTheme();
   const { language, t } = useLanguage();
   const { logout } = useAuth();
@@ -57,6 +59,8 @@ const ProfileTab: FC<ProfileTabProps> = ({
 
   useEffect(() => {
     loadUserProfile();
+    // Initialize gyroscope setting
+    setGyroscopeEnabled(gyroscopeService.isGyroscopeEnabled());
   }, []);
 
   const loadUserProfile = async () => {
@@ -82,6 +86,14 @@ const ProfileTab: FC<ProfileTabProps> = ({
     if (!userProfile) return '';
     return `${userProfile.firstName[0]}${userProfile.lastName[0]}`.toUpperCase();
   };
+
+  const handleGyroscopeToggle = (value: boolean) => {
+    setGyroscopeEnabled(value);
+    gyroscopeService.setEnabled(value);
+    console.log('Gyroscope SOS setting changed to:', value);
+  };
+
+  const isGyroscopeAvailable = gyroscopeService.isGyroscopeAvailable();
 
   return (
     <ScrollView
@@ -147,6 +159,27 @@ const ProfileTab: FC<ProfileTabProps> = ({
             />
           </View>
 
+          <View style={styles.menuItem}>
+            <View style={styles.gyroscopeSettingContainer}>
+              <Text style={styles.menuItemText}>Shake to SOS</Text>
+              <Text style={styles.gyroscopeSettingDescription}>
+                {isGyroscopeAvailable 
+                  ? 'Enable shake detection for emergency SOS alerts'
+                  : 'Gyroscope sensors not available on this device'
+                }
+              </Text>
+            </View>
+            <Switch
+              trackColor={{ false: '#767577', true: '#4CAF50' }}
+              thumbColor={gyroscopeEnabled ? '#f8f9ed' : '#f4f3f4'}
+              ios_backgroundColor="#3e3e3e"
+              onValueChange={handleGyroscopeToggle}
+              value={gyroscopeEnabled && isGyroscopeAvailable}
+              disabled={!isGyroscopeAvailable}
+              style={styles.gyroscopeSwitch}
+            />
+          </View>
+
           <TouchableOpacity
             style={styles.menuItem}
             onPress={onFontSizeSettings}
@@ -209,6 +242,7 @@ const ProfileTab: FC<ProfileTabProps> = ({
             <Text style={styles.menuItemText}>{t('settings.privacyPolicies')}</Text>
             <Text style={styles.chevronRight}>›</Text>
           </TouchableOpacity>
+
 
           {/* Logout Button */}
           <TouchableOpacity

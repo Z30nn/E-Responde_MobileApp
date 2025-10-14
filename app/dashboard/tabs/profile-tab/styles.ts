@@ -90,6 +90,19 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
   themeSwitch: {
     transform: [{ scale: 1.2 }],
   },
+  gyroscopeSettingContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  gyroscopeSettingDescription: {
+    fontSize: fonts.caption - 1,
+    color: theme.secondaryText,
+    marginTop: 2,
+    lineHeight: 14,
+  },
+  gyroscopeSwitch: {
+    transform: [{ scale: 1.2 }],
+  },
   fontSizePreview: {
     flexDirection: 'row',
     alignItems: 'center',
