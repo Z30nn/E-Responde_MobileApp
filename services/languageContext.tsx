@@ -88,6 +88,22 @@ const translations = {
     'notifications.reportStatusChangedBody': 'Your report "{title}" status has been updated from {oldStatus} to {newStatus}',
     'notifications.reportStatusChangedBodyGeneric': 'Your crime report status has been updated from {oldStatus} to {newStatus}',
 
+    // Notification UI strings
+    'notifications.justNow': 'Just now',
+    'notifications.minutesAgo': '{minutes}m ago',
+    'notifications.hoursAgo': '{hours}h ago',
+    'notifications.daysAgo': '{days}d ago',
+    'notifications.notificationOptions': 'Notification Options',
+    'notifications.chooseAction': 'Choose an action',
+    'notifications.markAsRead': 'Mark as Read',
+    'notifications.markAsUnread': 'Mark as Unread',
+    'notifications.delete': 'Delete',
+    'notifications.requestAccepted': 'Request Accepted',
+    'notifications.requestAcceptedDesc': 'You have accepted the primary contact request.',
+    'notifications.requestDeclined': 'Request Declined',
+    'notifications.requestDeclinedDesc': 'You have declined the primary contact request.',
+    'notifications.longPressHint': 'Long press for options',
+
     // Navigation
     'nav.home': 'Home',
     'nav.reports': 'Reports',
@@ -383,6 +399,22 @@ const translations = {
     'notifications.reportStatusUpdatedBodyGeneric': 'Na-update ang status ng inyong crime report sa {status}',
     'notifications.reportStatusChangedBody': 'Na-update ang status ng inyong report na "{title}" mula {oldStatus} patungong {newStatus}',
     'notifications.reportStatusChangedBodyGeneric': 'Na-update ang status ng inyong crime report mula {oldStatus} patungong {newStatus}',
+
+    // Notification UI strings
+    'notifications.justNow': 'Kakalabas lang',
+    'notifications.minutesAgo': '{minutes}m na ang nakalipas',
+    'notifications.hoursAgo': '{hours}h na ang nakalipas',
+    'notifications.daysAgo': '{days}d na ang nakalipas',
+    'notifications.notificationOptions': 'Mga Opsyon ng Notification',
+    'notifications.chooseAction': 'Pumili ng aksyon',
+    'notifications.markAsRead': 'Markahan bilang nabasa',
+    'notifications.markAsUnread': 'Markahan bilang hindi nabasa',
+    'notifications.delete': 'Burahin',
+    'notifications.requestAccepted': 'Na-accept ang Request',
+    'notifications.requestAcceptedDesc': 'Na-accept ninyo ang primary contact request.',
+    'notifications.requestDeclined': 'Na-decline ang Request',
+    'notifications.requestDeclinedDesc': 'Na-decline ninyo ang primary contact request.',
+    'notifications.longPressHint': 'I-long press para sa mga opsyon',
 
     // Navigation
     'nav.home': 'Home',

@@ -327,7 +327,7 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
   const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: theme.background,
+      backgroundColor: isPoliceView ? '#1A1A1A' : theme.background,
     },
     header: {
       flexDirection: 'row',
@@ -335,22 +335,22 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       justifyContent: 'space-between',
       padding: 20,
       paddingTop: 50,
-      backgroundColor: theme.menuBackground,
+      backgroundColor: isPoliceView ? '#000000' : theme.menuBackground,
       borderBottomWidth: 1,
-      borderBottomColor: theme.border,
+      borderBottomColor: isPoliceView ? '#333333' : theme.border,
     },
     backButton: {
       padding: 8,
     },
     backButtonText: {
       fontSize: fonts.body,
-      color: theme.primary,
+      color: isPoliceView ? '#FFFFFF' : theme.primary,
       fontWeight: '600',
     },
     headerTitle: {
       fontSize: fonts.subtitle,
       fontWeight: 'bold',
-      color: isDarkMode ? '#f8f9ed' : theme.primary,
+      color: isPoliceView ? '#FFFFFF' : (isDarkMode ? '#f8f9ed' : theme.primary),
     },
     headerSpacer: {
       width: 60,
@@ -377,17 +377,17 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       opacity: 0.9,
     },
     section: {
-      backgroundColor: theme.menuBackground,
+      backgroundColor: isPoliceView ? '#2A2A2A' : theme.menuBackground,
       borderRadius: 8,
       padding: 12,
       marginBottom: 12,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: isPoliceView ? '#404040' : theme.border,
     },
     sectionTitle: {
       fontSize: fonts.caption,
       fontWeight: 'bold',
-      color: theme.primary,
+      color: isPoliceView ? '#FFFFFF' : theme.primary,
       marginBottom: 8,
     },
     infoRow: {
@@ -398,13 +398,13 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
     infoLabel: {
       fontSize: fonts.body,
       fontWeight: '600',
-      color: theme.text,
+      color: isPoliceView ? '#D0D0D0' : theme.text,
       width: 100,
       flexShrink: 0,
     },
     infoValue: {
       fontSize: fonts.body,
-      color: theme.secondaryText,
+      color: isPoliceView ? '#B0B0B0' : theme.secondaryText,
       flex: 1,
       lineHeight: 22,
     },
@@ -421,21 +421,21 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
     },
     severityText: {
       fontWeight: '600',
-      color: theme.text,
+      color: isPoliceView ? '#D0D0D0' : theme.text,
     },
     multimediaItem: {
-      backgroundColor: isDarkMode ? theme.settingsBackground : '#F3F4F6',
+      backgroundColor: isPoliceView ? '#1A1A1A' : (isDarkMode ? theme.settingsBackground : '#F3F4F6'),
       padding: 12,
       borderRadius: 8,
       marginBottom: 8,
     },
     multimediaText: {
       fontSize: fonts.caption,
-      color: theme.text,
+      color: isPoliceView ? '#D0D0D0' : theme.text,
     },
     noteText: {
       fontSize: fonts.caption,
-      color: theme.secondaryText,
+      color: isPoliceView ? '#A0A0A0' : theme.secondaryText,
       lineHeight: 18,
       fontStyle: 'italic',
     },
@@ -443,18 +443,18 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.background,
+      backgroundColor: isPoliceView ? '#1A1A1A' : theme.background,
     },
     loadingText: {
       marginTop: 16,
       fontSize: fonts.body,
-      color: theme.secondaryText,
+      color: isPoliceView ? '#A0A0A0' : theme.secondaryText,
     },
     errorContainer: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.background,
+      backgroundColor: isPoliceView ? '#1A1A1A' : theme.background,
       padding: 20,
     },
     errorText: {
@@ -464,14 +464,14 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       marginBottom: 20,
     },
     retryButton: {
-      backgroundColor: theme.primary,
+      backgroundColor: isPoliceView ? '#2d3480' : theme.primary,
       paddingHorizontal: 20,
       paddingVertical: 10,
       borderRadius: 8,
       marginBottom: 12,
     },
     retryButtonText: {
-      color: theme.background,
+      color: isPoliceView ? '#FFFFFF' : theme.background,
       fontSize: fonts.caption,
       fontWeight: '600',
     },
@@ -485,9 +485,9 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       aspectRatio: 1,
       borderRadius: 8,
       overflow: 'hidden',
-      backgroundColor: theme.background,
+      backgroundColor: isPoliceView ? '#2A2A2A' : theme.background,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: isPoliceView ? '#404040' : theme.border,
     },
     mediaImage: {
       width: '100%',
@@ -498,7 +498,7 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.background,
+      backgroundColor: isPoliceView ? '#2A2A2A' : theme.background,
     },
     videoIcon: {
       fontSize: 24,
@@ -506,14 +506,14 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
     },
     videoText: {
       fontSize: 10,
-      color: theme.secondaryText,
+      color: isPoliceView ? '#A0A0A0' : theme.secondaryText,
       textAlign: 'center',
     },
     filePlaceholder: {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: theme.background,
+      backgroundColor: isPoliceView ? '#2A2A2A' : theme.background,
     },
     fileIcon: {
       fontSize: 24,
@@ -521,7 +521,7 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
     },
     fileText: {
       fontSize: 10,
-      color: theme.secondaryText,
+      color: isPoliceView ? '#A0A0A0' : theme.secondaryText,
       textAlign: 'center',
     },
     callButton: {
@@ -761,20 +761,20 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
         {/* VoIP Call Buttons */}
         {!isPoliceView && user && report && report.respondingOfficerId && report.reporterUid === user.uid && (
           <TouchableOpacity style={styles.callButton} onPress={handleCallOfficer}>
-            <Text style={styles.callButtonText}>📞 Call Assigned Officer</Text>
+            <Text style={styles.callButtonText}>Call Assigned Officer</Text>
           </TouchableOpacity>
         )}
 
         {isPoliceView && user && report && !report.anonymous && (
           <TouchableOpacity style={styles.callButton} onPress={handleCallCivilian}>
-            <Text style={styles.callButtonText}>📞 Call Civilian Reporter</Text>
+            <Text style={styles.callButtonText}>Call Civilian Reporter</Text>
           </TouchableOpacity>
         )}
 
         {/* Map Button - Show for police users or for current user's reports */}
         {user && report && (isPoliceView || report.reporterUid === user.uid) && (
           <TouchableOpacity style={styles.mapButton} onPress={openMap}>
-            <Text style={styles.mapButtonText}>🗺️ View Location on Map</Text>
+            <Text style={styles.mapButtonText}>View Location on Map</Text>
           </TouchableOpacity>
         )}
         
