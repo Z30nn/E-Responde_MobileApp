@@ -104,6 +104,24 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
 
   const handleSOSPress = useCallback(async () => {
     try {
+      // Check if current user is a police officer - prevent SOS for police
+      if (userId) {
+        try {
+          const userType = await FirebaseService.getUserType(userId);
+          if (userType === 'police') {
+            console.log('SOSTab: Police user detected - SOS functionality disabled for police officers');
+            Alert.alert(
+              'Access Denied',
+              'SOS functionality is not available for police officers. This feature is only available for civilians.',
+              [{ text: 'OK' }]
+            );
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking user type:', error);
+        }
+      }
+
       // If countdown is active, cancel it
       if (sosCountdown !== null) {
         if (sosCountdownInterval) {

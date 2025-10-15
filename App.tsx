@@ -194,6 +194,7 @@ const AppContent = () => {
         };
 
         // Always start listening - the service will respect the enabled/disabled state internally
+        // The service will check user type and prevent police users from using SOS
         gyroscopeService.startListening(handleGyroscopeSOS, gyroscopeCallbacks);
         
         return () => {
@@ -202,6 +203,18 @@ const AppContent = () => {
         };
       } catch (error) {
         console.error('App: Error initializing global gyroscope:', error);
+      }
+    }
+  }, [isAuthenticated, userType, user, authChecked]);
+
+  // Ensure gyroscope is stopped for police users
+  useEffect(() => {
+    if (isAuthenticated && userType === 'police' && user && authChecked) {
+      console.log('App: Stopping gyroscope service for police user');
+      try {
+        gyroscopeService.stopListening();
+      } catch (error) {
+        console.error('App: Error stopping gyroscope for police user:', error);
       }
     }
   }, [isAuthenticated, userType, user, authChecked]);

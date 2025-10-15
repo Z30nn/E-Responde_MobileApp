@@ -50,11 +50,22 @@ class GyroscopeService {
     setUpdateIntervalForType(SensorTypes.accelerometer, 100);
   }
 
-  public startListening(onShake: () => void, callbacks?: GyroscopeCallbacks) {
+  public async startListening(onShake: () => void, callbacks?: GyroscopeCallbacks) {
     try {
       if (this.isListening) {
         console.log('GyroscopeService: Already listening');
         return;
+      }
+
+      // Check if current user is a police officer - prevent SOS for police
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const userType = await FirebaseService.getUserType(currentUser.uid);
+        if (userType === 'police') {
+          console.log('GyroscopeService: Police user detected - SOS functionality disabled for police officers');
+          this.isListening = false;
+          return;
+        }
       }
 
       // Always store the callbacks and callback function, even if disabled
@@ -109,8 +120,23 @@ class GyroscopeService {
     this.shakeCount = 0;
   }
 
-  private handleMotionData(data: { x: number; y: number; z: number }) {
+  private async handleMotionData(data: { x: number; y: number; z: number }) {
     if (!this.isListening || !this.onShakeCallback) return;
+
+    // Double-check: Verify user is not a police officer before triggering SOS
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      try {
+        const userType = await FirebaseService.getUserType(currentUser.uid);
+        if (userType === 'police') {
+          console.log('GyroscopeService: Police user detected in motion handler - preventing SOS trigger');
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking user type in motion handler:', error);
+        return; // Fail safe - don't trigger if we can't verify user type
+      }
+    }
 
     const { x, y, z } = data;
     const magnitude = Math.sqrt(x * x + y * y + z * z);
@@ -312,6 +338,7 @@ class GyroscopeService {
     // For OPPO A74 and modern devices, accelerometer is available
     return isSensorAvailable;
   }
+
 
   public getSensorStatus(): { deviceMotion: boolean; available: boolean; module: string } {
     return {
