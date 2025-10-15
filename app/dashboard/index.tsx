@@ -133,7 +133,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   useEffect(() => {
     if (globalModalState) {
       setShowCrimeReportForm(globalModalState.showCrimeReportForm);
-      setSelectedReportId(globalModalState.selectedReportId);
+      
+      // Only sync selectedReportId if it's not null (to prevent overriding local close attempts)
+      if (globalModalState.selectedReportId !== null) {
+        console.log('Dashboard: Syncing selectedReportId from global state:', globalModalState.selectedReportId);
+        setSelectedReportId(globalModalState.selectedReportId);
+      }
+      
       if (globalModalState.showTermsModal !== undefined) {
         setShowTermsModal(globalModalState.showTermsModal);
       }
@@ -206,11 +212,15 @@ const Dashboard: React.FC<DashboardProps> = ({
     showSOSInfoModal?: boolean;
     showUserReportsFilterModal?: boolean;
   }) => {
+    console.log('Dashboard: handleModalChange called with:', modalState);
     if (modalState.showCrimeReportForm !== undefined) {
       setShowCrimeReportForm(modalState.showCrimeReportForm);
     }
     if (modalState.selectedReportId !== undefined) {
+      console.log('Dashboard: Setting selectedReportId to:', modalState.selectedReportId);
+      console.log('Dashboard: Previous selectedReportId was:', selectedReportId);
       setSelectedReportId(modalState.selectedReportId);
+      console.log('Dashboard: selectedReportId state updated');
     }
     if (modalState.showTermsModal !== undefined) {
       setShowTermsModal(modalState.showTermsModal);
@@ -236,6 +246,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     
     // Update global modal state
     if (onGlobalModalChange) {
+      console.log('Dashboard: Updating global modal state with:', {
+        showCrimeReportForm: modalState.showCrimeReportForm ?? showCrimeReportForm,
+        showCrimeReportDetail: modalState.selectedReportId !== null,
+        selectedReportId: modalState.selectedReportId ?? selectedReportId,
+      });
+      
       onGlobalModalChange({
         showCrimeReportForm: modalState.showCrimeReportForm ?? showCrimeReportForm,
         showCrimeReportDetail: modalState.selectedReportId !== null,
@@ -294,6 +310,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const handleNavigateToScreen = (screen: string, params?: any) => {
     console.log('Dashboard: handleNavigateToScreen called with:', screen, params);
+    console.log('Dashboard: Current selectedReportId:', selectedReportId);
+    
     switch (screen) {
       case 'SOS':
         console.log('Dashboard: Navigating to SOS tab with alertId:', params?.alertId);
@@ -309,6 +327,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         break;
       case 'CrimeReportDetail':
         if (params?.reportId) {
+          console.log('Dashboard: Setting selectedReportId to:', params.reportId);
           setSelectedReportId(params.reportId);
         }
         break;
@@ -396,7 +415,40 @@ const Dashboard: React.FC<DashboardProps> = ({
       ) : selectedReportId ? (
         <CrimeReportDetail
           reportId={selectedReportId}
-          onClose={() => handleModalChange({ selectedReportId: null })}
+          onClose={() => {
+            console.log('Dashboard: CrimeReportDetail onClose called');
+            console.log('Dashboard: Current selectedReportId:', selectedReportId);
+            console.log('Dashboard: Current globalModalState:', globalModalState);
+            
+            // Force close the modal immediately
+            console.log('Dashboard: Force closing modal - setting selectedReportId to null');
+            setSelectedReportId(null);
+            
+            // Also update global state to ensure consistency
+            if (onGlobalModalChange) {
+              console.log('Dashboard: Updating global state to close modal');
+              onGlobalModalChange({
+                showCrimeReportForm: false,
+                showCrimeReportDetail: false,
+                selectedReportId: null,
+                showTermsModal: false,
+                showPrivacyModal: false,
+                showChangePassword: false,
+                showFontSizeModal: false,
+                showLanguageModal: false,
+                showSOSInfoModal: false,
+                showUserReportsFilterModal: false,
+              });
+            }
+            
+            console.log('Dashboard: Modal should now be closed');
+            
+            // Force close with timeout as backup
+            setTimeout(() => {
+              console.log('Dashboard: Force close timeout - ensuring modal is closed');
+              setSelectedReportId(null);
+            }, 100);
+          }}
         />
       ) : (
         <>

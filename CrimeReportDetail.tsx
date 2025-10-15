@@ -21,17 +21,26 @@ import VoIPService, { CallData } from './services/voipService';
 
 interface CrimeReportDetailProps {
   reportId: string;
-  onClose?: () => void;
-  onBack?: () => void;
+  onClose: () => void;
   isPoliceView?: boolean;
 }
 
-const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: CrimeReportDetailProps) => {
+const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeReportDetailProps) => {
   const handleBackPress = () => {
-    if (onBack) {
-      onBack();
-    } else if (onClose) {
-      onClose();
+    console.log('CrimeReportDetail: X button pressed - handleBackPress called');
+    console.log('CrimeReportDetail: onClose available:', !!onClose);
+    
+    if (onClose) {
+      console.log('CrimeReportDetail: Calling onClose to close modal');
+      try {
+        onClose();
+        console.log('CrimeReportDetail: onClose called successfully - modal should close');
+      } catch (error) {
+        console.error('CrimeReportDetail: Error calling onClose:', error);
+      }
+    } else {
+      console.log('CrimeReportDetail: No onClose handler - this is the problem!');
+      console.log('CrimeReportDetail: Props received:', { onClose, reportId });
     }
   };
   const { isDarkMode, fontSize } = useTheme();
@@ -280,12 +289,30 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
       borderBottomColor: isPoliceView ? '#333333' : theme.border,
     },
     backButton: {
-      padding: 8,
+      padding: 12,
+      minWidth: 44,
+      minHeight: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     backButtonText: {
       fontSize: fonts.body,
       color: isPoliceView ? '#FFFFFF' : theme.primary,
       fontWeight: '600',
+    },
+    closeButton: {
+      padding: 15,
+      minWidth: 50,
+      minHeight: 50,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.1)',
+      borderRadius: 25,
+    },
+    closeButtonText: {
+      fontSize: fonts.title,
+      color: isPoliceView ? '#FFFFFF' : theme.text,
+      fontWeight: 'bold',
     },
     headerTitle: {
       fontSize: fonts.subtitle,
@@ -554,9 +581,6 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
         <TouchableOpacity style={styles.retryButton} onPress={loadReportDetails}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-          <Text style={styles.backButtonText}>Go Back</Text>
-        </TouchableOpacity>
       </View>
     );
   }
@@ -565,11 +589,20 @@ const CrimeReportDetail = ({ reportId, onClose, onBack, isPoliceView = false }: 
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Report Details</Text>
         <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle}>Report Details</Text>
+        <TouchableOpacity 
+          onPress={() => {
+            console.log('CrimeReportDetail: X button pressed directly');
+            console.log('CrimeReportDetail: X button - onClose available:', !!onClose);
+            handleBackPress();
+          }} 
+          style={styles.closeButton}
+          activeOpacity={0.7}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+        >
+          <Text style={styles.closeButtonText}>✕</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
