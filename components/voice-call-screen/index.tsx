@@ -18,19 +18,44 @@ interface VoiceCallScreenProps {
 }
 
 const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEndCall }) => {
+  const [currentCallData, setCurrentCallData] = useState<CallData>(callData);
   const [callStatus, setCallStatus] = useState<string>(isOutgoing ? 'Calling...' : 'Connecting...');
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState<boolean>(false);
   const [remoteStream, setRemoteStream] = useState<any>(null);
 
-  const otherUser = isOutgoing ? callData.callee : callData.caller;
+  const otherUser = isOutgoing ? currentCallData.callee : currentCallData.caller;
+
+  // Listen for real-time call status updates
+  useEffect(() => {
+    console.log('VoiceCallScreen: Setting up call status listener for:', callData.callId);
+    
+    const unsubscribe = VoIPService.listenToCallStatus(callData.callId, (updatedCallData) => {
+      console.log('VoiceCallScreen: Call status updated:', updatedCallData.status);
+      setCurrentCallData(updatedCallData);
+
+      // Auto-end call if it was ended/rejected remotely
+      if (updatedCallData.status === 'ended' || 
+          updatedCallData.status === 'rejected' || 
+          updatedCallData.status === 'missed') {
+        setTimeout(() => {
+          onEndCall();
+        }, 1500); // Give user time to see the status
+      }
+    });
+
+    return () => {
+      console.log('VoiceCallScreen: Cleaning up call status listener');
+      unsubscribe();
+    };
+  }, [callData.callId]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    // Monitor call status
-    if (callData.status === 'answered') {
+    // Monitor call status and update UI accordingly
+    if (currentCallData.status === 'answered') {
       setCallStatus('Connected');
       
       // Start call duration timer
@@ -41,8 +66,14 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
       // Get remote stream
       const stream = VoIPService.getRemoteStream();
       setRemoteStream(stream);
-    } else if (callData.status === 'ringing') {
+    } else if (currentCallData.status === 'ringing') {
       setCallStatus(isOutgoing ? 'Ringing...' : 'Incoming Call');
+    } else if (currentCallData.status === 'ended') {
+      setCallStatus('Call Ended');
+    } else if (currentCallData.status === 'rejected') {
+      setCallStatus(isOutgoing ? 'Call Declined' : 'Call Rejected');
+    } else if (currentCallData.status === 'missed') {
+      setCallStatus('Call Missed');
     }
 
     return () => {
@@ -50,7 +81,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
         clearInterval(interval);
       }
     };
-  }, [callData.status, isOutgoing]);
+  }, [currentCallData.status, isOutgoing]);
 
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);

@@ -1,11 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, ActivityIndicator, Animated, Image, StatusBar, Alert } from 'react-native';
+import { ActivityIndicator, Animated, Image, StatusBar, Alert } from 'react-native';
 import { ThemeProvider, useTheme } from './services/themeContext';
 import { LanguageProvider, useLanguage } from './services/languageContext';
 import { AuthProvider, useAuth } from './services/authContext';
 import { NotificationProvider } from './services/notificationContext';
+import { VoIPProvider, useVoIP } from './services/voipContext';
 import { backgroundService } from './services/backgroundService';
 import { gyroscopeService } from './services/gyroscopeService';
+import IncomingCallModal from './components/incoming-call-modal';
+import VoiceCallScreen from './components/voice-call-screen';
 import Welcome from './Welcome';
 import Dashboard from './app/dashboard';
 
@@ -62,11 +65,13 @@ const AppContent = () => {
   const { isAuthenticated, isLoading, user, userType } = useAuth();
   const { setCurrentUserId: setThemeUserId } = useTheme();
   const { setCurrentUserId: setLanguageUserId } = useLanguage();
+  const { incomingCall, activeCall, setActiveCall, dismissIncomingCall } = useVoIP();
   const [showSplash, setShowSplash] = useState(true);
   const [authChecked, setAuthChecked] = useState(false);
   const [PoliceDashboard, setPoliceDashboard] = useState<any>(null);
   const [currentActiveTab, setCurrentActiveTab] = useState<number>(0);
   const sosTabRef = useRef<any>(null);
+  const [isCallScreenVisible, setIsCallScreenVisible] = useState(false);
   const [globalModalState, setGlobalModalState] = useState({
     showCrimeReportForm: false,
     showCrimeReportDetail: false,
@@ -85,6 +90,8 @@ const AppContent = () => {
     if (userType === 'police') {
       import('./app/police-dashboard').then(module => {
         setPoliceDashboard(() => module.default);
+      }).catch(error => {
+        console.error('Error loading police dashboard:', error);
       });
     }
   }, [userType]);
@@ -114,8 +121,11 @@ const AppContent = () => {
         setShowSplash(false);
       }, 300);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+      };
     }
+    return undefined;
   }, [authChecked]);
 
   // Global gyroscope initialization for authenticated civilian users
@@ -126,7 +136,7 @@ const AppContent = () => {
       try {
         if (!gyroscopeService.isGyroscopeAvailable()) {
           console.log('App: Gyroscope not available, skipping initialization');
-          return;
+          return undefined;
         }
 
         const handleGyroscopeSOS = () => {
@@ -204,33 +214,91 @@ const AppContent = () => {
         console.error('App: Error initializing global gyroscope:', error);
       }
     }
+    return undefined;
   }, [isAuthenticated, userType, user, authChecked]);
+
+  // Handle incoming call acceptance
+  const handleAcceptCall = () => {
+    if (incomingCall) {
+      setActiveCall(incomingCall);
+      setIsCallScreenVisible(true);
+      dismissIncomingCall();
+    }
+  };
+
+  // Handle incoming call rejection
+  const handleRejectCall = () => {
+    dismissIncomingCall();
+  };
+
+  // Handle call end
+  const handleEndCall = () => {
+    setIsCallScreenVisible(false);
+    setActiveCall(null);
+  };
+
+  // Show/hide call screen based on active call
+  useEffect(() => {
+    if (activeCall && !isCallScreenVisible) {
+      setIsCallScreenVisible(true);
+    }
+    if (!activeCall && isCallScreenVisible) {
+      setIsCallScreenVisible(false);
+    }
+  }, [activeCall, isCallScreenVisible]);
 
   // Show splash screen while auth is loading or for 0.3 seconds after auth is determined
   if (showSplash || isLoading) {
     return <SplashScreen />;
   }
 
-  if (isAuthenticated) {
-    if (userType === 'police') {
-      console.log('AppContent: Police user authenticated, showing Police Dashboard');
-      return PoliceDashboard ? <PoliceDashboard /> : <ActivityIndicator size="large" color="#4c643b" />;
-    } else {
-      console.log('AppContent: Civilian user authenticated, showing Dashboard');
-      return (
-        <Dashboard 
-          globalActiveTab={currentActiveTab}
-          onGlobalTabChange={setCurrentActiveTab}
-          globalSosTabRef={sosTabRef}
-          globalModalState={globalModalState}
-          onGlobalModalChange={setGlobalModalState}
-        />
-      );
+  const renderMainContent = () => {
+    if (isAuthenticated) {
+      if (userType === 'police') {
+        console.log('AppContent: Police user authenticated, showing Police Dashboard');
+        return PoliceDashboard ? <PoliceDashboard /> : <ActivityIndicator size="large" color="#4c643b" />;
+      } else {
+        console.log('AppContent: Civilian user authenticated, showing Dashboard');
+        return (
+          <Dashboard 
+            globalActiveTab={currentActiveTab}
+            onGlobalTabChange={setCurrentActiveTab}
+            globalSosTabRef={sosTabRef}
+            globalModalState={globalModalState}
+            onGlobalModalChange={setGlobalModalState}
+          />
+        );
+      }
     }
-  }
 
-  console.log('AppContent: User not authenticated, showing Welcome');
-  return <Welcome />;
+    console.log('AppContent: User not authenticated, showing Welcome');
+    return <Welcome />;
+  };
+
+  return (
+    <>
+      {renderMainContent()}
+      
+      {/* Global Incoming Call Modal */}
+      {incomingCall && !isCallScreenVisible && (
+        <IncomingCallModal
+          visible={true}
+          callData={incomingCall}
+          onAccept={handleAcceptCall}
+          onReject={handleRejectCall}
+        />
+      )}
+
+      {/* Global Call Screen */}
+      {isCallScreenVisible && activeCall && (
+        <VoiceCallScreen
+          callData={activeCall}
+          isOutgoing={activeCall.caller.userId === user?.uid}
+          onEndCall={handleEndCall}
+        />
+      )}
+    </>
+  );
 };
 
 const App = () => {
@@ -248,10 +316,12 @@ const App = () => {
     <LanguageProvider>
       <ThemeProvider>
         <AuthProvider>
-          <NotificationProvider>
-            <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-            <AppContent />
-          </NotificationProvider>
+          <VoIPProvider>
+            <NotificationProvider>
+              <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+              <AppContent />
+            </NotificationProvider>
+          </VoIPProvider>
         </AuthProvider>
       </ThemeProvider>
     </LanguageProvider>

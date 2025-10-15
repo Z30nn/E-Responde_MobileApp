@@ -450,6 +450,7 @@ export class VoIPService {
   // Listen for incoming calls
   listenForIncomingCalls(userId: string, onIncomingCall: (callData: CallData) => void): () => void {
     const callsRef = ref(database, 'voip_calls');
+    const processedCalls = new Set<string>();
 
     const unsubscribe = onValue(callsRef, (snapshot) => {
       snapshot.forEach((childSnapshot) => {
@@ -457,13 +458,32 @@ export class VoIPService {
 
         // Check if this is an incoming call for this user
         if (callData.callee.userId === userId && callData.status === 'ringing') {
-          console.log('Incoming call:', callData);
-          onIncomingCall(callData);
+          // Only trigger callback once per call ID
+          if (!processedCalls.has(callData.callId)) {
+            console.log('Incoming call:', callData);
+            processedCalls.add(callData.callId);
+            onIncomingCall(callData);
+          }
         }
       });
     });
 
     return () => off(callsRef, 'value', unsubscribe);
+  }
+
+  // Listen to a specific call's status changes in real-time
+  listenToCallStatus(callId: string, onStatusChange: (callData: CallData) => void): () => void {
+    const callRef = ref(database, `voip_calls/${callId}`);
+
+    const unsubscribe = onValue(callRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const callData = snapshot.val() as CallData;
+        console.log('Call status update:', callData);
+        onStatusChange(callData);
+      }
+    });
+
+    return () => off(callRef, 'value', unsubscribe);
   }
 
   // Check if user can call another user
