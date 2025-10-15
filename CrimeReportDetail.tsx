@@ -14,11 +14,10 @@ import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 import { useAuth } from './services/authContext';
+import { useVoIP } from './services/voipContext';
 import CrimeReportMap from './CrimeReportMap';
 import PoliceCrimeReportMap from './components/police-crime-map';
 import VoIPService, { CallData } from './services/voipService';
-import VoiceCallScreen from './components/voice-call-screen';
-import IncomingCallModal from './components/incoming-call-modal';
 
 interface CrimeReportDetailProps {
   reportId: string;
@@ -47,6 +46,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { setActiveCall } = useVoIP();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const [report, setReport] = useState<CrimeReport | null>(null);
@@ -55,29 +55,10 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const [showMap, setShowMap] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [activeCall, setActiveCall] = useState<CallData | null>(null);
-  const [incomingCall, setIncomingCall] = useState<CallData | null>(null);
-  const [isCallScreenVisible, setIsCallScreenVisible] = useState(false);
 
   useEffect(() => {
     loadReportDetails();
-    
-    // Set up listener for incoming calls
-    let unsubscribe: (() => void) | undefined;
-    
-    if (user) {
-      unsubscribe = VoIPService.listenForIncomingCalls(user.uid, (callData) => {
-        setIncomingCall(callData);
-      });
-    }
-
-    return () => {
-      // Clean up listener on unmount
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [reportId, user]);
+  }, [reportId]);
 
   const loadReportDetails = async () => {
     try {
@@ -139,7 +120,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
       );
 
       if (callId) {
-        // Get the call data
+        // Get the call data and set it globally
         const callData: CallData = {
           callId,
           caller: {
@@ -157,8 +138,8 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
           reportId,
         };
         
+        // Use global context to set active call
         setActiveCall(callData);
-        setIsCallScreenVisible(true);
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to initiate call');
@@ -212,54 +193,13 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
           reportId,
         };
         
+        // Use global context to set active call
         setActiveCall(callData);
-        setIsCallScreenVisible(true);
       }
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to initiate call');
     }
   };
-
-  const handleEndCall = async () => {
-    try {
-      if (activeCall) {
-        await VoIPService.endCall(activeCall.callId);
-      }
-      setActiveCall(null);
-      setIsCallScreenVisible(false);
-    } catch (error) {
-      console.error('Error ending call:', error);
-      setActiveCall(null);
-      setIsCallScreenVisible(false);
-    }
-  };
-
-  const handleAcceptCall = async () => {
-    if (!incomingCall) return;
-
-    try {
-      await VoIPService.answerCall(incomingCall.callId);
-      setActiveCall(incomingCall);
-      setIncomingCall(null);
-      setIsCallScreenVisible(true);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to accept call');
-      setIncomingCall(null);
-    }
-  };
-
-  const handleRejectCall = async () => {
-    if (!incomingCall) return;
-
-    try {
-      await VoIPService.rejectCall(incomingCall.callId);
-      setIncomingCall(null);
-    } catch (error) {
-      console.error('Error rejecting call:', error);
-      setIncomingCall(null);
-    }
-  };
-
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -836,31 +776,6 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
             />
           )}
         </Modal>
-      )}
-
-      {/* VoIP Call Screen Modal */}
-      {isCallScreenVisible && activeCall && (
-        <Modal
-          visible={isCallScreenVisible}
-          animationType="slide"
-          onRequestClose={handleEndCall}
-        >
-          <VoiceCallScreen
-            callData={activeCall}
-            isOutgoing={activeCall.caller.userId === user?.uid}
-            onEndCall={handleEndCall}
-          />
-        </Modal>
-      )}
-
-      {/* Incoming Call Modal */}
-      {incomingCall && (
-        <IncomingCallModal
-          visible={!!incomingCall}
-          callData={incomingCall}
-          onAccept={handleAcceptCall}
-          onReject={handleRejectCall}
-        />
       )}
 
       {/* Image Modal */}
