@@ -467,6 +467,25 @@ export class EmergencyContactsService {
 
   // Send SOS alert to emergency contacts
   static async sendSOSAlert(userId: string, message?: string): Promise<{ success: boolean; sentTo: number; errors: string[] }> {
+    // Check if user is a police officer - prevent SOS for police
+    try {
+      const userType = await FirebaseService.getUserType(userId);
+      if (userType === 'police') {
+        console.log('EmergencyContactsService: Police user detected - SOS functionality disabled for police officers');
+        return {
+          success: false,
+          sentTo: 0,
+          errors: ['SOS functionality is not available for police officers']
+        };
+      }
+    } catch (error) {
+      console.error('Error checking user type in sendSOSAlert:', error);
+      return {
+        success: false,
+        sentTo: 0,
+        errors: ['Unable to verify user type']
+      };
+    }
     try {
       console.log('EmergencyContactsService: Sending SOS alert for user:', userId);
       console.log('EmergencyContactsService: Message:', message);

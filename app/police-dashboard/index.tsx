@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   Image,
   Alert,
   Platform,
@@ -13,6 +12,8 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import { useAuth } from '../../services/authContext';
 import { FirebaseService } from '../../services/firebaseService';
+import { gyroscopeService } from '../../services/gyroscopeService';
+import { apis } from '../../services/apis';
 import PoliceCrimeList from '../../components/police-crime-list';
 import CrimeReportDetail from '../../CrimeReportDetail';
 
@@ -21,12 +22,34 @@ const PoliceDashboard = () => {
   const [activeTab, setActiveTab] = useState('list');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number; address: string } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // Request location permissions
   useEffect(() => {
     requestLocationPermission();
   }, []);
+
+  // Ensure gyroscope service is stopped for police officers
+  useEffect(() => {
+    console.log('PoliceDashboard: Ensuring gyroscope service is stopped for police officer');
+    try {
+      gyroscopeService.stopListening();
+    } catch (error) {
+      console.error('PoliceDashboard: Error stopping gyroscope service:', error);
+    }
+  }, []);
+
+  // Helper function to get address from coordinates
+  const getAddressFromCoordinates = async (latitude: number, longitude: number): Promise<string> => {
+    try {
+      const address = await apis.location.reverseGeocode(latitude, longitude);
+      return address;
+    } catch (error) {
+      console.error('Error getting address from coordinates:', error);
+      return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    }
+  };
 
   // Start location tracking when permissions granted
   useEffect(() => {
@@ -38,6 +61,18 @@ const PoliceDashboard = () => {
   const requestLocationPermission = async () => {
     try {
       if (Platform.OS === 'android') {
+        // First check if permission is already granted
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        
+        if (hasPermission) {
+          console.log('Location permission already granted');
+          setLocationEnabled(true);
+          return;
+        }
+        
+        // Request permission
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
@@ -45,9 +80,12 @@ const PoliceDashboard = () => {
             message: 'E-Responde needs access to your location to show your position on the map for civilians.',
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
+            buttonPositive: 'Allow',
           }
         );
+        
+        console.log('Permission request result:', granted);
+        
         if (granted === PermissionsAndroid.RESULTS.GRANTED) {
           console.log('Location permission granted');
           setLocationEnabled(true);
@@ -55,46 +93,128 @@ const PoliceDashboard = () => {
           console.log('Location permission denied');
           Alert.alert(
             'Location Permission Required',
-            'Please enable location access in settings to share your location with civilians.',
-            [{ text: 'OK' }]
+            'Location access is needed to share your position with civilians viewing crime reports.\n\nTo enable:\n1. Go to Settings > Apps > E-Responde\n2. Tap Permissions\n3. Enable Location',
+            [
+              { text: 'Try Again', onPress: () => requestLocationPermission() },
+              { text: 'Cancel', style: 'cancel' }
+            ]
           );
         }
       } else {
-        // iOS - request permission through Geolocation
+        // iOS - request permission and check status
         Geolocation.requestAuthorization();
-        setLocationEnabled(true);
+        
+        // Give it a moment for the permission dialog to appear
+        setTimeout(() => {
+          // Check current authorization status with a simple test
+          Geolocation.getCurrentPosition(
+            () => {
+              console.log('iOS location permission granted');
+              setLocationEnabled(true);
+            },
+            (error) => {
+              console.log('iOS location permission denied or error:', error);
+              if (error.code === 1) { // PERMISSION_DENIED
+                Alert.alert(
+                  'Location Permission Required',
+                  'Please enable location access to share your position with civilians.\n\nTo enable:\n1. Open Settings app\n2. Go to Privacy & Security\n3. Tap Location Services\n4. Find E-Responde\n5. Select "While Using App" or "Always"',
+                  [
+                    { text: 'Try Again', onPress: () => requestLocationPermission() },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+              } else {
+                // Other errors (GPS off, etc.)
+                Alert.alert(
+                  'Location Error',
+                  'Unable to access your location. Please check:\n\n1. Location Services is enabled\n2. GPS is turned on\n3. You have a clear view of the sky\n4. Try moving to a different location',
+                  [
+                    { text: 'Try Again', onPress: () => requestLocationPermission() },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+              }
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+          );
+        }, 1000);
       }
     } catch (error) {
       console.error('Error requesting location permission:', error);
+      Alert.alert(
+        'Permission Error',
+        'Unable to request location permission. Please check your device settings and try again.',
+        [
+          { text: 'Try Again', onPress: () => requestLocationPermission() },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
     }
   };
 
   const startLocationTracking = () => {
-    // Get initial position
+    console.log('Starting location tracking for police officer');
+    
+    // First, try with high accuracy and shorter timeout
     Geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
-        console.log('Initial police location:', latitude, longitude);
-        setCurrentLocation({ latitude, longitude });
+        console.log('Initial police location (high accuracy):', latitude, longitude);
+        
+        // Get address from coordinates
+        const address = await getAddressFromCoordinates(latitude, longitude);
+        setCurrentLocation({ latitude, longitude, address });
+        setLocationError(null);
         updateLocationInFirebase(latitude, longitude);
       },
       (error) => {
-        console.error('Error getting initial location:', error);
-        Alert.alert('Location Error', 'Unable to get your current location. Please check your GPS settings.');
+        console.log('High accuracy failed, trying with lower accuracy...', error);
+        
+        // If high accuracy fails, try with lower accuracy and longer timeout
+        Geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            console.log('Initial police location (lower accuracy):', latitude, longitude);
+            
+            // Get address from coordinates
+            const address = await getAddressFromCoordinates(latitude, longitude);
+            setCurrentLocation({ latitude, longitude, address });
+            setLocationError(null);
+            updateLocationInFirebase(latitude, longitude);
+          },
+          (fallbackError) => {
+            console.error('Both location attempts failed:', fallbackError);
+            handleLocationError(fallbackError);
+          },
+          { 
+            enableHighAccuracy: false, 
+            timeout: 30000, 
+            maximumAge: 60000 
+          }
+        );
       },
-      { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
+      { 
+        enableHighAccuracy: true, 
+        timeout: 15000, 
+        maximumAge: 5000 
+      }
     );
 
     // Watch position for continuous updates
     const watchId = Geolocation.watchPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude } = position.coords;
         console.log('Police location updated:', latitude, longitude);
-        setCurrentLocation({ latitude, longitude });
+        
+        // Get address from coordinates
+        const address = await getAddressFromCoordinates(latitude, longitude);
+        setCurrentLocation({ latitude, longitude, address });
         updateLocationInFirebase(latitude, longitude);
       },
       (error) => {
         console.error('Error watching location:', error);
+        // Don't show alerts for watch errors as they can be frequent
+        // Just log them for debugging
       },
       {
         enableHighAccuracy: true,
@@ -104,20 +224,95 @@ const PoliceDashboard = () => {
       }
     );
 
-    // Cleanup on unmount
+    // Store watchId for cleanup
     return () => {
-      Geolocation.clearWatch(watchId);
+      if (watchId) {
+        console.log('Clearing location watch');
+        Geolocation.clearWatch(watchId);
+      }
     };
   };
 
+  const handleLocationError = (error: any) => {
+    console.error('Location error details:', error);
+    let errorMessage = 'Unable to get your current location.';
+    let suggestions: string[] = [];
+    
+    switch (error.code) {
+      case 1: // PERMISSION_DENIED
+        errorMessage = 'Location permission denied.';
+        setLocationError('Permission denied');
+        suggestions = [
+          '1. Go to Settings > Apps > E-Responde > Permissions',
+          '2. Enable Location permission',
+          '3. Or go to Settings > Privacy > Location Services',
+          '4. Make sure Location Services is ON'
+        ];
+        break;
+      case 2: // POSITION_UNAVAILABLE
+        errorMessage = 'Location is currently unavailable.';
+        setLocationError('GPS unavailable');
+        suggestions = [
+          '1. Check if GPS is enabled',
+          '2. Try going outside or near a window',
+          '3. Make sure you have a clear view of the sky',
+          '4. Restart your device if GPS seems stuck'
+        ];
+        break;
+      case 3: // TIMEOUT
+        errorMessage = 'Location request timed out.';
+        setLocationError('Timeout');
+        suggestions = [
+          '1. Try again in a moment',
+          '2. Move to a location with better GPS signal',
+          '3. Check if you\'re indoors (GPS works better outdoors)',
+          '4. Make sure location services are enabled'
+        ];
+        break;
+      default:
+        errorMessage = 'Unable to get your current location.';
+        setLocationError('Unknown error');
+        suggestions = [
+          '1. Check your GPS settings',
+          '2. Make sure location permission is granted',
+          '3. Try moving to a different location',
+          '4. Restart the app and try again'
+        ];
+    }
+    
+    Alert.alert(
+      'Location Error', 
+      `${errorMessage}\n\nSuggestions:\n${suggestions.join('\n')}`,
+      [
+        { text: 'Retry', onPress: () => {
+          setLocationError(null);
+          startLocationTracking();
+        }},
+        { text: 'Check Settings', onPress: () => {
+          Alert.alert(
+            'Location Settings',
+            'To enable location access:\n\nAndroid:\nSettings > Apps > E-Responde > Permissions > Location\n\nOr\n\nSettings > Privacy > Location Services',
+            [{ text: 'OK' }]
+          );
+        }},
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
   const updateLocationInFirebase = async (latitude: number, longitude: number) => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping location update');
+      return;
+    }
 
     try {
       await FirebaseService.updatePoliceLocation(user.uid, latitude, longitude);
       console.log('Police location updated in Firebase:', latitude, longitude);
     } catch (error) {
       console.error('Error updating police location:', error);
+      // Don't show alerts for Firebase errors as they can be frequent
+      // The location tracking will continue to work locally
     }
   };
 
@@ -152,7 +347,7 @@ const PoliceDashboard = () => {
     return (
       <CrimeReportDetail
         reportId={selectedReportId}
-        onBack={handleBackToList}
+        onClose={handleBackToList}
         isPoliceView={true}
       />
     );
@@ -197,12 +392,29 @@ const PoliceDashboard = () => {
             {locationEnabled && currentLocation ? (
               <View>
                 <Text style={styles.locationEnabled}>Active</Text>
+                <Text style={styles.locationAddress}>
+                  {currentLocation.address}
+                </Text>
                 <Text style={styles.locationCoords}>
                   {currentLocation.latitude.toFixed(4)}, {currentLocation.longitude.toFixed(4)}
                 </Text>
+                <Text style={styles.locationInfo}>
+                  Auto-updates every 30 seconds
+                </Text>
               </View>
             ) : (
-              <Text style={styles.locationDisabled}>Disabled</Text>
+              <View>
+                <Text style={styles.locationDisabled}>Disabled</Text>
+                {locationError ? (
+                  <Text style={styles.locationError}>
+                    Error: {locationError}
+                  </Text>
+                ) : (
+                  <Text style={styles.locationHelp}>
+                    Location tracking will start automatically
+                  </Text>
+                )}
+              </View>
             )}
           </View>
         </View>
@@ -313,7 +525,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#E0E0E0',
+    marginBottom: 8,
+  },
+  locationAddress: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '500',
+    marginTop: 4,
     marginBottom: 4,
+    lineHeight: 18,
   },
   locationEnabled: {
     fontSize: 14,
@@ -329,6 +549,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#A0A0A0',
     marginTop: 2,
+  },
+  locationInfo: {
+    fontSize: 11,
+    color: '#808080',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  locationHelp: {
+    fontSize: 11,
+    color: '#FFA500',
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  locationError: {
+    fontSize: 11,
+    color: '#FF6B6B',
+    marginTop: 2,
+    fontStyle: 'italic',
   },
   listContainer: {
     flex: 1,
