@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Animated, Image, StatusBar, Alert } from 'react-native';
+import { ActivityIndicator, Animated, Image, StatusBar, Alert, Modal } from 'react-native';
 import { ThemeProvider, useTheme } from './services/themeContext';
 import { LanguageProvider, useLanguage } from './services/languageContext';
 import { AuthProvider, useAuth } from './services/authContext';
@@ -304,11 +304,19 @@ const AppContent = () => {
 
       {/* Global Call Screen */}
       {isCallScreenVisible && activeCall && (
-        <VoiceCallScreen
-          callData={activeCall}
-          isOutgoing={activeCall.caller.userId === user?.uid}
-          onEndCall={handleEndCall}
-        />
+        <Modal
+          visible={true}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          statusBarTranslucent={true}
+          hardwareAccelerated={true}
+        >
+          <VoiceCallScreen
+            callData={activeCall}
+            isOutgoing={activeCall.caller.userId === user?.uid}
+            onEndCall={handleEndCall}
+          />
+        </Modal>
       )}
     </>
   );

@@ -81,8 +81,16 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
     return null;
   }
 
+  console.log('IncomingCallModal: Rendering modal with visible:', visible, 'callData:', callData);
+
   return (
-    <Modal visible={visible} animationType="fade" transparent={true} statusBarTranslucent>
+    <Modal 
+      visible={visible} 
+      animationType="none" 
+      transparent={false}
+      statusBarTranslucent={true}
+      hardwareAccelerated={true}
+    >
       <View style={styles.overlay}>
         <View style={styles.container}>
           {/* Caller Info */}
@@ -155,89 +163,88 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    backgroundColor: '#1F2937',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   container: {
+    flex: 1,
     backgroundColor: '#1F2937',
-    borderRadius: 20,
-    padding: 30,
     width: '100%',
-    maxWidth: 400,
+    padding: 40,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   callerInfo: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 60,
   },
   avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    borderWidth: 4,
+    marginBottom: 30,
+    borderWidth: 6,
     borderColor: '#10B981',
   },
   avatarText: {
-    fontSize: 40,
+    fontSize: 60,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   callerName: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   callerType: {
-    fontSize: 16,
+    fontSize: 20,
     color: '#9CA3AF',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   reportBadge: {
     backgroundColor: '#374151',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginBottom: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    marginBottom: 16,
   },
   reportBadgeText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#10B981',
     fontWeight: '600',
   },
   incomingText: {
-    fontSize: 18,
+    fontSize: 22,
     color: '#10B981',
     fontWeight: '600',
-    marginTop: 8,
+    marginTop: 12,
   },
   actionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 40,
   },
   actionButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 12,
   },
   rejectButton: {
     backgroundColor: '#EF4444',
@@ -246,25 +253,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   actionIcon: {
-    fontSize: 40,
-    marginBottom: 8,
+    fontSize: 50,
+    marginBottom: 10,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
   contextInfo: {
     backgroundColor: '#374151',
-    padding: 16,
-    borderRadius: 12,
+    padding: 20,
+    borderRadius: 16,
     width: '100%',
   },
   contextText: {
-    fontSize: 13,
+    fontSize: 16,
     color: '#9CA3AF',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 22,
   },
 });
 
