@@ -7,6 +7,7 @@ import {
   Dimensions,
   SafeAreaView,
   Alert,
+  Image,
 } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import VoIPService, { CallData } from '../../services/voipService';
@@ -67,7 +68,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
       const stream = VoIPService.getRemoteStream();
       setRemoteStream(stream);
     } else if (currentCallData.status === 'ringing') {
-      setCallStatus(isOutgoing ? 'Ringing...' : 'Incoming Call');
+      setCallStatus(isOutgoing ? 'Calling...' : 'Incoming Call');
     } else if (currentCallData.status === 'ended') {
       setCallStatus('Call Ended');
     } else if (currentCallData.status === 'rejected') {
@@ -131,9 +132,11 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{otherUser.name.charAt(0).toUpperCase()}</Text>
           </View>
-          <Text style={styles.userName}>{otherUser.name}</Text>
+          <Text style={otherUser.userType === 'civilian' ? styles.civilianUserName : styles.userName}>
+            {otherUser.userType === 'civilian' ? otherUser.name.toUpperCase() : otherUser.name}
+          </Text>
           <Text style={styles.userType}>
-            {otherUser.userType === 'police' ? '👮 Police Officer' : '👤 Civilian'}
+            {otherUser.userType === 'police' ? '👮 Police Officer' : 'CIVILIAN'}
           </Text>
         </View>
 
@@ -148,29 +151,47 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
         <View style={styles.controlsContainer}>
           <View style={styles.controlsRow}>
             {/* Mute Button */}
-            <TouchableOpacity
-              style={[styles.controlButton, isMuted && styles.controlButtonActive]}
-              onPress={handleMuteToggle}
-            >
-              <Text style={styles.controlIcon}>{isMuted ? '🔇' : '🎤'}</Text>
-              <Text style={styles.controlLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
-            </TouchableOpacity>
+            <View style={styles.muteButtonContainer}>
+              <TouchableOpacity
+                style={[styles.muteButton, isMuted && styles.muteButtonActive]}
+                onPress={handleMuteToggle}
+              >
+                <Image
+                  source={isMuted ? require('../../assets/micon.png') : require('../../assets/micoff.png')}
+                  style={[styles.muteIcon, { tintColor: isMuted ? '#374151' : '#FFFFFF' }]}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+              <Text style={styles.muteButtonLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+            </View>
 
             {/* Speaker Button */}
-            <TouchableOpacity
-              style={[styles.controlButton, isSpeakerOn && styles.controlButtonActive]}
-              onPress={handleSpeakerToggle}
-            >
-              <Text style={styles.controlIcon}>{isSpeakerOn ? '🔊' : '🔇'}</Text>
-              <Text style={styles.controlLabel}>Speaker</Text>
-            </TouchableOpacity>
+            <View style={styles.speakerButtonContainer}>
+              <TouchableOpacity
+                style={[styles.speakerButton, isSpeakerOn && styles.speakerButtonActive]}
+                onPress={handleSpeakerToggle}
+              >
+                <Image
+                  source={require('../../assets/mic.png')}
+                  style={[styles.speakerIcon, { tintColor: isSpeakerOn ? '#374151' : '#FFFFFF' }]}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+              <Text style={styles.speakerButtonLabel}>Speaker</Text>
+            </View>
           </View>
 
           {/* End Call Button */}
-          <TouchableOpacity style={styles.endCallButton} onPress={handleEndCall}>
-            <Text style={styles.endCallIcon}>📞</Text>
-            <Text style={styles.endCallText}>End Call</Text>
-          </TouchableOpacity>
+          <View style={styles.endCallButtonContainer}>
+            <TouchableOpacity style={styles.endCallButton} onPress={handleEndCall}>
+              <Image
+                source={require('../../assets/end.png')}
+                style={styles.endCallIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+            <Text style={styles.endCallButtonLabel}>End Call</Text>
+          </View>
         </View>
 
         {/* Report Info */}
@@ -201,9 +222,9 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   statusText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#10B981',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 8,
   },
   durationText: {
@@ -234,9 +255,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 8,
   },
+  civilianUserName: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
   userType: {
     fontSize: 16,
     color: '#9CA3AF',
+    fontWeight: 'bold',
   },
   hiddenStream: {
     width: 0,
@@ -267,6 +295,71 @@ const styles = StyleSheet.create({
   controlButtonActive: {
     backgroundColor: '#3B82F6',
   },
+  muteButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#374151',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  muteButtonActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  muteIcon: {
+    width: 32,
+    height: 32,
+    tintColor: '#FFFFFF',
+  },
+  speakerButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#374151',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  speakerButtonActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  speakerIcon: {
+    width: 32,
+    height: 32,
+  },
+  muteButtonContainer: {
+    alignItems: 'center',
+  },
+  muteButtonLabel: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  speakerButtonContainer: {
+    alignItems: 'center',
+  },
+  speakerButtonLabel: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 8,
+  },
   controlIcon: {
     fontSize: 32,
     marginBottom: 8,
@@ -276,24 +369,35 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  endCallButton: {
-    backgroundColor: '#EF4444',
-    paddingVertical: 20,
-    paddingHorizontal: 40,
-    borderRadius: 50,
+  endCallButtonContainer: {
     alignItems: 'center',
-    flexDirection: 'row',
+  },
+  endCallButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EF4444',
     justifyContent: 'center',
-    alignSelf: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   endCallIcon: {
-    fontSize: 24,
-    marginRight: 12,
+    width: 32,
+    height: 32,
+    tintColor: '#FFFFFF',
   },
-  endCallText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+  endCallButtonLabel: {
+    fontSize: 14,
     color: '#FFFFFF',
+    fontWeight: '600',
+    marginTop: 8,
   },
   reportInfoContainer: {
     backgroundColor: '#374151',
