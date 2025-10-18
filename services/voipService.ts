@@ -406,7 +406,31 @@ export class VoIPService {
 
   private async getUserName(userId: string, userType: 'civilian' | 'police' | 'admin'): Promise<string> {
     try {
-      const path = userType === 'police' ? `police/police account/${userId}` : `civilian/civilian account/${userId}`;
+      if (userType === 'admin') {
+        // Admin data is stored in admin_dashboard_account
+        const adminRef = ref(database, 'admin_dashboard_account');
+        const adminSnapshot = await get(adminRef);
+        
+        if (adminSnapshot.exists()) {
+          const adminData = adminSnapshot.val();
+          console.log('Admin data retrieved:', adminData);
+          console.log('Checking userId match:', { callerUserId: userId, adminAuthUid: adminData.authUid, adminUserId: adminData.userId });
+          
+          // Check if userId matches either authUid or userId field
+          if (adminData.authUid === userId || adminData.userId === userId) {
+            return adminData.displayName || adminData.email || 'Admin Dashboard';
+          }
+        }
+        
+        // Fallback for admin
+        return 'Admin Dashboard';
+      }
+      
+      // For police and civilian users
+      const path = userType === 'police' 
+        ? `police/police account/${userId}` 
+        : `civilian/civilian account/${userId}`;
+      
       const userRef = ref(database, path);
       const snapshot = await get(userRef);
 
@@ -414,10 +438,11 @@ export class VoIPService {
         const userData = snapshot.val();
         return `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Unknown User';
       }
+      
       return 'Unknown User';
     } catch (error) {
       console.error('Error getting user name:', error);
-      return 'Unknown User';
+      return userType === 'admin' ? 'Admin Dashboard' : 'Unknown User';
     }
   }
 
@@ -449,26 +474,63 @@ export class VoIPService {
 
   // Listen for incoming calls
   listenForIncomingCalls(userId: string, onIncomingCall: (callData: CallData) => void): () => void {
+    console.log('📞 VoIPService: Setting up incoming call listener for user:', userId);
     const callsRef = ref(database, 'voip_calls');
     const processedCalls = new Set<string>();
 
     const unsubscribe = onValue(callsRef, (snapshot) => {
+      console.log('📞 VoIPService: voip_calls updated, checking for incoming calls...');
+      let totalCalls = 0;
+      let matchingCalls = 0;
+      let skippedCalls = 0;
+      
       snapshot.forEach((childSnapshot) => {
         const callData = childSnapshot.val() as CallData;
+        totalCalls++;
+        
+        // Skip invalid/corrupt call records
+        if (!callData || !callData.callId || !callData.callee || !callData.caller) {
+          console.log('⚠️ VoIPService: Skipping invalid call record:', {
+            key: childSnapshot.key,
+            hasCallId: !!callData?.callId,
+            hasCallee: !!callData?.callee,
+            hasCaller: !!callData?.caller,
+            status: callData?.status
+          });
+          skippedCalls++;
+          return; // Skip this record
+        }
+        
+        console.log(`📞 VoIPService: Checking call ${callData.callId}:`, {
+          calleeUserId: callData.callee?.userId,
+          myUserId: userId,
+          isMatch: callData.callee?.userId === userId,
+          status: callData.status,
+          isRinging: callData.status === 'ringing',
+          shouldTrigger: callData.callee?.userId === userId && callData.status === 'ringing'
+        });
 
         // Check if this is an incoming call for this user
         if (callData.callee.userId === userId && callData.status === 'ringing') {
+          matchingCalls++;
           // Only trigger callback once per call ID
           if (!processedCalls.has(callData.callId)) {
-            console.log('Incoming call:', callData);
+            console.log('📞 VoIPService: ✅ INCOMING CALL DETECTED!', callData);
             processedCalls.add(callData.callId);
             onIncomingCall(callData);
+          } else {
+            console.log('📞 VoIPService: ⏭️ Call already processed:', callData.callId);
           }
         }
       });
+      
+      console.log(`📞 VoIPService: Summary - Total: ${totalCalls}, Valid: ${totalCalls - skippedCalls}, Matching: ${matchingCalls}, Skipped: ${skippedCalls}`);
     });
 
-    return () => off(callsRef, 'value', unsubscribe);
+    return () => {
+      console.log('📞 VoIPService: Removing incoming call listener');
+      off(callsRef, 'value', unsubscribe);
+    };
   }
 
   // Listen to a specific call's status changes in real-time
