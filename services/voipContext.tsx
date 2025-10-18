@@ -42,17 +42,20 @@ export const VoIPProvider: FC<VoIPProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!user) {
+      console.log('🚫 VoIPProvider: No user logged in, not setting up call listener');
       setIncomingCall(null);
       setActiveCall(null);
       handledCallsRef.current = new Set();
       return;
     }
 
-    console.log('VoIPProvider: Setting up global incoming call listener for user:', user.uid);
+    console.log('✅ VoIPProvider: User logged in, setting up incoming call listener');
+    console.log('✅ VoIPProvider: Listening for calls to user:', user.uid);
+    console.log('✅ VoIPProvider: User email:', user.email);
 
     // Listen for incoming calls globally
     const unsubscribe = VoIPService.listenForIncomingCalls(user.uid, (callData) => {
-      console.log('VoIPProvider: Received call data:', callData);
+      console.log('🔔 VoIPProvider: Incoming call callback triggered!', callData);
       
       // Check if we already handled this call
       if (handledCallsRef.current.has(callData.callId)) {
