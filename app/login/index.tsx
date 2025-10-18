@@ -69,21 +69,21 @@ const Login: FC = () => {
       let errorMessage = 'Login failed. Please try again.';
       console.error('Login error details:', error);
 
-      if (error.code === 'auth/account-suspended') {
+      if (error?.code === 'auth/account-suspended') {
         errorMessage = 'Your account has been suspended. Please contact support for assistance.';
-      } else if (error.code === 'auth/user-not-found') {
+      } else if (error?.code === 'auth/user-not-found') {
         errorMessage = 'No account found with this email address';
-      } else if (error.code === 'auth/wrong-password') {
+      } else if (error?.code === 'auth/wrong-password') {
         errorMessage = 'Incorrect password';
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error?.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email address';
-      } else if (error.code === 'auth/user-disabled') {
+      } else if (error?.code === 'auth/user-disabled') {
         errorMessage = 'This account has been disabled';
-      } else if (error.code === 'auth/too-many-requests') {
+      } else if (error?.code === 'auth/too-many-requests') {
         errorMessage = 'Too many failed attempts. Please try again later';
-      } else if (error.code === 'auth/network-request-failed') {
+      } else if (error?.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your internet connection';
-      } else if (error.code === 'auth/email-not-verified') {
+      } else if (error?.code === 'auth/email-not-verified') {
         // Show email verification screen for unverified users
         Alert.alert(
           'Email Not Verified',
@@ -100,7 +100,7 @@ const Login: FC = () => {
         );
         setIsLoading(false);
         return;
-      } else if (error.message) {
+      } else if (error?.message) {
         errorMessage = error.message;
       }
 

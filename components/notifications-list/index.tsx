@@ -388,14 +388,15 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
         Alert.alert('Error', 'Failed to accept contact request. Please try again.');
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error accepting contact request:', error);
       console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack
+        message: error?.message || String(error),
+        code: error?.code,
+        stack: error?.stack
       });
-      Alert.alert('Error', `Failed to accept contact request: ${error.message || 'Unknown error'}`);
+      const errorMessage = error?.message || String(error) || 'Unknown error';
+      Alert.alert('Error', `Failed to accept contact request: ${errorMessage}`);
     }
   };
 

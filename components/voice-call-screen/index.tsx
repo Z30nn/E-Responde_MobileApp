@@ -26,8 +26,6 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
   const [isSpeakerOn, setIsSpeakerOn] = useState<boolean>(false);
   const [remoteStream, setRemoteStream] = useState<any>(null);
 
-  const otherUser = isOutgoing ? currentCallData.callee : currentCallData.caller;
-
   // Listen for real-time call status updates
   useEffect(() => {
     console.log('VoiceCallScreen: Setting up call status listener for:', callData.callId);
@@ -41,16 +39,24 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
           updatedCallData.status === 'rejected' || 
           updatedCallData.status === 'missed') {
         setTimeout(() => {
-          onEndCall();
+          try {
+            onEndCall();
+          } catch (err) {
+            console.error('Error in onEndCall callback:', String(err));
+          }
         }, 1500); // Give user time to see the status
       }
     });
 
     return () => {
       console.log('VoiceCallScreen: Cleaning up call status listener');
-      unsubscribe();
+      try {
+        unsubscribe();
+      } catch (err) {
+        console.error('Error cleaning up call status listener:', String(err));
+      }
     };
-  }, [callData.callId]);
+  }, [callData.callId, onEndCall]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -96,7 +102,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
       onEndCall();
     } catch (error) {
       console.error('Error ending call:', error);
-      Alert.alert('Error', 'Failed to end call');
+      Alert.alert('Error', 'Failed to end call: ' + String(error));
     }
   };
 
@@ -115,6 +121,13 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
     setIsSpeakerOn(!isSpeakerOn);
     // InCallManager.setForceSpeakerphoneOn(!isSpeakerOn);
   };
+
+  // Safety check - if otherUser data is not available, don't render
+  const otherUser = isOutgoing ? currentCallData?.callee : currentCallData?.caller;
+  if (!otherUser || !otherUser.name) {
+    console.warn('VoiceCallScreen: Invalid call data, missing user information');
+    return null;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

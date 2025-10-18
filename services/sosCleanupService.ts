@@ -63,8 +63,9 @@ export class SOSCleanupService {
           await remove(alertRef);
           deletedCount++;
           console.log(`SOSCleanupService: Deleted old SOS alert ${alertId}`);
-        } catch (error) {
-          const errorMsg = `Failed to delete alert ${alertId}: ${error.message}`;
+        } catch (error: any) {
+          const errorMessage = error?.message || String(error) || 'Unknown error';
+          const errorMsg = `Failed to delete alert ${alertId}: ${errorMessage}`;
           console.error(`SOSCleanupService: ${errorMsg}`);
           errors.push(errorMsg);
         }
@@ -72,9 +73,10 @@ export class SOSCleanupService {
 
       console.log(`SOSCleanupService: Cleanup completed for user ${userId}. Deleted: ${deletedCount}`);
       return { deleted: deletedCount, errors };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`SOSCleanupService: Error cleaning up user ${userId}:`, error);
-      return { deleted: 0, errors: [error.message] };
+      const errorMessage = error?.message || String(error) || 'Unknown error';
+      return { deleted: 0, errors: [errorMessage] };
     }
   }
 

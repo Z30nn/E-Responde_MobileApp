@@ -93,7 +93,7 @@ class GyroscopeService {
       console.error('GyroscopeService: Error starting accelerometer:', error);
       this.isListening = false;
       if (this.callbacks.onError) {
-        this.callbacks.onError('Failed to start accelerometer: ' + error);
+        this.callbacks.onError('Failed to start accelerometer: ' + String(error));
       }
     }
   }
@@ -232,7 +232,7 @@ class GyroscopeService {
     } catch (error) {
       console.error('GyroscopeService: Error in triggerSOSAlertWithCountdown:', error);
       if (this.callbacks.onError) {
-        this.callbacks.onError('Failed to trigger SOS alert: ' + error);
+        this.callbacks.onError('Failed to trigger SOS alert: ' + String(error));
       }
     }
   }
@@ -274,7 +274,7 @@ class GyroscopeService {
     } catch (error) {
       console.error('GyroscopeService: Error in sendSOSAlert:', error);
       if (this.callbacks.onError) {
-        this.callbacks.onError('Failed to send SOS alert: ' + error);
+        this.callbacks.onError('Failed to send SOS alert: ' + String(error));
       }
     }
   }

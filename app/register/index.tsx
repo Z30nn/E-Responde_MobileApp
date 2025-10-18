@@ -211,17 +211,17 @@ const Register: FC<RegisterProps> = ({ onGoToLogin }) => {
       let errorMessage = 'Registration failed. Please try again.';
       console.error('Registration error details:', error);
 
-      if (error.code === 'auth/email-already-in-use') {
+      if (error?.code === 'auth/email-already-in-use') {
         errorMessage = 'An account with this email already exists';
-      } else if (error.code === 'auth/weak-password') {
+      } else if (error?.code === 'auth/weak-password') {
         errorMessage = 'Password is too weak';
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error?.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email address';
-      } else if (error.code === 'auth/operation-not-allowed') {
+      } else if (error?.code === 'auth/operation-not-allowed') {
         errorMessage = 'Email/password authentication is not enabled. Please contact support.';
-      } else if (error.code === 'auth/network-request-failed') {
+      } else if (error?.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your internet connection.';
-      } else if (error.message) {
+      } else if (error?.message) {
         errorMessage = error.message;
       }
 

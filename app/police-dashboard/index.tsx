@@ -238,7 +238,7 @@ const PoliceDashboard = () => {
     let errorMessage = 'Unable to get your current location.';
     let suggestions: string[] = [];
     
-    switch (error.code) {
+    switch (error?.code) {
       case 1: // PERMISSION_DENIED
         errorMessage = 'Location permission denied.';
         setLocationError('Permission denied');

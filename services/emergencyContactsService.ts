@@ -36,9 +36,10 @@ export class EmergencyContactsService {
       
       console.log('EmergencyContactsService: No contacts found, returning empty array');
       return [];
-    } catch (error) {
+    } catch (error: any) {
       console.error('EmergencyContactsService: Error getting emergency contacts:', error);
-      throw new Error(`Failed to load emergency contacts: ${error.message || 'Database error'}`);
+      const errorMessage = error?.message || String(error) || 'Database error';
+      throw new Error(`Failed to load emergency contacts: ${errorMessage}`);
     }
   }
 
@@ -605,9 +606,9 @@ export class EmergencyContactsService {
         if (userLocation.latitude === 0 && userLocation.longitude === 0) {
           console.log('SOS Alert: WARNING - Location is still 0,0 - this indicates a problem');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.log('Could not get user location for SOS alert:', error);
-        console.log('SOS Alert: Location error details:', error.message);
+        console.log('SOS Alert: Location error details:', error?.message || String(error));
         
         // Fallback to default location
         userLocation = {
@@ -684,9 +685,10 @@ export class EmergencyContactsService {
             console.log(`EmergencyContactsService: Contact ${contact.name} (${contact.phoneNumber}) is not registered in the app`);
             errors.push(`${contact.name} is not registered in the app`);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error(`EmergencyContactsService: Error sending SOS to ${contact.name}:`, error);
-          errors.push(`Failed to send to ${contact.name}: ${error.message}`);
+          const errorMessage = error?.message || String(error) || 'Unknown error';
+          errors.push(`Failed to send to ${contact.name}: ${errorMessage}`);
         }
       }
 
@@ -754,9 +756,10 @@ export class EmergencyContactsService {
               
               sentToReverseContacts++;
               console.log(`EmergencyContactsService: SOS alert sent to user who has sender as primary contact: ${targetUserId}`);
-            } catch (error) {
+            } catch (error: any) {
               console.error(`EmergencyContactsService: Error sending reverse SOS notification to ${targetUserId}:`, error);
-              errors.push(`Failed to notify user who has you as primary contact: ${error.message}`);
+              const errorMessage = error?.message || String(error) || 'Unknown error';
+              errors.push(`Failed to notify user who has you as primary contact: ${errorMessage}`);
             }
           }
         } else {
@@ -771,9 +774,10 @@ export class EmergencyContactsService {
         sentTo: sentToPrimaryContacts,
         errors
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending SOS alert:', error);
-      throw new Error(`Failed to send SOS alert: ${error.message}`);
+      const errorMessage = error?.message || String(error) || 'Unknown error';
+      throw new Error(`Failed to send SOS alert: ${errorMessage}`);
     }
   }
 

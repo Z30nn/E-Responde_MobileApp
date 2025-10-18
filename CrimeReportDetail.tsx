@@ -142,7 +142,9 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
         setActiveCall(callData);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to initiate call');
+      console.error('Error calling officer:', error);
+      const errorMessage = error?.message || String(error) || 'Failed to initiate call';
+      Alert.alert('Error', errorMessage);
     }
   };
 
@@ -197,7 +199,9 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
         setActiveCall(callData);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to initiate call');
+      console.error('Error calling civilian:', error);
+      const errorMessage = error?.message || String(error) || 'Failed to initiate call';
+      Alert.alert('Error', errorMessage);
     }
   };
 

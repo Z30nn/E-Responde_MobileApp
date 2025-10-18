@@ -61,7 +61,7 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
       onAccept();
     } catch (error) {
       console.error('Error accepting call:', error);
-      Alert.alert('Error', 'Failed to accept call');
+      Alert.alert('Error', 'Failed to accept call: ' + String(error));
       setIsAnswering(false);
     }
   };
@@ -77,7 +77,8 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
     }
   };
 
-  if (!visible || !callData) {
+  if (!visible || !callData || !callData.caller || !callData.caller.name) {
+    console.warn('IncomingCallModal: Invalid call data:', { visible, callData });
     return null;
   }
 

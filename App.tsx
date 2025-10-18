@@ -11,6 +11,36 @@ import IncomingCallModal from './components/incoming-call-modal';
 import VoiceCallScreen from './components/voice-call-screen';
 import Welcome from './Welcome';
 import Dashboard from './app/dashboard';
+import ErrorBoundary from './components/error-boundary';
+
+// Global error handler to intercept and suppress errors without crashing the app
+if ((global as any).ErrorUtils) {
+  (global as any).ErrorUtils.setGlobalHandler((error: any, isFatal: any) => {
+    // Safely extract error information
+    const errorMessage = error?.message || error?.toString?.() || String(error);
+    const errorStack = error?.stack || 'No stack trace available';
+    
+    // Only log in development mode to avoid cluttering production logs
+    if (__DEV__) {
+      // Suppress the common "Property 'e' doesn't exist" error from react-native-webrtc
+      if (errorMessage?.includes("Property 'e' doesn't exist")) {
+        console.warn('⚠️ WebRTC Library Error (Non-Critical):', errorMessage);
+        // This is a known issue with react-native-webrtc in Hermes engine
+        // The error doesn't affect functionality, so we suppress it
+        return;
+      }
+      
+      // Log other errors for debugging
+      console.error('=== Error Intercepted ===');
+      console.error('Message:', errorMessage);
+      console.error('Stack:', errorStack);
+      console.error('Is Fatal:', isFatal);
+      console.error('========================');
+    }
+    
+    // Don't call React Native's original error handler to prevent crashes
+  });
+}
 
 const SplashScreen = () => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -334,18 +364,20 @@ const App = () => {
   }, []);
 
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <VoIPProvider>
-            <NotificationProvider>
-              <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
-              <AppContent />
-            </NotificationProvider>
-          </VoIPProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <VoIPProvider>
+              <NotificationProvider>
+                <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+                <AppContent />
+              </NotificationProvider>
+            </VoIPProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 };
 

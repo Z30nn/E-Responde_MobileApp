@@ -116,8 +116,10 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
                   loadAllReports(true);
                 }
               } catch (error: any) {
-                Alert.alert('Error', error.message || 'Failed to assign officer');
-              } finally {
+                console.error('Error assigning officer:', error);
+                const errorMessage = error?.message || String(error) || 'Failed to assign officer';
+                Alert.alert('Error', errorMessage);
+              } finally{
                 setActioningReportId(null);
               }
             },
@@ -125,7 +127,9 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to respond to report');
+      console.error('Error responding to report:', error);
+      const errorMessage = error?.message || String(error) || 'Failed to respond to report';
+      Alert.alert('Error', errorMessage);
       setActioningReportId(null);
     }
   };
@@ -159,7 +163,9 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
                   loadAllReports(true);
                 }
               } catch (error: any) {
-                Alert.alert('Error', error.message || 'Failed to remove officer');
+                console.error('Error removing officer:', error);
+                const errorMessage = error?.message || String(error) || 'Failed to remove officer';
+                Alert.alert('Error', errorMessage);
               } finally {
                 setActioningReportId(null);
               }
@@ -168,7 +174,9 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
         ]
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to cancel response');
+      console.error('Error canceling response:', error);
+      const errorMessage = error?.message || String(error) || 'Failed to cancel response';
+      Alert.alert('Error', errorMessage);
       setActioningReportId(null);
     }
   };

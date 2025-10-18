@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, FC } from 'react';
-import { Alert } from 'react-native';
+import React, { createContext, useContext, useState, useEffect, ReactNode, FC, useRef } from 'react';
 import VoIPService, { CallData } from './voipService';
 import { useAuth } from './authContext';
 
@@ -33,13 +32,19 @@ export const VoIPProvider: FC<VoIPProviderProps> = ({ children }) => {
   const { user } = useAuth();
   const [incomingCall, setIncomingCall] = useState<CallData | null>(null);
   const [activeCall, setActiveCall] = useState<CallData | null>(null);
-  const [handledCalls, setHandledCalls] = useState<Set<string>>(new Set());
+  const handledCallsRef = useRef<Set<string>>(new Set());
+  const activeCallRef = useRef<CallData | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeCallRef.current = activeCall;
+  }, [activeCall]);
 
   useEffect(() => {
     if (!user) {
       setIncomingCall(null);
       setActiveCall(null);
-      setHandledCalls(new Set());
+      handledCallsRef.current = new Set();
       return;
     }
 
@@ -49,37 +54,39 @@ export const VoIPProvider: FC<VoIPProviderProps> = ({ children }) => {
     const unsubscribe = VoIPService.listenForIncomingCalls(user.uid, (callData) => {
       console.log('VoIPProvider: Received call data:', callData);
       
-      // Ignore if we already handled this call
-      if (handledCalls.has(callData.callId)) {
+      // Check if we already handled this call
+      if (handledCallsRef.current.has(callData.callId)) {
         console.log('VoIPProvider: Call already handled, ignoring:', callData.callId);
         return;
       }
-
+      
       // Ignore if call is not in ringing state
       if (callData.status !== 'ringing') {
         console.log('VoIPProvider: Call status is not ringing, ignoring:', callData.status);
         return;
       }
 
-      // Ignore if there's already an active call
-      if (activeCall && activeCall.callId !== callData.callId) {
+      // Check if there's already an active call
+      if (activeCallRef.current && activeCallRef.current.callId !== callData.callId) {
         console.log('VoIPProvider: Already in a call, auto-rejecting:', callData.callId);
         VoIPService.rejectCall(callData.callId);
         return;
       }
 
       console.log('VoIPProvider: Showing incoming call:', callData.callId);
-      setIncomingCall(callData);
       
-      // Mark this call as handled
-      setHandledCalls(prev => new Set(prev).add(callData.callId));
+      // Mark this call as handled FIRST
+      handledCallsRef.current.add(callData.callId);
+      
+      // Then show the incoming call
+      setIncomingCall(callData);
     });
 
     return () => {
       console.log('VoIPProvider: Cleaning up call listener');
       unsubscribe();
     };
-  }, [user, activeCall, handledCalls]);
+  }, [user?.uid]);
 
   // Monitor active call status changes
   useEffect(() => {
@@ -98,6 +105,13 @@ export const VoIPProvider: FC<VoIPProviderProps> = ({ children }) => {
           updatedCallData.status === 'rejected' || 
           updatedCallData.status === 'missed') {
         console.log('VoIPProvider: Call finished, clearing active call');
+        
+        // Remove from handled calls after a delay to allow for final status updates
+        setTimeout(() => {
+          handledCallsRef.current.delete(updatedCallData.callId);
+          console.log('VoIPProvider: Removed call from handled list:', updatedCallData.callId);
+        }, 3000);
+        
         setTimeout(() => {
           setActiveCall(null);
         }, 1000); // Small delay to allow UI to update
@@ -123,6 +137,12 @@ export const VoIPProvider: FC<VoIPProviderProps> = ({ children }) => {
       if (updatedCallData.status !== 'ringing') {
         console.log('VoIPProvider: Incoming call no longer ringing, dismissing');
         setIncomingCall(null);
+        
+        // Remove from handled calls after a delay
+        setTimeout(() => {
+          handledCallsRef.current.delete(updatedCallData.callId);
+          console.log('VoIPProvider: Removed incoming call from handled list:', updatedCallData.callId);
+        }, 2000);
       }
     });
 
@@ -134,6 +154,13 @@ export const VoIPProvider: FC<VoIPProviderProps> = ({ children }) => {
 
   const dismissIncomingCall = () => {
     console.log('VoIPProvider: Dismissing incoming call');
+    if (incomingCall) {
+      // Remove from handled calls when manually dismissed
+      setTimeout(() => {
+        handledCallsRef.current.delete(incomingCall.callId);
+        console.log('VoIPProvider: Removed dismissed call from handled list:', incomingCall.callId);
+      }, 2000);
+    }
     setIncomingCall(null);
   };
 
