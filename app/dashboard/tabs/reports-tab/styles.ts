@@ -7,11 +7,6 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
     alignItems: 'center',
     paddingBottom: 0,
   },
-  reportsSection: {
-    flex: 1,
-    width: '100%',
-    paddingBottom: 80,
-  },
   sectionHeader: {
     flexDirection: 'column',
     justifyContent: 'center',
@@ -24,6 +19,11 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
     marginTop: 40,
     position: 'relative',
     width: '100%',
+  },
+  reportsSection: {
+    flex: 1,
+    width: '100%',
+    paddingBottom: 80,
   },
   sectionHeaderTitle: {
     fontSize: fonts.subtitle,
