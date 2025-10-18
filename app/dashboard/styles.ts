@@ -320,5 +320,61 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
     color: theme.secondaryText,
     lineHeight: 20,
   },
+  // Filter Modal Styles
+  filterOptions: {
+    padding: 20,
+  },
+  filterOption: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.border,
+  },
+  filterOptionText: {
+    fontSize: fonts.body,
+    color: theme.text,
+    fontWeight: '500',
+  },
+  // User Reports Filter Modal Styles (matching CrimeList filter modal)
+  userReportsFilterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userReportsFilterModalContainer: {
+    width: '80%',
+    maxWidth: 300,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  userReportsFilterModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  userReportsFilterModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  userReportsFilterCloseButton: {
+    padding: 4,
+  },
+  userReportsFilterCloseButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  userReportsFilterOptions: {
+    paddingVertical: 8,
+  },
+  userReportsFilterOption: {
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  userReportsFilterOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
 });
 

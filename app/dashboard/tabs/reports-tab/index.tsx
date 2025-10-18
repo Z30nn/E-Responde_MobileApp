@@ -26,21 +26,21 @@ const ReportsTab: FC<ReportsTabProps> = ({
 
   return (
     <View style={styles.reportsTabContainer}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderTitle}>{t('dashboard.yourCrimeReports')}</Text>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={onFilterPress}
+        >
+          <Image
+            source={require('../../../../assets/filter.png')}
+            style={styles.filterIcon}
+            resizeMode="contain"
+          />
+          <Text style={styles.filterButtonText}>Filter</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.reportsSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionHeaderTitle}>{t('dashboard.yourCrimeReports')}</Text>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={onFilterPress}
-          >
-            <Image
-              source={require('../../../../assets/filter.png')}
-              style={styles.filterIcon}
-              resizeMode="contain"
-            />
-            <Text style={styles.filterButtonText}>Filter</Text>
-          </TouchableOpacity>
-        </View>
         <CrimeReportsList
           onViewReport={onViewReport}
           selectedStatus={selectedStatus}

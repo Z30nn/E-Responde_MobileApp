@@ -759,7 +759,66 @@ const Dashboard: React.FC<DashboardProps> = ({
         </Modal>
       )}
 
-      {/* Add other modals as needed (Filter) */}
+      {/* User Reports Filter Modal */}
+      {showUserReportsFilterModal && (
+        <Modal
+          visible={showUserReportsFilterModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => handleModalChange({ showUserReportsFilterModal: false })}
+        >
+          <View style={styles.userReportsFilterModalOverlay}>
+            <View style={[styles.userReportsFilterModalContainer, { backgroundColor: theme.background }]}>
+              <View style={[styles.userReportsFilterModalHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.userReportsFilterModalTitle, { color: theme.text }]}>Filter Your Reports</Text>
+                <TouchableOpacity 
+                  onPress={() => handleModalChange({ showUserReportsFilterModal: false })} 
+                  style={styles.userReportsFilterCloseButton}
+                >
+                  <Text style={[styles.userReportsFilterCloseButtonText, { color: theme.secondaryText }]}>×</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.userReportsFilterOptions}>
+                {[
+                  { key: 'all', label: 'All Reports' },
+                  { key: 'pending', label: 'Pending' },
+                  { key: 'received', label: 'Received' },
+                  { key: 'in progress', label: 'In Progress' },
+                  { key: 'resolved', label: 'Resolved' },
+                  { key: 'recent', label: 'Recent (7 days)' },
+                  { key: 'this_month', label: 'This Month' },
+                  { key: 'immediate', label: 'Immediate' },
+                  { key: 'high', label: 'High Priority' },
+                  { key: 'moderate', label: 'Moderate' },
+                  { key: 'low', label: 'Low Priority' }
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.key}
+                    style={[
+                      styles.userReportsFilterOption,
+                      { borderBottomColor: theme.border },
+                      selectedUserReportsStatus === option.key && { backgroundColor: theme.primary }
+                    ]}
+                    onPress={() => {
+                      setSelectedUserReportsStatus(option.key);
+                      handleModalChange({ showUserReportsFilterModal: false });
+                    }}
+                  >
+                    <Text style={[
+                      styles.userReportsFilterOptionText,
+                      { color: theme.text },
+                      selectedUserReportsStatus === option.key && { color: 'white' }
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
