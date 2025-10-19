@@ -92,19 +92,30 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       const reportsRef = ref(database, `civilian/civilian account/${currentUser.uid}/crime reports`);
       
       const handleStatusChange = (snapshot: any) => {
+        console.log('CrimeReportsList: Real-time update received');
         if (snapshot.exists()) {
           const reportsData = snapshot.val();
-          const reportsArray = Object.keys(reportsData).map(key => ({
-            ...reportsData[key],
-            reportId: key
-          }));
+          console.log('CrimeReportsList: Reports data:', Object.keys(reportsData).length, 'reports');
+          
+          const reportsArray = Object.keys(reportsData).map(key => {
+            const report = {
+              ...reportsData[key],
+              reportId: key,
+              dateTime: new Date(reportsData[key].dateTime)
+            };
+            console.log('CrimeReportsList: Report', key, 'Status:', report.status);
+            return report;
+          });
           
           // Sort by creation date (newest first)
           const sortedReports = reportsArray.sort((a, b) => 
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
+          
+          console.log('CrimeReportsList: Updated reports list with', sortedReports.length, 'reports');
           setReports(sortedReports);
         } else {
+          console.log('CrimeReportsList: No reports found');
           setReports([]);
         }
       };
@@ -138,7 +149,13 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
 
       // Get user's crime reports from Firebase
       const userReports = await FirebaseService.getUserCrimeReports(currentUser.uid);
-      console.log('Loaded crime reports:', userReports.length, userReports);
+      console.log('CrimeReportsList: Loaded crime reports:', userReports.length);
+      
+      // Log each report's status for debugging
+      userReports.forEach(report => {
+        console.log('CrimeReportsList: Report', report.reportId, 'Status:', report.status);
+      });
+      
       setReports(userReports);
       
       // Status change monitoring removed to avoid duplicate notifications with Dashboard
