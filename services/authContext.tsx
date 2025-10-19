@@ -112,24 +112,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      // Check if email belongs to police or civilian
-      const isPolice = await FirebaseService.isPoliceEmail(email);
-      console.log('AuthProvider: Is police email?', isPolice);
-      
+      // Try to authenticate first, then determine user type
       let userCredential;
-      if (isPolice) {
-        // Login as police
+      let isPolice = false;
+      
+      try {
+        // First try police login
         userCredential = await FirebaseService.loginPolice({ email, password });
-        // Police accounts don't require email verification
-      } else {
-        // Login as civilian
-        userCredential = await FirebaseService.loginCivilian({ email, password });
+        isPolice = true;
+        console.log('AuthProvider: Police login successful, skipping email verification');
+      } catch (policeError) {
+        console.log('AuthProvider: Police login failed, trying civilian login');
         
-        // Check if email is verified for civilians only
-        if (userCredential.user && !userCredential.user.emailVerified) {
-          // Sign out the user immediately if email is not verified
-          await signOut(auth);
-          throw { code: 'auth/email-not-verified', message: 'Please verify your email before logging in.' };
+        // If police login fails, try civilian login
+        try {
+          userCredential = await FirebaseService.loginCivilian({ email, password });
+          isPolice = false;
+          
+          // Check if email is verified for civilians only
+          if (userCredential.user && !userCredential.user.emailVerified) {
+            // Sign out the user immediately if email is not verified
+            await signOut(auth);
+            throw { code: 'auth/email-not-verified', message: 'Please verify your email before logging in.' };
+          }
+        } catch (civilianError) {
+          // If both fail, throw the original error
+          throw policeError;
         }
       }
       

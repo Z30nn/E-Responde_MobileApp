@@ -16,8 +16,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (check for existing instances)
-let app;
-let auth;
+let app: any;
+let auth: any;
 
 try {
     if (getApps().length === 0) {

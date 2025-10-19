@@ -14,11 +14,7 @@ import {
   ref, 
   set, 
   get, 
-  push,
-  update,
-  query, 
-  orderByChild, 
-  equalTo 
+  update
 } from 'firebase/database';
 import { 
   ref as storageRef, 
@@ -226,6 +222,8 @@ export class FirebaseService {
       return false;
     } catch (error) {
       console.error('Error checking police email:', error);
+      // If we get permission denied, assume it's not a police email
+      // This will be handled by the authentication flow
       return false;
     }
   }
@@ -239,14 +237,55 @@ export class FirebaseService {
         credentials.password
       );
 
-      // Verify user exists in police database
-      const userRef = ref(database, `police/police account/${userCredential.user.uid}`);
-      const snapshot = await get(userRef);
+      // For police accounts created via admin dashboard, we need to check if the email exists in police database
+      // and potentially create/update the police account record
+      const policeRef = ref(database, 'police/police account');
+      const snapshot = await get(policeRef);
       
-      if (!snapshot.exists()) {
+      let policeAccountExists = false;
+      let policeAccountData = null;
+      
+      if (snapshot.exists()) {
+        const policeAccounts = snapshot.val();
+        // Check if any police account has this email
+        for (const [_uid, accountData] of Object.entries(policeAccounts)) {
+          if ((accountData as any).email?.toLowerCase() === credentials.email.toLowerCase()) {
+            policeAccountExists = true;
+            policeAccountData = accountData as any;
+            break;
+          }
+        }
+      }
+      
+      if (!policeAccountExists) {
         // Sign out if not in police database
         await signOut(auth);
-        throw new Error('User not found in police database');
+        throw new Error('Police account not found. Please contact your administrator.');
+      }
+
+      // If the police account exists but with a different UID (created via admin dashboard),
+      // we need to update the record with the current auth UID
+      if (policeAccountData && (policeAccountData as any).uid !== userCredential.user.uid) {
+        console.log('Updating police account with new auth UID');
+        const newPoliceRef = ref(database, `police/police account/${userCredential.user.uid}`);
+        await set(newPoliceRef, {
+          ...policeAccountData,
+          uid: userCredential.user.uid,
+          email: credentials.email,
+          lastLogin: new Date().toISOString()
+        });
+        
+        // Remove the old record if it exists
+        if ((policeAccountData as any).uid) {
+          const oldPoliceRef = ref(database, `police/police account/${(policeAccountData as any).uid}`);
+          await set(oldPoliceRef, null);
+        }
+      } else if (policeAccountData && (policeAccountData as any).uid === userCredential.user.uid) {
+        // Update last login time
+        const userRef = ref(database, `police/police account/${userCredential.user.uid}`);
+        await update(userRef, {
+          lastLogin: new Date().toISOString()
+        });
       }
 
       return userCredential;
@@ -664,7 +703,7 @@ export class FirebaseService {
         const notificationPromises: Promise<boolean>[] = [];
         
         // Send notification to each user (excluding the reporter)
-        for (const [userId, userData] of Object.entries(users)) {
+        for (const [userId, _userData] of Object.entries(users)) {
           // Skip sending notification to the user who submitted the report
           if (userId === crimeReport.reporterUid) {
             console.log('FirebaseService: Skipping notification for reporter:', userId);
