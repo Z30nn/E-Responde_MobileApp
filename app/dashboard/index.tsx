@@ -119,7 +119,257 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [activeTab, loadSOSStats]);
 
+  // Real-time status monitoring for crime report notifications (NON-INTERFERING)
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Dashboard: Setting up NON-INTERFERING real-time status monitoring for user:', user.uid);
+    console.log('Dashboard: Real-time monitoring is ACTIVE and listening for changes...');
+    console.log('Dashboard: This monitoring will NOT interfere with SOS functionality');
+    
+    // Track previous report statuses to detect changes
+    const previousReportStatuses = new Map<string, string>();
+    
+    const setupStatusMonitor = async () => {
+      try {
+        // Import notification service
+        const { notificationService } = await import('../../services/notificationService');
+        
+        // Set up real-time listener for user's crime reports AND main collection
+        const { ref, onValue, off, get } = await import('firebase/database');
+        const { database } = await import('../../firebaseConfig');
+        
+        const userReportsRef = ref(database, `civilian/civilian account/${user.uid}/crime reports`);
+        const mainReportsRef = ref(database, `civilian/civilian crime reports`);
+        
+        // First, check for any existing resolved reports that might need notifications
+        try {
+          const snapshot = await get(userReportsRef);
+          if (snapshot.exists()) {
+            const reportsData = snapshot.val();
+            console.log('Dashboard: Checking existing reports for resolved status...');
+            console.log('Dashboard: Found reports:', Object.keys(reportsData).length);
+            
+            for (const [reportId, reportData] of Object.entries(reportsData)) {
+              const currentStatus = (reportData as any).status;
+              console.log('Dashboard: Report', reportId, 'Status:', currentStatus);
+              
+              // If report is resolved, check if we need to send a notification
+              if (currentStatus && currentStatus.toLowerCase() === 'resolved') {
+                console.log('Dashboard: Found resolved report:', reportId, 'Status:', currentStatus);
+                
+                // Check if notification already exists for this resolved report
+                const existingNotifications = await notificationService.getUserNotifications(user.uid);
+                const hasResolvedNotification = existingNotifications.some(notification => 
+                  notification.type === 'crime_report_solved' && 
+                  notification.data?.reportId === reportId
+                );
+                
+                if (!hasResolvedNotification) {
+                  console.log('Dashboard: Sending missing resolved notification for report:', reportId);
+                  
+                  // Send the missing notification
+                  const success = await notificationService.sendReportStatusUpdateNotification(
+                    reportId,
+                    user.uid,
+                    'pending', // Assume it was pending before
+                    'resolved',
+                    (reportData as any).crimeType || 'Crime Report'
+                  );
+                  
+                  console.log('Dashboard: Notification sent successfully:', success);
+                } else {
+                  console.log('Dashboard: Resolved notification already exists for report:', reportId);
+                }
+              }
+            }
+          } else {
+            console.log('Dashboard: No reports found for user');
+          }
+        } catch (error) {
+          console.error('Dashboard: Error checking existing resolved reports:', error);
+        }
+        
+        const handleStatusChange = (snapshot: any) => {
+          if (snapshot.exists()) {
+            const reportsData = snapshot.val();
+            
+            // Check each report for status changes
+            Object.entries(reportsData).forEach(([reportId, reportData]: [string, any]) => {
+              const currentStatus = reportData.status;
+              const previousStatus = previousReportStatuses.get(reportId);
+              
+              // Only send notification if status actually changed
+              if (previousStatus && previousStatus !== currentStatus) {
+                console.log('Dashboard: Real-time status change detected for report:', reportId, previousStatus, '->', currentStatus);
+                
+                notificationService.sendReportStatusUpdateNotification(
+                  reportId,
+                  user.uid,
+                  previousStatus,
+                  currentStatus,
+                  reportData.crimeType || 'Crime Report'
+                ).then(success => {
+                  console.log('Dashboard: Real-time status change notification sent:', success);
+                }).catch(error => {
+                  console.error('Dashboard: Error sending real-time status change notification:', error);
+                });
+              }
+              
+              // Update the previous status
+              previousReportStatuses.set(reportId, currentStatus);
+            });
+          }
+        };
+        
+        // Set up the real-time listener for user's reports
+        onValue(userReportsRef, handleStatusChange);
+        
+        // Also listen to main collection for any changes that might affect user's reports
+        const handleMainCollectionChange = async (snapshot: any) => {
+          if (snapshot.exists()) {
+            const mainReportsData = snapshot.val();
+            console.log('Dashboard: Main collection change detected');
+            
+            // Check if any of the user's reports have been updated in main collection
+            const userSnapshot = await get(userReportsRef);
+            if (userSnapshot.exists()) {
+              const userReportsData = userSnapshot.val();
+              
+              for (const [reportId, mainReportData] of Object.entries(mainReportsData)) {
+                if (userReportsData[reportId]) {
+                  const mainStatus = (mainReportData as any).status;
+                  const userStatus = userReportsData[reportId].status;
+                  
+                  if (mainStatus !== userStatus) {
+                    console.log('Dashboard: Status mismatch detected in main collection:', reportId, 'Main:', mainStatus, 'User:', userStatus);
+                    
+                    // Update user's collection to match main collection
+                    const { update } = await import('firebase/database');
+                    const userReportRef = ref(database, `civilian/civilian account/${user.uid}/crime reports/${reportId}`);
+                    await update(userReportRef, {
+                      status: mainStatus,
+                      statusUpdatedAt: new Date().toISOString(),
+                      statusUpdatedBy: 'system_sync'
+                    });
+                    
+                    // Send notification for the status change
+                    if (mainStatus && mainStatus.toLowerCase() === 'resolved') {
+                      console.log('Dashboard: Sending resolved notification for report:', reportId);
+                      notificationService.sendReportStatusUpdateNotification(
+                        reportId,
+                        user.uid,
+                        userStatus,
+                        mainStatus,
+                        (mainReportData as any).crimeType || 'Crime Report'
+                      ).then(success => {
+                        console.log('Dashboard: Resolved notification sent:', success);
+                      }).catch(error => {
+                        console.error('Dashboard: Error sending resolved notification:', error);
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          }
+        };
+        
+        // Set up listener for main collection
+        onValue(mainReportsRef, handleMainCollectionChange);
+        
+        console.log('Dashboard: Real-time status monitoring set up successfully for both collections');
+        
+        // Add periodic check every 2 minutes as backup (NON-INTERFERING)
+        const periodicCheck = setInterval(async () => {
+          try {
+            console.log('Dashboard: Running NON-INTERFERING periodic status check...');
+            console.log('Dashboard: This check will NOT interfere with SOS functionality');
+            const userSnapshot = await get(userReportsRef);
+            const mainSnapshot = await get(mainReportsRef);
+            
+            if (userSnapshot.exists() && mainSnapshot.exists()) {
+              const userReportsData = userSnapshot.val();
+              const mainReportsData = mainSnapshot.val();
+              
+              for (const [reportId, userReportData] of Object.entries(userReportsData)) {
+                if (mainReportsData[reportId]) {
+                  const mainStatus = (mainReportsData as any).status;
+                  const userStatus = (userReportData as any).status;
+                  
+                  if (mainStatus !== userStatus) {
+                    console.log('Dashboard: Periodic check found mismatch:', reportId, 'Main:', mainStatus, 'User:', userStatus);
+                    
+                    // Update user's collection
+                    const { update } = await import('firebase/database');
+                    const userReportRef = ref(database, `civilian/civilian account/${user.uid}/crime reports/${reportId}`);
+                    await update(userReportRef, {
+                      status: mainStatus,
+                      statusUpdatedAt: new Date().toISOString(),
+                      statusUpdatedBy: 'periodic_sync'
+                    });
+                    
+                    // Send notification if resolved
+                    if (mainStatus && mainStatus.toLowerCase() === 'resolved') {
+                      console.log('Dashboard: Periodic check sending resolved notification for report:', reportId);
+                      notificationService.sendReportStatusUpdateNotification(
+                        reportId,
+                        user.uid,
+                        userStatus,
+                        mainStatus,
+                        (mainReportsData as any).crimeType || 'Crime Report'
+                      ).then(success => {
+                        console.log('Dashboard: Periodic resolved notification sent:', success);
+                      }).catch(error => {
+                        console.error('Dashboard: Error sending periodic resolved notification:', error);
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Dashboard: Error in periodic check:', error);
+          }
+        }, 120000); // Check every 2 minutes (NON-INTERFERING)
+        
+        // Return cleanup function
+        return () => {
+          off(userReportsRef, 'value', handleStatusChange);
+          off(mainReportsRef, 'value', handleMainCollectionChange);
+          clearInterval(periodicCheck);
+          console.log('Dashboard: Real-time status monitoring cleaned up');
+        };
+      } catch (error) {
+        console.error('Dashboard: Error setting up status monitoring:', error);
+        // Return a no-op cleanup function if there's an error
+        return () => {};
+      }
+    };
+    
+    let cleanup: (() => void) | null = null;
+    
+    setupStatusMonitor().then((cleanupFn) => {
+      cleanup = cleanupFn;
+    });
+    
+    return () => {
+      if (cleanup && typeof cleanup === 'function') {
+        cleanup();
+      }
+    };
+  }, [user]);
+
   // Note: Gyroscope functionality is handled globally in App.tsx
+  // Ensure gyroscope is working properly
+  useEffect(() => {
+    if (user && user.uid) {
+      console.log('Dashboard: Checking gyroscope service status...');
+      console.log('Dashboard: Gyroscope available:', gyroscopeService.isGyroscopeAvailable());
+      console.log('Dashboard: Gyroscope enabled:', gyroscopeService.isGyroscopeEnabled());
+      console.log('Dashboard: Gyroscope sensor status:', gyroscopeService.getSensorStatus());
+    }
+  }, [user]);
 
 
   // Sync global active tab with local state

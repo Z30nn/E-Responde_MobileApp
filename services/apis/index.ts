@@ -161,9 +161,11 @@ export const apis = {
       return await firebaseClient.database.read('crime_reports');
     },
 
-    updateStatus: async (reportId: string, status: string) => {
+    updateStatus: async (reportId: string, status: string, updatedBy?: string) => {
       logger.debug('API: Update report status', reportId, status);
-      return await firebaseClient.database.update(`crime_reports/${reportId}`, { status });
+      // Use FirebaseService to ensure both collections are updated and notifications are sent
+      const { FirebaseService } = await import('../firebaseService');
+      return await FirebaseService.updateCrimeReportStatus(reportId, status, updatedBy);
     },
 
     vote: async (reportId: string, userId: string, voteType: 'upvote' | 'downvote') => {
