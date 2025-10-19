@@ -2,6 +2,7 @@ import { RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, mediaDevices
 import { ref, set, onValue, off, push, get, update } from 'firebase/database';
 import { database, auth } from '../firebaseConfig';
 import { Platform, PermissionsAndroid } from 'react-native';
+import InCallManager from 'react-native-incall-manager';
 
 export interface CallData {
   callId: string;
@@ -127,16 +128,16 @@ export class VoIPService {
     }
 
     // Handle remote stream
-    this.peerConnection.ontrack = (event) => {
+    (this.peerConnection as any).ontrack = (event: any) => {
       console.log('Received remote track:', event.track.kind);
       if (event.streams && event.streams[0]) {
         this.remoteStream = event.streams[0];
-        console.log('Remote stream received:', this.remoteStream.toURL());
+        console.log('Remote stream received:', this.remoteStream?.toURL());
       }
     };
 
     // Handle ICE candidates
-    this.peerConnection.onicecandidate = async (event) => {
+    (this.peerConnection as any).onicecandidate = async (event: any) => {
       if (event.candidate && this.currentCallId) {
         console.log('New ICE candidate:', event.candidate);
         await this.sendIceCandidate(this.currentCallId, event.candidate);
@@ -144,11 +145,11 @@ export class VoIPService {
     };
 
     // Handle connection state changes
-    this.peerConnection.onconnectionstatechange = () => {
+    (this.peerConnection as any).onconnectionstatechange = () => {
       console.log('Connection state:', this.peerConnection?.connectionState);
     };
 
-    this.peerConnection.oniceconnectionstatechange = () => {
+    (this.peerConnection as any).oniceconnectionstatechange = () => {
       console.log('ICE connection state:', this.peerConnection?.iceConnectionState);
     };
 
@@ -335,7 +336,6 @@ export class VoIPService {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
-    const userType = await this.getUserType(currentUser.uid);
     const isCaller = await this.isUserCaller(callId, currentUser.uid);
 
     const candidateRef = push(
@@ -611,6 +611,85 @@ export class VoIPService {
 
   getCurrentCallId(): string | null {
     return this.currentCallId;
+  }
+
+  // Mute control methods
+  muteMicrophone(): boolean {
+    if (this.localStream) {
+      const audioTracks = this.localStream.getAudioTracks();
+      audioTracks.forEach((track) => {
+        track.enabled = false;
+      });
+      console.log('Microphone muted');
+      return true;
+    }
+    return false;
+  }
+
+  unmuteMicrophone(): boolean {
+    if (this.localStream) {
+      const audioTracks = this.localStream.getAudioTracks();
+      audioTracks.forEach((track) => {
+        track.enabled = true;
+      });
+      console.log('Microphone unmuted');
+      return true;
+    }
+    return false;
+  }
+
+  toggleMute(): boolean {
+    if (this.localStream) {
+      const audioTracks = this.localStream.getAudioTracks();
+      const isCurrentlyMuted = !audioTracks[0]?.enabled;
+      
+      audioTracks.forEach((track) => {
+        track.enabled = isCurrentlyMuted;
+      });
+      
+      console.log(`Microphone ${isCurrentlyMuted ? 'unmuted' : 'muted'}`);
+      return isCurrentlyMuted; // Returns true if now unmuted, false if now muted
+    }
+    return false;
+  }
+
+  // Speaker control methods
+  setSpeakerMode(enabled: boolean): void {
+    try {
+      if (enabled) {
+        InCallManager.setForceSpeakerphoneOn(true);
+        InCallManager.setSpeakerphoneOn(true);
+        console.log('Speaker mode enabled');
+      } else {
+        InCallManager.setForceSpeakerphoneOn(false);
+        InCallManager.setSpeakerphoneOn(false);
+        console.log('Speaker mode disabled');
+      }
+    } catch (error) {
+      console.error('Error setting speaker mode:', error);
+    }
+  }
+
+  toggleSpeaker(): boolean {
+    try {
+      // Get current speaker state and toggle it
+      InCallManager.getIsSpeakerphoneOn((isSpeakerOn: boolean) => {
+        this.setSpeakerMode(!isSpeakerOn);
+      });
+      return true;
+    } catch (error) {
+      console.error('Error toggling speaker:', error);
+      return false;
+    }
+  }
+
+  // Get current mute status
+  isMicrophoneMuted(): boolean {
+    if (this.localStream) {
+      const audioTracks = this.localStream.getAudioTracks();
+      return audioTracks.length > 0 && !audioTracks[0].enabled;
+    }
+    return false;
   }
 }
 

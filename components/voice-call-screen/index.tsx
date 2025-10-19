@@ -4,13 +4,13 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   SafeAreaView,
   Alert,
   Image,
 } from 'react-native';
 import { RTCView } from 'react-native-webrtc';
 import VoIPService, { CallData } from '../../services/voipService';
+import InCallManager from 'react-native-incall-manager';
 
 interface VoiceCallScreenProps {
   callData: CallData;
@@ -59,7 +59,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
   }, [callData.callId, onEndCall]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     // Monitor call status and update UI accordingly
     if (currentCallData.status === 'answered') {
@@ -73,6 +73,18 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
       // Get remote stream
       const stream = VoIPService.getRemoteStream();
       setRemoteStream(stream);
+
+      // Initialize mute state based on actual stream state
+      const muteState = VoIPService.isMicrophoneMuted();
+      setIsMuted(muteState);
+
+      // Initialize InCallManager for speaker control
+      try {
+        InCallManager.start({ media: 'audio' });
+        console.log('InCallManager started for audio call');
+      } catch (error) {
+        console.error('Error starting InCallManager:', error);
+      }
     } else if (currentCallData.status === 'ringing') {
       setCallStatus(isOutgoing ? 'Calling...' : 'Incoming Call');
     } else if (currentCallData.status === 'ended') {
@@ -89,6 +101,18 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
       }
     };
   }, [currentCallData.status, isOutgoing]);
+
+  // Cleanup InCallManager when component unmounts
+  useEffect(() => {
+    return () => {
+      try {
+        InCallManager.stop();
+        console.log('InCallManager stopped');
+      } catch (error) {
+        console.error('Error stopping InCallManager:', error);
+      }
+    };
+  }, []);
 
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -107,19 +131,13 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
   };
 
   const handleMuteToggle = () => {
-    const localStream = VoIPService.getLocalStream();
-    if (localStream) {
-      localStream.getAudioTracks().forEach((track) => {
-        track.enabled = isMuted;
-      });
-      setIsMuted(!isMuted);
-    }
+    const newMuteState = VoIPService.toggleMute();
+    setIsMuted(!newMuteState); // newMuteState is true if unmuted, so we want the opposite for isMuted state
   };
 
   const handleSpeakerToggle = () => {
-    // Speaker toggle would use react-native-incall-manager
+    VoIPService.toggleSpeaker();
     setIsSpeakerOn(!isSpeakerOn);
-    // InCallManager.setForceSpeakerphoneOn(!isSpeakerOn);
   };
 
   // Safety check - if otherUser data is not available, don't render
