@@ -333,12 +333,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
       const options = {
         mediaType: 'photo' as MediaType,
-        quality: 0.8 as any,
-        maxWidth: 1000,
-        maxHeight: 1000,
+        quality: 0.5 as any, // Lower quality for Realtime Database storage
+        maxWidth: 600, // Smaller dimensions for database storage
+        maxHeight: 600, // Smaller dimensions for database storage
         storageOptions: {
           skipBackup: true,
         },
+        includeBase64: false, // We'll convert to base64 separately
       };
 
       launchCamera(options, (response: ImagePickerResponse) => {
@@ -355,11 +356,15 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
             type: asset.type || 'image/jpeg',
             size: asset.fileSize || 0,
           };
-          setUploadedFiles(prev => [...prev, fileInfo]);
-          setFormData(prev => ({
-            ...prev,
-            multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
-          }));
+          
+          // Validate file before adding
+          if (validateFile(fileInfo)) {
+            setUploadedFiles(prev => [...prev, fileInfo]);
+            setFormData(prev => ({
+              ...prev,
+              multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
+            }));
+          }
         } else if ((response as any).uri) {
           // Fallback for older API versions
           const fileInfo = {
@@ -368,11 +373,15 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
             type: 'image/jpeg',
             size: (response as any).fileSize || 0,
           };
-          setUploadedFiles(prev => [...prev, fileInfo]);
-          setFormData(prev => ({
-            ...prev,
-            multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
-          }));
+          
+          // Validate file before adding
+          if (validateFile(fileInfo)) {
+            setUploadedFiles(prev => [...prev, fileInfo]);
+            setFormData(prev => ({
+              ...prev,
+              multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
+            }));
+          }
         }
       });
     } catch (error) {
@@ -421,12 +430,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
       const options = {
         mediaType: 'photo' as MediaType,
-        quality: 0.8 as any,
-        maxWidth: 1000,
-        maxHeight: 1000,
+        quality: 0.5 as any, // Lower quality for Realtime Database storage
+        maxWidth: 600, // Smaller dimensions for database storage
+        maxHeight: 600, // Smaller dimensions for database storage
         storageOptions: {
           skipBackup: true,
         },
+        includeBase64: false, // We'll convert to base64 separately
       };
 
       launchImageLibrary(options, (response: ImagePickerResponse) => {
@@ -443,11 +453,15 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
             type: asset.type || 'image/jpeg',
             size: asset.fileSize || 0,
           };
-          setUploadedFiles(prev => [...prev, fileInfo]);
-          setFormData(prev => ({
-            ...prev,
-            multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
-          }));
+          
+          // Validate file before adding
+          if (validateFile(fileInfo)) {
+            setUploadedFiles(prev => [...prev, fileInfo]);
+            setFormData(prev => ({
+              ...prev,
+              multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
+            }));
+          }
         } else if ((response as any).uri) {
           // Fallback for older API versions
           const fileInfo = {
@@ -456,11 +470,15 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
             type: 'image/jpeg',
             size: (response as any).fileSize || 0,
           };
-          setUploadedFiles(prev => [...prev, fileInfo]);
-          setFormData(prev => ({
-            ...prev,
-            multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
-          }));
+          
+          // Validate file before adding
+          if (validateFile(fileInfo)) {
+            setUploadedFiles(prev => [...prev, fileInfo]);
+            setFormData(prev => ({
+              ...prev,
+              multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
+            }));
+          }
         }
       });
     } catch (error) {
@@ -476,6 +494,41 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       ...prev,
       multimedia: prev.multimedia?.filter((_, i) => i !== index) || [],
     }));
+  };
+
+  const validateFile = (file: any): boolean => {
+    // Check file size (max 1MB for base64 in Realtime Database)
+    const maxSize = 1 * 1024 * 1024; // 1MB
+    if (file.size && file.size > maxSize) {
+      Alert.alert(
+        'File Too Large',
+        `The file "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum allowed size for Realtime Database storage is 1MB. Please compress the image.`,
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    // Check file type - only images for Realtime Database
+    if (!file.type || !file.type.startsWith('image/')) {
+      Alert.alert(
+        'Invalid File Type',
+        `The file "${file.name}" is not a supported image format. Only images are allowed for Realtime Database storage.`,
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    // Check file name
+    if (!file.name || file.name.length > 100) {
+      Alert.alert(
+        'Invalid File Name',
+        'File name is invalid or too long. Please rename the file.',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    return true;
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -525,20 +578,45 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         return;
       }
 
-      // Upload files to Firebase Storage if any
+      // Process images for Realtime Database storage if any
       let multimediaURLs: string[] = [];
       if (uploadedFiles.length > 0) {
         try {
-          console.log('Uploading files to Firebase Storage...');
-          Alert.alert('Uploading', 'Please wait while we upload your files...');
+          console.log('Processing images for Realtime Database storage...');
+          Alert.alert('Processing Images', 'Please wait while we process your images...');
           
-          multimediaURLs = await FirebaseService.uploadMultipleFiles(uploadedFiles);
-          console.log('Files uploaded successfully. URLs:', multimediaURLs);
-        } catch (uploadError) {
-          console.error('Error uploading files:', uploadError);
+          // Process files individually (more reliable approach)
+          multimediaURLs = [];
+          for (const file of uploadedFiles) {
+            try {
+              console.log(`Processing file: ${file.name}`);
+              const base64Image = await FirebaseService.convertImageToBase64(file.uri, file.name);
+              multimediaURLs.push(base64Image);
+              console.log(`Successfully processed: ${file.name}`);
+            } catch (error: any) {
+              console.error(`Error processing ${file.name}:`, error);
+            }
+          }
+          console.log('Images processed successfully. Base64 data ready for database storage.');
+          
+          if (multimediaURLs.length < uploadedFiles.length) {
+            Alert.alert(
+              'Partial Processing Success',
+              `Successfully processed ${multimediaURLs.length} out of ${uploadedFiles.length} images. The report will be submitted with the processed images.`,
+              [{ text: 'Continue', onPress: () => {} }]
+            );
+          }
+        } catch (processingError: any) {
+          console.error('Error processing images:', processingError);
+          
+          let errorMessage = 'Failed to process images. ';
+          if (processingError.message) {
+            errorMessage += processingError.message;
+          }
+          
           Alert.alert(
-            'Upload Error',
-            'Failed to upload one or more files. Do you want to submit the report without attachments?',
+            'Image Processing Error',
+            `${errorMessage}\n\nDo you want to submit the report without attachments?`,
             [
               {
                 text: 'Cancel',
@@ -557,11 +635,10 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               }
             ]
           );
-          if (multimediaURLs.length === 0 && uploadedFiles.length > 0) {
-            // User cancelled
-            setIsLoading(false);
-            return;
-          }
+          
+          // User cancelled or chose to continue without files
+          setIsLoading(false);
+          return;
         }
       }
 

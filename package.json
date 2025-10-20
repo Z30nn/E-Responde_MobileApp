@@ -22,6 +22,7 @@
     "react": "19.1.0",
     "react-native": "0.80.2",
     "react-native-callkeep": "^4.3.16",
+    "react-native-fs": "^2.20.0",
     "react-native-get-random-values": "^1.11.0",
     "react-native-image-picker": "^5.7.0",
     "react-native-incall-manager": "^4.1.0",
