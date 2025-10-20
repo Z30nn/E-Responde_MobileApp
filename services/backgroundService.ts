@@ -1,6 +1,5 @@
 import { AppState, AppStateStatus } from 'react-native';
 import { gyroscopeService } from './gyroscopeService';
-import { DeviceMotion } from 'expo-sensors';
 
 export interface BackgroundServiceConfig {
   enableBackgroundGyroscope: boolean;
