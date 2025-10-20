@@ -697,8 +697,14 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
             <Text style={styles.sectionTitle}>Evidence Attached</Text>
             <View style={styles.mediaGrid}>
               {report.multimedia.map((item, index) => {
-                const isImage = item.match(/\.(jpg|jpeg|png|gif)$/i);
+                // Check if it's a base64 data URL (for Realtime Database storage)
+                const isBase64Image = item.startsWith('data:image/');
+                // Check if it's a file path/URL with image extension (for Storage)
+                const isImageFile = item.match(/\.(jpg|jpeg|png|gif)$/i);
+                // Check if it's a video file
                 const isVideo = item.match(/\.(mp4|mov)$/i);
+                
+                const isImage = isBase64Image || isImageFile;
                 
                 return (
                   <TouchableOpacity

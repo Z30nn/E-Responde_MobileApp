@@ -16,13 +16,8 @@ import {
   get, 
   update
 } from 'firebase/database';
-import { 
-  ref as storageRef, 
-  uploadBytes, 
-  getDownloadURL,
-  deleteObject 
-} from 'firebase/storage';
-import { auth, database, storage } from '../firebaseConfig';
+import { auth, database } from '../firebaseConfig';
+import RNFS from 'react-native-fs';
 
 export interface CivilianUser {
   firstName: string;
@@ -78,66 +73,131 @@ export interface CrimeReport {
 }
 
 export class FirebaseService {
-  // Upload file to Firebase Storage and return download URL
-  static async uploadFileToStorage(fileUri: string, fileName: string, folder: string = 'crime-reports'): Promise<string> {
+  // Info about image storage in Realtime Database
+  static getImageStorageInfo(): { maxSize: number; supportedFormats: string[] } {
+    return {
+      maxSize: 1 * 1024 * 1024, // 1MB max for base64 in Realtime Database
+      supportedFormats: ['image/jpeg', 'image/jpg', 'image/png']
+    };
+  }
+
+  // Convert image to base64 for Realtime Database storage
+  static async convertImageToBase64(fileUri: string, fileName: string): Promise<string> {
     try {
-      console.log('Uploading file to Firebase Storage:', fileName);
+      console.log('=== CONVERTING IMAGE TO BASE64 ===');
+      console.log('File URI:', fileUri);
+      console.log('File Name:', fileName);
       
-      // Fetch the file from the local URI
-      const response = await fetch(fileUri);
-      const blob = await response.blob();
+      // Read the file and convert to base64
+      const base64 = await RNFS.readFile(fileUri, 'base64');
       
-      // Create a reference to the file in Firebase Storage
-      const fileRef = storageRef(storage, `${folder}/${Date.now()}_${fileName}`);
+      // Add data URL prefix for proper format
+      const mimeType = fileName.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+      const base64DataUrl = `data:${mimeType};base64,${base64}`;
       
-      // Upload the file
-      const snapshot = await uploadBytes(fileRef, blob);
-      console.log('File uploaded successfully:', snapshot.metadata.fullPath);
+      console.log('Base64 conversion successful, size:', base64DataUrl.length, 'characters');
       
-      // Get the download URL
-      const downloadURL = await getDownloadURL(fileRef);
-      console.log('Download URL obtained:', downloadURL);
+      // Check size limit (1MB for Realtime Database)
+      const maxSize = this.getImageStorageInfo().maxSize;
+      if (base64DataUrl.length > maxSize) {
+        throw new Error(`Image is too large (${(base64DataUrl.length / 1024 / 1024).toFixed(2)}MB). Maximum size for Realtime Database is 1MB. Please compress the image.`);
+      }
       
-      return downloadURL;
+      return base64DataUrl;
+    } catch (error: any) {
+      console.error('Error converting image to base64:', error);
+      throw new Error(`Failed to convert image to base64: ${error.message}`);
+    }
+  }
+
+  // Process images for Realtime Database storage
+  static async processImagesForDatabase(files: Array<{uri: string, name: string, type: string}>): Promise<string[]> {
+    try {
+      console.log(`=== PROCESSING ${files.length} IMAGES FOR REALTIME DATABASE ===`);
+      
+      // Check if user is authenticated
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User must be authenticated to process images');
+      }
+      
+      const base64Images: string[] = [];
+      const errors: string[] = [];
+      
+      // Process files sequentially to avoid memory issues
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        try {
+          console.log(`Processing image ${i + 1}/${files.length}: ${file.name}`);
+          
+          // Validate file type
+          if (!file.type || (!file.type.startsWith('image/'))) {
+            throw new Error(`Unsupported file type: ${file.type || 'unknown'}. Only images are allowed.`);
+          }
+          
+          // Convert to base64
+          const base64DataUrl = await this.convertImageToBase64(file.uri, file.name);
+          base64Images.push(base64DataUrl);
+          
+          console.log(`Image ${i + 1} processed successfully`);
+        } catch (error: any) {
+          console.error(`Error processing image ${i + 1} (${file.name}):`, error);
+          errors.push(`${file.name}: ${error.message}`);
+        }
+      }
+      
+      if (errors.length > 0) {
+        console.warn('Some images failed to process:', errors);
+        
+        if (base64Images.length === 0) {
+          throw new Error(`All images failed to process:\n${errors.join('\n')}`);
+        } else {
+          console.log(`Successfully processed ${base64Images.length}/${files.length} images`);
+        }
+      }
+      
+      console.log('Image processing completed');
+      return base64Images;
     } catch (error) {
-      console.error('Error uploading file to Firebase Storage:', error);
+      console.error('Error processing images for database:', error);
       throw error;
     }
   }
 
-  // Upload multiple files to Firebase Storage
-  static async uploadMultipleFiles(files: Array<{uri: string, name: string, type: string}>): Promise<string[]> {
+  // Process multiple files for Realtime Database storage (replaces uploadMultipleFiles)
+  static async processMultipleFiles(files: Array<{uri: string, name: string, type: string}>): Promise<string[]> {
     try {
-      console.log(`Uploading ${files.length} files to Firebase Storage`);
+      console.log(`Processing ${files.length} files for Realtime Database storage`);
       
-      const uploadPromises = files.map(file => {
-        // Determine folder based on file type
-        const folder = file.type.startsWith('image/') ? 'crime-reports/images' : 'crime-reports/videos';
-        return this.uploadFileToStorage(file.uri, file.name, folder);
-      });
+      // Check if user is authenticated
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User must be authenticated to process files');
+      }
       
-      const downloadURLs = await Promise.all(uploadPromises);
-      console.log('All files uploaded successfully');
+      // Validate files before processing
+      for (const file of files) {
+        if (!file.uri || !file.name) {
+          throw new Error('Invalid file data: missing URI or name');
+        }
+        
+        // Only allow images for Realtime Database storage
+        if (!file.type || !file.type.startsWith('image/')) {
+          throw new Error(`Unsupported file type: ${file.type || 'unknown'}. Only images are allowed for Realtime Database storage.`);
+        }
+      }
       
-      return downloadURLs;
+      // Process images for database storage
+      const base64Images = await this.processImagesForDatabase(files);
+      
+      console.log('File processing completed');
+      return base64Images;
     } catch (error) {
-      console.error('Error uploading multiple files:', error);
+      console.error('Error processing multiple files:', error);
       throw error;
     }
   }
 
-  // Delete file from Firebase Storage (optional - for cleanup)
-  static async deleteFileFromStorage(fileURL: string): Promise<void> {
-    try {
-      // Extract the file path from the URL
-      const fileRef = storageRef(storage, fileURL);
-      await deleteObject(fileRef);
-      console.log('File deleted successfully from Firebase Storage');
-    } catch (error) {
-      console.error('Error deleting file from Firebase Storage:', error);
-      throw error;
-    }
-  }
 
   // Register a new civilian user
   static async registerCivilian(userData: Omit<CivilianUser, 'createdAt'>): Promise<UserCredential> {
