@@ -34,21 +34,16 @@ const PrivacyPolicy: FC<PrivacyPolicyProps> = ({ onClose }) => {
   return (
     <Modal
       visible={true}
-      animationType="slide"
-      transparent={false}
+      animationType="fade"
+      transparent={true}
       onRequestClose={onClose}
     >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerSpacer} />
           <Text style={styles.headerTitle}>{t('privacy.title')}</Text>
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={onClose}
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Content */}
@@ -124,6 +119,18 @@ const PrivacyPolicy: FC<PrivacyPolicyProps> = ({ onClose }) => {
             </Text>
           </View>
         </ScrollView>
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity 
+            style={styles.primaryButton}
+            onPress={onClose}
+          >
+            <Text style={styles.primaryButtonText}>I Understand</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+        </View>
       </View>
     </Modal>
   );

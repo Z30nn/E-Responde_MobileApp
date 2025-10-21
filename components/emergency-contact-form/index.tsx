@@ -216,11 +216,12 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      animationType="fade"
+      transparent={true}
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalCard, { backgroundColor: theme.background }]}>
         <View style={[styles.header, { backgroundColor: theme.menuBackground, borderBottomColor: theme.border }]}>
           <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
             <Text style={[styles.cancelButtonText, { color: theme.primary, fontSize: fonts.body }]}>{t('common.cancel')}</Text>
@@ -241,72 +242,57 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.form} showsVerticalScrollIndicator={true}>
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.name')} *</Text>
             <TextInput
-              style={{
-                backgroundColor: '#ffffff',
-                borderWidth: 1,
-                borderColor: errors.name ? '#EF4444' : '#E5E7EB',
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                fontSize: 14,
-                borderRadius: 25,
-                color: '#1F2937',
-              }}
+              style={[
+                styles.input,
+                errors.name && styles.inputError,
+                { borderRadius: 25, fontSize: fonts.input }
+              ]}
               value={formData.name}
               onChangeText={(value) => handleInputChange('name', value)}
               placeholder="Name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={theme.placeholder}
             />
-            {errors.name && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.name}</Text>}
+            {errors.name && <Text style={[styles.errorText, { fontSize: fonts.caption }]}>{errors.name}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.phoneNumber')} *</Text>
             <TextInput
-              style={{
-                backgroundColor: '#ffffff',
-                borderWidth: 1,
-                borderColor: errors.phoneNumber ? '#EF4444' : '#E5E7EB',
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                fontSize: 14,
-                borderRadius: 25,
-                color: '#1F2937',
-              }}
+              style={[
+                styles.input,
+                errors.phoneNumber && styles.inputError,
+                { borderRadius: 25, fontSize: fonts.input }
+              ]}
               value={formData.phoneNumber}
               onChangeText={(value) => handleInputChange('phoneNumber', value)}
               placeholder="Phone Number"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={theme.placeholder}
               keyboardType="phone-pad"
             />
             <Text style={[styles.helperText, { color: theme.secondaryText, fontSize: fonts.caption }]}>
               Philippine mobile number format: +63 followed by 10 digits (e.g., +639123456789)
             </Text>
-            {errors.phoneNumber && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.phoneNumber}</Text>}
+            {errors.phoneNumber && <Text style={[styles.errorText, { fontSize: fonts.caption }]}>{errors.phoneNumber}</Text>}
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.relationship')} *</Text>
             <TextInput
-              style={{
-                backgroundColor: '#ffffff',
-                borderWidth: 1,
-                borderColor: errors.relationship ? '#EF4444' : '#E5E7EB',
-                paddingVertical: 12,
-                paddingHorizontal: 16,
-                fontSize: 14,
-                borderRadius: 25,
-                color: '#1F2937',
-              }}
+              style={[
+                styles.input,
+                errors.relationship && styles.inputError,
+                { borderRadius: 25, fontSize: fonts.input }
+              ]}
               value={formData.relationship}
               onChangeText={(value) => handleInputChange('relationship', value)}
               placeholder="Relationship"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={theme.placeholder}
             />
-            {errors.relationship && <Text style={[styles.errorText, { color: '#DC2626', fontSize: fonts.caption }]}>{errors.relationship}</Text>}
+            {errors.relationship && <Text style={[styles.errorText, { fontSize: fonts.caption }]}>{errors.relationship}</Text>}
           </View>
 
           <View style={styles.switchGroup}>
@@ -324,6 +310,7 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
             />
           </View>
         </ScrollView>
+      </View>
       </View>
     </Modal>
   );

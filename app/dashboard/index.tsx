@@ -933,21 +933,16 @@ const Dashboard: React.FC<DashboardProps> = ({
       {showSOSInfoModal && (
         <Modal
           visible={showSOSInfoModal}
-          animationType="slide"
-          transparent={false}
+          animationType="fade"
+          transparent={true}
           onRequestClose={() => setShowSOSInfoModal(false)}
         >
+          <View style={styles.sosInfoModalOverlay}>
+            <View style={styles.sosInfoModalCard}>
           <View style={styles.sosInfoContainer}>
             {/* Header */}
             <View style={styles.sosInfoHeader}>
-              <View style={styles.headerSpacer} />
               <Text style={styles.sosInfoHeaderTitle}>{t('emergency.whatIsSosAlert')}</Text>
-              <TouchableOpacity 
-                onPress={() => handleModalChange({ showSOSInfoModal: false })}
-                style={styles.sosInfoCloseButton}
-              >
-                <Text style={styles.sosInfoCloseButtonText}>✕</Text>
-              </TouchableOpacity>
             </View>
 
             {/* Content */}
@@ -972,14 +967,29 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <View style={styles.sosMethodItem}>
                       <Text style={styles.sosMethodTitle}>{t('emergency.tapSOSButton')}</Text>
                       <Text style={styles.sosMethodDesc}>{t('emergency.tapSOSButtonDesc')}</Text>
+                      <Image 
+                        source={require('../../assets/tapsos.png')}
+                        style={styles.sosInfoImage}
+                        resizeMode="contain"
+                      />
                     </View>
                     <View style={styles.sosMethodItem}>
                       <Text style={styles.sosMethodTitle}>{t('emergency.tripleShakeFeature')}</Text>
                       <Text style={styles.sosMethodDesc}>{t('emergency.tripleShakeFeatureDesc')}</Text>
+                      <Image 
+                        source={require('../../assets/shakesos.png')}
+                        style={styles.sosInfoImage}
+                        resizeMode="contain"
+                      />
                     </View>
                     <View style={styles.sosMethodItem}>
                       <Text style={styles.sosMethodTitle}>{t('emergency.longPressFeature')}</Text>
                       <Text style={styles.sosMethodDesc}>{t('emergency.longPressFeatureDesc')}</Text>
+                      <Image 
+                        source={require('../../assets/holdsos.png')}
+                        style={styles.sosInfoImage}
+                        resizeMode="contain"
+                      />
                     </View>
                   </View>
                 </View>
@@ -998,13 +1008,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                   </Text>
                 </View>
 
-                <View style={styles.sosInfoSection}>
-                  <Text style={styles.sosInfoSectionTitle}>{t('emergency.tripleShakeDetails')}</Text>
-                  <Text style={styles.sosInfoSectionText}>
-                    {t('emergency.tripleShakeDetailsDesc')}
-                  </Text>
-                </View>
             </ScrollView>
+
+            {/* Action Buttons */}
+            <View style={styles.sosInfoActionButtons}>
+              <TouchableOpacity 
+                style={styles.sosInfoPrimaryButton}
+                onPress={() => handleModalChange({ showSOSInfoModal: false })}
+              >
+                <Text style={styles.sosInfoPrimaryButtonText}>Got It</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+            </View>
           </View>
         </Modal>
       )}

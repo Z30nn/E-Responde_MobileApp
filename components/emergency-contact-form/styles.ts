@@ -1,8 +1,22 @@
 import { StyleSheet } from 'react-native';
 
 export const createStyles = (theme: any) => StyleSheet.create({
-  container: {
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '90%',
+    borderRadius: 16,
+    backgroundColor: theme.background,
+    overflow: 'hidden',
+  },
+  container: {
     backgroundColor: theme.background,
   },
   header: {
@@ -49,9 +63,9 @@ export const createStyles = (theme: any) => StyleSheet.create({
     fontWeight: '600',
   },
   form: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+    paddingBottom: 10,
   },
   inputGroup: {
     marginBottom: 20,
