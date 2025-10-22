@@ -9,7 +9,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { FirebaseService, CrimeReport } from '../../services/firebaseService';
+import { FirebaseService, CrimeReport, CivilianUser } from '../../services/firebaseService';
 import { database } from '../../firebaseConfig';
 import { ref, onValue, off } from 'firebase/database';
 import { useAuth } from '../../services/authContext';
@@ -25,6 +25,53 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actioningReportId, setActioningReportId] = useState<string | null>(null);
+  const [userDetails, setUserDetails] = useState<{ [uid: string]: CivilianUser }>({});
+
+  const fetchUserDetails = useCallback(async (reports: CrimeReport[]) => {
+    const uniqueUids = [...new Set(reports.map(report => report.reporterUid))];
+    const userDetailsMap: { [uid: string]: CivilianUser } = {};
+    
+    for (const uid of uniqueUids) {
+      try {
+        const userDetails = await FirebaseService.getCivilianUser(uid);
+        if (userDetails) {
+          userDetailsMap[uid] = userDetails;
+        }
+      } catch (error) {
+        console.error(`Error fetching user details for ${uid}:`, error);
+      }
+    }
+    
+    setUserDetails(userDetailsMap);
+  }, []);
+
+  const loadAllReports = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      // Get all crime reports from Firebase
+      const allReports = await FirebaseService.getAllCrimeReports();
+      console.log('Loaded all crime reports for police:', allReports.length);
+      setReports(allReports);
+      
+      // Fetch user details for all reporters
+      await fetchUserDetails(allReports);
+    } catch (error) {
+      console.error('Error loading crime reports:', error);
+      setError('Failed to load crime reports');
+    } finally {
+      if (isRefresh) {
+        setIsRefreshing(false);
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [fetchUserDetails]);
 
   useEffect(() => {
     loadAllReports();
@@ -46,6 +93,8 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         setReports(sortedReports);
+        // Also fetch user details when reports update
+        fetchUserDetails(sortedReports);
       } else {
         setReports([]);
       }
@@ -57,32 +106,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
     return () => {
       off(reportsRef, 'value', handleReportsUpdate);
     };
-  }, []);
-
-  const loadAllReports = useCallback(async (isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
-      setError(null);
-
-      // Get all crime reports from Firebase
-      const allReports = await FirebaseService.getAllCrimeReports();
-      console.log('Loaded all crime reports for police:', allReports.length);
-      setReports(allReports);
-    } catch (error) {
-      console.error('Error loading crime reports:', error);
-      setError('Failed to load crime reports');
-    } finally {
-      if (isRefresh) {
-        setIsRefreshing(false);
-      } else {
-        setIsLoading(false);
-      }
-    }
-  }, []);
+  }, [loadAllReports, fetchUserDetails]);
 
   const handleRefresh = () => {
     loadAllReports(true);
@@ -311,11 +335,16 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
           </View>
         )}
 
-        {!item.anonymous && item.reporterName && (
-          <Text style={styles.reporter}>Reported by: {item.reporterName}</Text>
-        )}
-        {item.anonymous && (
-          <Text style={styles.reporter}>Anonymous Report</Text>
+        {/* Always show reporter name for police - even if anonymous to civilians */}
+        {userDetails[item.reporterUid] ? (
+          <Text style={styles.reporter}>
+            Reported by: {userDetails[item.reporterUid].firstName} {userDetails[item.reporterUid].lastName}
+            {item.anonymous && <Text style={styles.anonymousNote}> (Anonymous to public)</Text>}
+          </Text>
+        ) : (
+          <Text style={styles.reporter}>
+            {item.anonymous ? 'Anonymous Report' : `Reported by: ${item.reporterName}`}
+          </Text>
         )}
 
         {/* Respond/Cancel Button */}
@@ -545,6 +574,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 8,
     textAlign: 'right',
+  },
+  anonymousNote: {
+    fontSize: 10,
+    color: '#A0A0A0',
+    fontStyle: 'normal',
   },
   actionButtonContainer: {
     marginTop: 12,
