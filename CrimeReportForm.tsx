@@ -18,6 +18,7 @@ import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 import { useNotification } from './services/notificationContext';
+import { useNotifications, NotificationTemplates } from './services/notificationsService';
 import Geolocation from '@react-native-community/geolocation';
 import {launchCamera, launchImageLibrary, ImagePickerResponse, MediaType} from 'react-native-image-picker';
 
@@ -26,6 +27,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
   const { sendNotification } = useNotification();
+  const { sendLocal } = useNotifications();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const [formData, setFormData] = useState<Partial<CrimeReport>>({
@@ -670,7 +672,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       // Submit to Firebase and get the report ID
       const reportId = await FirebaseService.submitCrimeReport(crimeReport);
 
-      // Send confirmation notification to the user
+      // Send confirmation notification to the user (Firebase)
       console.log('CrimeReportForm: Sending confirmation notification for report:', reportId);
       const notificationSent = await sendNotification(
         'crime_report_submitted',
@@ -678,7 +680,15 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         'Your crime report has been submitted successfully and is under review. Tap to view details.',
         { reportId, crimeType: crimeReport.crimeType }
       );
-      console.log('CrimeReportForm: Notification sent result:', notificationSent);
+      console.log('CrimeReportForm: Firebase notification sent result:', notificationSent);
+
+      // Send local notification for immediate feedback
+      try {
+        await sendLocal(NotificationTemplates.CRIME_REPORT_SUBMITTED);
+        console.log('CrimeReportForm: Local notification sent successfully');
+      } catch (localNotificationError) {
+        console.error('CrimeReportForm: Failed to send local notification:', localNotificationError);
+      }
 
       Alert.alert('Success', 'Crime report submitted successfully!', [
         {

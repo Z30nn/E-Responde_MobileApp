@@ -14,6 +14,7 @@ import { useTheme, colors, fontSizes } from '../../../../services/themeContext';
 import { useLanguage } from '../../../../services/languageContext';
 import { FirebaseService } from '../../../../services/firebaseService';
 import { EmergencyContactsService } from '../../../../services/emergencyContactsService';
+import { useNotifications, NotificationTemplates } from '../../../../services/notificationsService';
 import SOSAlertsHistory from '../../../../components/sos-alerts-history';
 import Geolocation from '@react-native-community/geolocation';
 import { createStyles } from './styles';
@@ -35,6 +36,7 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
   const [sosCountdownInterval, setSosCountdownInterval] = useState<NodeJS.Timeout | null>(null);
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
+  const { sendLocal } = useNotifications();
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const styles = createStyles(theme, fonts, isDarkMode);
@@ -314,6 +316,14 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
           );
 
           if (result.success) {
+            // Send local notification for SOS
+            try {
+              await sendLocal(NotificationTemplates.SOS_SENT);
+              console.log('SOS: Local notification sent successfully');
+            } catch (notificationError) {
+              console.error('SOS: Failed to send local notification:', notificationError);
+            }
+
             Alert.alert(
               t('emergency.sosSent') || 'SOS Alert Sent',
               `SOS alert has been sent to ${result.sentTo} emergency contact(s) with your current location.`,

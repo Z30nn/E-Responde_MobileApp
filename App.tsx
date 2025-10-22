@@ -7,6 +7,7 @@ import { NotificationProvider } from './services/notificationContext';
 import { VoIPProvider, useVoIP } from './services/voipContext';
 import { backgroundService } from './services/backgroundService';
 import { gyroscopeService } from './services/gyroscopeService';
+import { notificationService } from './services/notificationsService';
 import IncomingCallModal from './components/incoming-call-modal';
 import VoiceCallScreen from './components/voice-call-screen';
 import Welcome from './Welcome';
@@ -157,6 +158,21 @@ const AppContent = () => {
     }
     return undefined;
   }, [authChecked]);
+
+  // Global notification service initialization
+  useEffect(() => {
+    const initializeNotificationService = async () => {
+      try {
+        console.log('App: Initializing notification service...');
+        await notificationService.initialize();
+        console.log('App: Notification service initialized successfully');
+      } catch (error) {
+        console.error('App: Error initializing notification service:', error);
+      }
+    };
+
+    initializeNotificationService();
+  }, []);
 
   // Global gyroscope initialization for authenticated civilian users
   useEffect(() => {
