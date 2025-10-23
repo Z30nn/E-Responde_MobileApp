@@ -16,9 +16,12 @@ import { gyroscopeService } from '../../services/gyroscopeService';
 import { apis } from '../../services/apis';
 import PoliceCrimeList from '../../components/police-crime-list';
 import CrimeReportDetail from '../../CrimeReportDetail';
+import CrimeAssignmentModal from '../../components/crime-assignment-modal';
+import { AssignmentProvider, useAssignment } from '../../services/assignmentContext';
 
-const PoliceDashboard = () => {
+const PoliceDashboardContent = () => {
   const { logout, user } = useAuth();
+  const { currentAssignment, showAssignmentModal, acceptAssignment, declineAssignment, timeoutAssignment } = useAssignment();
   const [activeTab, setActiveTab] = useState('list');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [locationEnabled, setLocationEnabled] = useState(false);
@@ -425,6 +428,15 @@ const PoliceDashboard = () => {
           <PoliceCrimeList onViewReport={handleViewReport} />
         </View>
       </View>
+
+      {/* Assignment Modal */}
+      <CrimeAssignmentModal
+        visible={showAssignmentModal}
+        crimeReport={currentAssignment}
+        onAccept={acceptAssignment}
+        onDecline={declineAssignment}
+        onTimeout={timeoutAssignment}
+      />
     </View>
   );
 };
@@ -578,6 +590,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
+
+const PoliceDashboard = () => {
+  return (
+    <AssignmentProvider>
+      <PoliceDashboardContent />
+    </AssignmentProvider>
+  );
+};
 
 export default PoliceDashboard;
 
