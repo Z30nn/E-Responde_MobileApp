@@ -1121,6 +1121,36 @@ export class FirebaseService {
     }
   }
 
+  // Remove current assignment from police account
+  static async removeCurrentAssignment(policeUid: string): Promise<void> {
+    try {
+      console.log('Removing current assignment for police:', policeUid);
+      const policeRef = ref(database, `police/police account/${policeUid}`);
+      await update(policeRef, {
+        currentAssignment: null,
+      });
+      console.log('Current assignment removed successfully');
+    } catch (error) {
+      console.error('Error removing current assignment:', error);
+      throw error;
+    }
+  }
+
+  // Update police status
+  static async updatePoliceStatus(policeUid: string, status: string): Promise<void> {
+    try {
+      console.log('Updating police status:', policeUid, 'to', status);
+      const policeRef = ref(database, `police/police account/${policeUid}`);
+      await update(policeRef, {
+        status: status,
+      });
+      console.log('Police status updated successfully');
+    } catch (error) {
+      console.error('Error updating police status:', error);
+      throw error;
+    }
+  }
+
   // Vote on a crime report
   static async voteOnCrimeReport(reportId: string, userId: string, voteType: 'upvote' | 'downvote'): Promise<boolean> {
     try {
