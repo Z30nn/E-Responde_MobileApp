@@ -1073,6 +1073,52 @@ export class FirebaseService {
     }
   }
 
+  // Get all crime reports excluding current user's reports
+  static async getAllCrimeReportsExcludingUser(currentUserId: string): Promise<CrimeReport[]> {
+    try {
+      console.log('Fetching all crime reports excluding user:', currentUserId);
+      const allReportsRef = ref(database, `civilian/civilian crime reports`);
+      const snapshot = await get(allReportsRef);
+      
+      if (snapshot.exists()) {
+        const reports: CrimeReport[] = [];
+        snapshot.forEach((childSnapshot) => {
+          const report = childSnapshot.val() as CrimeReport;
+          // Exclude current user's reports
+          if (report.reporterUid !== currentUserId) {
+            reports.push({
+              ...report,
+              reportId: childSnapshot.key,
+              dateTime: new Date(report.dateTime),
+            });
+          }
+        });
+        
+        console.log('Processed reports excluding current user:', reports.length);
+        
+        // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
+        return reports.sort((a, b) => {
+          const upvotesA = a.upvotes || 0;
+          const upvotesB = b.upvotes || 0;
+          
+          // First sort by upvotes (descending)
+          if (upvotesA !== upvotesB) {
+            return upvotesB - upvotesA;
+          }
+          
+          // If upvotes are equal, sort by date (newest first)
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+      }
+      
+      console.log('No crime reports found');
+      return [];
+    } catch (error) {
+      console.error('Get all crime reports excluding user error:', error);
+      throw error;
+    }
+  }
+
   // Vote on a crime report
   static async voteOnCrimeReport(reportId: string, userId: string, voteType: 'upvote' | 'downvote'): Promise<boolean> {
     try {
