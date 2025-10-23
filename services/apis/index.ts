@@ -39,6 +39,7 @@ export interface CrimeReportData {
     longitude: number;
     address: string;
   };
+  barangay: string;
   anonymous: boolean;
   reporterName: string;
   reporterUid: string;

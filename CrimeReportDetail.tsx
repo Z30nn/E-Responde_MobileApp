@@ -783,6 +783,11 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
           <Text style={styles.sectionTitle}>Location</Text>
           
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Barangay:</Text>
+            <Text style={styles.infoValue}>{report.barangay || 'Not specified'}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Address:</Text>
             <Text style={styles.infoValue}>{report.location.address}</Text>
           </View>

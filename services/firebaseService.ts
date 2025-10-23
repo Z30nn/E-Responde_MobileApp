@@ -59,6 +59,7 @@ export interface CrimeReport {
     longitude: number;
     address: string;
   };
+  barangay: string;
   anonymous: boolean;
   reporterName: string;
   reporterUid: string;
@@ -1013,6 +1014,7 @@ export class FirebaseService {
             longitude: report.coordinates?.longitude || report.location?.longitude || 0,
             address: report.location?.address || (typeof report.location === 'string' ? report.location : 'Unknown location')
           },
+          barangay: report.barangay || 'Unknown',
           anonymous: report.anonymous || false,
           reporterName: report.reportedBy?.name || report.reporterName || 'Unknown',
           reporterUid: report.reportedBy?.uid || report.reporterUid || '',
@@ -1365,6 +1367,7 @@ export class FirebaseService {
           longitude: report.coordinates?.longitude || report.location?.longitude || 0,
           address: typeof report.location === 'string' ? report.location : (report.location?.address || 'Unknown location')
         },
+        barangay: report.barangay || 'Unknown',
         anonymous: report.anonymous || false,
         reporterName: report.reportedBy?.name || report.reporterName || 'Unknown',
         reporterUid: report.reportedBy?.uid || report.reporterUid || '',
