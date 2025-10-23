@@ -1182,4 +1182,32 @@ export class FirebaseService {
       throw error;
     }
   }
+
+  // Resolve a case - update report status, clear assignment, set police to available
+  static async resolveCase(reportId: string, policeId: string): Promise<void> {
+    try {
+      console.log('Resolving case:', reportId, 'for police:', policeId);
+      
+      // Update the crime report status to "Case Resolved"
+      const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      await update(reportRef, {
+        status: 'Case Resolved',
+        resolvedAt: new Date().toISOString(),
+        resolvedBy: policeId
+      });
+      
+      // Clear the police officer's current assignment
+      const policeAssignmentRef = ref(database, `police/police account/${policeId}/currentAssignment`);
+      await set(policeAssignmentRef, null);
+      
+      // Set the police officer's status to Available
+      const policeStatusRef = ref(database, `police/police account/${policeId}/status`);
+      await set(policeStatusRef, 'Available');
+      
+      console.log('Case resolved successfully');
+    } catch (error) {
+      console.error('Error resolving case:', error);
+      throw error;
+    }
+  }
 }
