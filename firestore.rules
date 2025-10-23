@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Notifications collection - users can read their own notifications
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && 
+        (resource.data.toUserId == request.auth.uid || 
+         request.auth.uid == resource.data.fromUserId);
+      allow write: if request.auth != null;
+    }
+    
+    // Allow Cloud Functions to write to notifications
+    match /notifications/{notificationId} {
+      allow write: if true; // Cloud Functions have admin access
+    }
+    
+    // Allow authenticated users to read/write their own data
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

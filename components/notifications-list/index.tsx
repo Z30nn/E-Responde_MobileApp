@@ -171,22 +171,6 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
           // Navigate to solved crime report
           onNavigateToScreen('CrimeReportDetail', { reportId: notification.data?.reportId, solved: true });
           break;
-        case 'emergency_update':
-          // Navigate to emergency updates
-          onNavigateToScreen('Emergency', { updateId: notification.id });
-          break;
-        case 'app_update':
-          // Navigate to app settings or update screen
-          onNavigateToScreen('Settings', { section: 'app-update' });
-          break;
-        case 'security_alert':
-          // Navigate to security settings
-          onNavigateToScreen('Settings', { section: 'security' });
-          break;
-        case 'community_update':
-          // Navigate to community updates
-          onNavigateToScreen('Community', { updateId: notification.id });
-          break;
         default:
           console.log('Unknown notification type:', notification.type);
           break;

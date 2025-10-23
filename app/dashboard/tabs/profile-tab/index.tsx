@@ -27,26 +27,16 @@ interface ProfileTabProps {
   onChangePassword: () => void;
   onFontSizeSettings: () => void;
   onLanguageSettings: () => void;
-  onCleanupOldAlerts: () => void;
   onTermsOfService: () => void;
   onPrivacyPolicy: () => void;
-  sosStats: {
-    total: number;
-    olderThanWeek: number;
-    newerThanWeek: number;
-  };
-  cleanupLoading: boolean;
 }
 
 const ProfileTab: FC<ProfileTabProps> = ({
   onChangePassword,
   onFontSizeSettings,
   onLanguageSettings,
-  onCleanupOldAlerts,
   onTermsOfService,
   onPrivacyPolicy,
-  sosStats,
-  cleanupLoading,
 }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [gyroscopeEnabled, setGyroscopeEnabled] = useState(true);
@@ -206,26 +196,6 @@ const ProfileTab: FC<ProfileTabProps> = ({
             </View>
           </TouchableOpacity>
 
-          {/* SOS Cleanup Option */}
-          {sosStats.olderThanWeek > 0 && (
-            <TouchableOpacity
-              style={[styles.menuItem, styles.cleanupMenuItem]}
-              onPress={onCleanupOldAlerts}
-              disabled={cleanupLoading}
-            >
-              <View style={styles.cleanupInfo}>
-                <Text style={styles.menuItemText}>{t('emergency.cleanOldAlerts')}</Text>
-                <Text style={styles.cleanupSubtext}>
-                  {t('emergency.alertsOlderThanWeek').replace('{count}', sosStats.olderThanWeek.toString())}
-                </Text>
-              </View>
-              {cleanupLoading ? (
-                <ActivityIndicator size="small" color={theme.primary} />
-              ) : (
-                <Text style={styles.cleanupButton}>{t('emergency.cleanUp')}</Text>
-              )}
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity
             style={styles.menuItem}

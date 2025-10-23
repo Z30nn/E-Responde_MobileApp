@@ -12,15 +12,11 @@ export interface NotificationPreferences {
     emergency: {
       enabled: boolean;
       sosAlerts: boolean; // Notify when someone with user as primary contact sends SOS
-      emergencyUpdates: boolean; // Notify about emergency updates
     };
   
   // General App Notifications
   general: {
     enabled: boolean;
-    appUpdates: boolean; // Notify about app updates
-    securityAlerts: boolean; // Notify about security alerts
-    communityUpdates: boolean; // Notify about community updates
   };
   
   
@@ -55,14 +51,10 @@ export const defaultNotificationPreferences: NotificationPreferences = {
     emergency: {
       enabled: true,
       sosAlerts: true,
-      emergencyUpdates: true,
     },
-  general: {
-    enabled: true,
-    appUpdates: true,
-    securityAlerts: true,
-    communityUpdates: true,
-  },
+    general: {
+      enabled: true,
+    },
   delivery: {
     pushNotifications: true,
     emailNotifications: true,
@@ -80,11 +72,7 @@ export type NotificationType =
   | 'crime_report_new'
   | 'crime_report_solved'
   | 'crime_report_updated'
-  | 'sos_alert'
-  | 'emergency_update'
-  | 'app_update'
-  | 'security_alert'
-  | 'community_update';
+  | 'sos_alert';
 
 export interface NotificationPayload {
   id?: string;

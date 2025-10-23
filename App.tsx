@@ -7,11 +7,35 @@ import { NotificationProvider } from './services/notificationContext';
 import { VoIPProvider, useVoIP } from './services/voipContext';
 import { backgroundService } from './services/backgroundService';
 import { gyroscopeService } from './services/gyroscopeService';
+import { fcmService } from './services/fcmService';
+import messaging from '@react-native-firebase/messaging';
 import IncomingCallModal from './components/incoming-call-modal';
 import VoiceCallScreen from './components/voice-call-screen';
 import Welcome from './Welcome';
 import Dashboard from './app/dashboard';
 import ErrorBoundary from './components/error-boundary';
+
+// Set up FCM background message handler at app level
+messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+  console.log('FCM: 🔔 BACKGROUND MESSAGE RECEIVED:', remoteMessage);
+  console.log('FCM: Message ID:', remoteMessage.messageId);
+  console.log('FCM: From:', remoteMessage.from);
+  console.log('FCM: Data:', remoteMessage.data);
+  console.log('FCM: Notification:', remoteMessage.notification);
+  
+  // For background messages, the system should show the notification automatically
+  if (remoteMessage.notification) {
+    console.log('FCM: ✅ Background notification received:', remoteMessage.notification);
+    console.log('FCM: Title:', remoteMessage.notification.title);
+    console.log('FCM: Body:', remoteMessage.notification.body);
+    console.log('FCM: System will display notification automatically');
+  } else {
+    console.log('FCM: ⚠️ Background message has no notification payload');
+    console.log('FCM: This might be why notifications are not showing');
+  }
+  
+  return Promise.resolve();
+});
 
 // Global error handler to intercept and suppress errors without crashing the app
 if ((global as any).ErrorUtils) {
@@ -157,6 +181,66 @@ const AppContent = () => {
     }
     return undefined;
   }, [authChecked]);
+
+  // Initialize FCM service for authenticated users
+  useEffect(() => {
+    if (isAuthenticated && user && authChecked) {
+      console.log('App: Initializing FCM service for user:', user.uid);
+      
+      try {
+        // Create navigation callback for FCM notifications
+        const handleFCMNavigation = (type: string, data: any) => {
+          console.log('App: FCM navigation callback triggered:', type, data);
+          
+          switch (type) {
+            case 'sos_alert':
+              console.log('App: FCM navigating to SOS alert');
+              setCurrentActiveTab(2); // Switch to SOS tab
+              // You can add additional logic here to highlight specific SOS alert
+              break;
+            case 'crime_report':
+              console.log('App: FCM navigating to crime report');
+              setCurrentActiveTab(3); // Switch to Reports tab
+              if (data?.reportId) {
+                setGlobalModalState(prev => ({
+                  ...prev,
+                  selectedReportId: data.reportId,
+                  showCrimeReportDetail: true,
+                  showCrimeReportForm: false,
+                  showTermsModal: false,
+                  showPrivacyModal: false,
+                  showChangePassword: false,
+                  showFontSizeModal: false,
+                  showLanguageModal: false,
+                  showSOSInfoModal: false,
+                  showUserReportsFilterModal: false
+                }));
+              }
+              break;
+            case 'notifications':
+              console.log('App: FCM navigating to notifications');
+              setCurrentActiveTab(4); // Switch to Notifications tab
+              break;
+            default:
+              console.log('App: FCM navigating to notifications (default)');
+              setCurrentActiveTab(4); // Switch to Notifications tab
+              break;
+          }
+        };
+        
+        fcmService.setupNotificationListeners(user.uid, handleFCMNavigation);
+      } catch (error) {
+        console.error('App: Error initializing FCM service:', error);
+      }
+    }
+    
+    return () => {
+      if (isAuthenticated && user) {
+        console.log('App: Cleaning up FCM service');
+        fcmService.cleanup();
+      }
+    };
+  }, [isAuthenticated, user, authChecked]);
 
   // Global gyroscope initialization for authenticated civilian users
   useEffect(() => {
@@ -356,6 +440,24 @@ const App = () => {
   useEffect(() => {
     // Initialize background service
     backgroundService.start();
+    
+    // Request notification permissions immediately on app startup
+    const requestNotificationPermissions = async () => {
+      try {
+        console.log('App: Requesting notification permissions on startup...');
+        const hasPermission = await fcmService.requestUserPermission();
+        if (hasPermission) {
+          console.log('App: ✅ Notification permissions granted on startup');
+        } else {
+          console.log('App: ❌ Notification permissions denied on startup');
+        }
+      } catch (error) {
+        console.error('App: Error requesting notification permissions on startup:', error);
+      }
+    };
+    
+    // Request permissions immediately
+    requestNotificationPermissions();
     
     // Cleanup on unmount
     return () => {

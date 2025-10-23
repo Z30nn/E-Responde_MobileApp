@@ -16,7 +16,6 @@ import { useAuth } from '../../services/authContext';
 import { useNotification } from '../../services/notificationContext';
 import { gyroscopeService } from '../../services/gyroscopeService';
 import { backgroundService } from '../../services/backgroundService';
-import { sosCleanupService } from '../../services/sosCleanupService';
 import CrimeReportForm from '../crime-report/form';
 import CrimeReportDetail from '../crime-report/detail';
 import ChangePassword from '../change-password';
@@ -81,14 +80,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showSOSInfoModal, setShowSOSInfoModal] = useState(false);
-  const [sosStats, setSosStats] = useState({
-    total: 0,
-    olderThanWeek: 0,
-    newerThanWeek: 0
-  });
   const [showUserReportsFilterModal, setShowUserReportsFilterModal] = useState(false);
   const [selectedUserReportsStatus, setSelectedUserReportsStatus] = useState<string>('all');
-  const [cleanupLoading, setCleanupLoading] = useState(false);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
   const crimeListRef = useRef<CrimeListFromOthersRef>(null);
@@ -101,23 +94,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const fonts = fontSizes[fontSize];
   const styles = createStyles(theme, fonts, isDarkMode);
 
-  // Load SOS alert statistics
-  const loadSOSStats = useCallback(async () => {
-    try {
-      if (user) {
-        const stats = await sosCleanupService.getUserSOSStats(user.uid);
-        setSosStats(stats);
-      }
-    } catch (error: any) {
-      console.error('Error loading SOS stats:', error);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (activeTab === 5) {
-      loadSOSStats();
-    }
-  }, [activeTab, loadSOSStats]);
 
   // Real-time status monitoring for crime report notifications (NON-INTERFERING)
   useEffect(() => {
@@ -209,9 +185,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   previousStatus,
                   currentStatus,
                   reportData.crimeType || 'Crime Report'
-                ).then(success => {
-                  console.log('Dashboard: Real-time status change notification sent:', success);
-                }).catch(error => {
+                ).catch(error => {
                   console.error('Dashboard: Error sending real-time status change notification:', error);
                 });
               }
@@ -522,41 +496,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     return notifications.filter(notification => !notification.data?.read).length;
   };
 
-  const cleanupOldSOSAlerts = async () => {
-    if (!user) return;
-
-    Alert.alert(
-      t('emergency.cleanOldAlerts'),
-      t('emergency.cleanOldAlertsDesc').replace('{count}', sosStats.olderThanWeek.toString()),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('emergency.cleanUp'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setCleanupLoading(true);
-              const result = await sosCleanupService.cleanupUserSOSAlerts(user.uid);
-
-              if (result.deleted > 0) {
-                Alert.alert(
-                  'Cleanup Complete',
-                  `Successfully removed ${result.deleted} old SOS alerts.`
-                );
-                loadSOSStats();
-              } else {
-                Alert.alert(t('emergency.noOldAlerts'), t('emergency.noOldAlertsDesc'));
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to clean up old alerts. Please try again.');
-            } finally {
-              setCleanupLoading(false);
-            }
-          }
-        }
-      ]
-    );
-  };
 
   const handleNavigateToScreen = (screen: string, params?: any) => {
     console.log('Dashboard: handleNavigateToScreen called with:', screen, params);
@@ -641,11 +580,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             onChangePassword={() => handleModalChange({ showChangePassword: true })}
             onFontSizeSettings={() => handleModalChange({ showFontSizeModal: true })}
             onLanguageSettings={() => handleModalChange({ showLanguageModal: true })}
-            onCleanupOldAlerts={cleanupOldSOSAlerts}
             onTermsOfService={() => handleModalChange({ showTermsModal: true })}
             onPrivacyPolicy={() => handleModalChange({ showPrivacyModal: true })}
-            sosStats={sosStats}
-            cleanupLoading={cleanupLoading}
           />
         );
       default:

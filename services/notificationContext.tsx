@@ -61,8 +61,8 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     
     try {
       setIsLoading(true);
-      const userSettings = await NotificationService.getInstance().getUserNotificationSettings(user.uid);
-      setSettings(userSettings);
+      console.log('NotificationContext: User notification preferences disabled - all notifications mandatory');
+      setSettings(null); // No settings since preferences are disabled
     } catch (error) {
       console.error('Error loading notification settings:', error);
     } finally {
@@ -86,19 +86,9 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   }, [user]);
 
-  const updatePreferences = async (preferences: Partial<NotificationPreferences>): Promise<boolean> => {
-    if (!user || !settings) return false;
-    
-    try {
-      const success = await NotificationService.getInstance().updateNotificationPreferences(user.uid, preferences);
-      if (success) {
-        await loadNotificationSettings(); // Refresh settings
-      }
-      return success;
-    } catch (error) {
-      console.error('Error updating notification preferences:', error);
-      return false;
-    }
+  const updatePreferences = async (_preferences: any): Promise<boolean> => {
+    console.log('NotificationContext: User notification preferences disabled - all notifications mandatory');
+    return true; // Always return true since preferences are disabled
   };
 
   const sendNotification = async (type: string, title: string, body: string, data?: Record<string, any>): Promise<boolean> => {

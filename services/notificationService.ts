@@ -1,9 +1,8 @@
 import { database } from '../firebaseConfig';
-import { ref, set, get, update, push, onValue, off } from 'firebase/database';
+import { ref, set, get, update, push, onValue } from 'firebase/database';
+import { db } from '../firebaseConfig';
+import { collection, addDoc } from 'firebase/firestore';
 import { 
-  NotificationSettings, 
-  NotificationPreferences, 
-  defaultNotificationPreferences,
   NotificationPayload,
   NotificationType 
 } from './types/notification-types';
@@ -47,78 +46,27 @@ export class NotificationService {
   }
 
   /**
-   * Get user's notification preferences
+   * Get user's notification preferences (disabled - all notifications mandatory)
    */
-  async getUserNotificationSettings(userId: string): Promise<NotificationSettings | null> {
-    try {
-      // Debug: Check authentication status
-      const { auth } = await import('../firebaseConfig');
-      console.log('NotificationService: Current auth user:', auth.currentUser?.uid);
-      console.log('NotificationService: Requested userId:', userId);
-      console.log('NotificationService: Auth match:', auth.currentUser?.uid === userId);
-      
-      // Try using the same structure as other user data
-      const settingsRef = ref(database, `civilian/civilian account/${userId}/notificationSettings`);
-      const snapshot = await get(settingsRef);
-      
-      if (snapshot.exists()) {
-        return snapshot.val() as NotificationSettings;
-      } else {
-        // Create default settings for new user
-        const defaultSettings: NotificationSettings = {
-          userId,
-          preferences: defaultNotificationPreferences,
-          lastUpdated: new Date().toISOString(),
-        };
-        await this.updateUserNotificationSettings(userId, defaultSettings);
-        return defaultSettings;
-      }
-    } catch (error) {
-      console.error('Error getting notification settings:', error);
-      return null;
-    }
+  async getUserNotificationSettings(_userId: string): Promise<null> {
+    console.log('NotificationService: User notification preferences disabled - all notifications mandatory');
+    return null;
   }
 
   /**
-   * Update user's notification preferences
+   * Update user's notification preferences (disabled - all notifications mandatory)
    */
-  async updateUserNotificationSettings(userId: string, settings: NotificationSettings): Promise<boolean> {
-    try {
-      const settingsRef = ref(database, `civilian/civilian account/${userId}/notificationSettings`);
-      const updatedSettings = {
-        ...settings,
-        lastUpdated: new Date().toISOString(),
-      };
-      await set(settingsRef, updatedSettings);
-      return true;
-    } catch (error) {
-      console.error('Error updating notification settings:', error);
-      return false;
-    }
+  async updateUserNotificationSettings(_userId: string, _settings: any): Promise<boolean> {
+    console.log('NotificationService: User notification preferences disabled - all notifications mandatory');
+    return true; // Always return true since preferences are disabled
   }
 
   /**
-   * Update specific notification preferences
+   * Update specific notification preferences (disabled - all notifications mandatory)
    */
-  async updateNotificationPreferences(userId: string, preferences: Partial<NotificationPreferences>): Promise<boolean> {
-    try {
-      const currentSettings = await this.getUserNotificationSettings(userId);
-      if (!currentSettings) return false;
-
-      const updatedSettings: NotificationSettings = {
-        ...currentSettings,
-        preferences: {
-          ...currentSettings.preferences,
-          ...preferences,
-        },
-        lastUpdated: new Date().toISOString(),
-      };
-
-      return await this.updateUserNotificationSettings(userId, updatedSettings);
-    } catch (error) {
-      console.error('Error updating notification preferences:', error);
-      return false;
-    }
+  async updateNotificationPreferences(_userId: string, _preferences: any): Promise<boolean> {
+    console.log('NotificationService: User notification preferences disabled - all notifications mandatory');
+    return true; // Always return true since preferences are disabled
   }
 
   /**
@@ -142,38 +90,11 @@ export class NotificationService {
   }
 
   /**
-   * Send notification to user (if they have it enabled)
+   * Send notification to user (always sent - no user preferences)
    */
   async sendNotification(userId: string, type: NotificationType, title: string, body: string, data?: Record<string, any>): Promise<boolean> {
     try {
-      console.log('NotificationService: ===== SENDING NOTIFICATION =====');
-      console.log('NotificationService: User ID:', userId);
-      console.log('NotificationService: Type:', type);
-      console.log('NotificationService: Title:', title);
-      console.log('NotificationService: Body:', body);
-      console.log('NotificationService: Data:', data);
-      
-      const settings = await this.getUserNotificationSettings(userId);
-      console.log('NotificationService: User settings loaded:', !!settings);
-      console.log('NotificationService: Settings details:', settings);
-      
-      // For SOS alerts, always send regardless of settings
-      if (type === 'sos_alert') {
-        console.log('NotificationService: SOS alert - bypassing notification settings');
-      } else if (!settings || !this.isNotificationEnabled(settings, type)) {
-        console.log('NotificationService: Notification not enabled for user or type:', type);
-        console.log('NotificationService: Settings check result:', !settings ? 'No settings' : 'Settings exist');
-        if (settings) {
-          console.log('NotificationService: isNotificationEnabled result:', this.isNotificationEnabled(settings, type));
-        }
-        return false;
-      }
-
-      // Check quiet hours (skip for SOS alerts)
-      if (type !== 'sos_alert' && settings && settings.preferences.delivery.quietHours.enabled && this.isQuietHours(settings.preferences.delivery.quietHours)) {
-        console.log('NotificationService: In quiet hours, not sending notification');
-        return false;
-      }
+      console.log('NotificationService: Sending notification:', type, 'to user:', userId);
 
       const notification: NotificationPayload = {
         type,
@@ -184,19 +105,33 @@ export class NotificationService {
         timestamp: new Date().toISOString(),
       };
 
-      console.log('NotificationService: Notification payload:', notification);
-      console.log('NotificationService: Data in notification:', data);
-      if (data && data.location) {
-        console.log('NotificationService: Location in data:', data.location);
-      }
 
-      // Store notification in database
+      // Store notification in Realtime Database for app display
       const notificationsRef = ref(database, `civilian/civilian account/${userId}/notifications`);
       await push(notificationsRef, notification);
 
-      // Here you would integrate with actual push notification service
-      // For now, we'll just log it
-      console.log('NotificationService: Notification sent successfully:', notification);
+      // ALSO create a Firestore document to trigger FCM push notification
+      const firestoreNotification = {
+        toUserId: userId,
+        type: type,
+        title: title,
+        body: body,
+        data: data || {},
+        timestamp: new Date().toISOString(),
+        read: false,
+        // Add any additional fields needed for FCM
+        ...(data && Object.keys(data).reduce((acc, key) => {
+          acc[key] = String(data[key]);
+          return acc;
+        }, {} as Record<string, string>))
+      };
+
+      // Add document to Firestore notifications collection to trigger Cloud Function
+      const notificationsCollection = collection(db, 'notifications');
+      await addDoc(notificationsCollection, firestoreNotification);
+      
+      console.log('NotificationService: ✅ Firestore document created, FCM trigger activated');
+      console.log('NotificationService: ✅ Notification sent successfully');
       
       return true;
     } catch (error) {
@@ -245,85 +180,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Check if a specific notification type is enabled for user
-   */
-  private isNotificationEnabled(settings: NotificationSettings, type: NotificationType): boolean {
-    const { preferences } = settings;
-    
-    console.log('NotificationService: ===== CHECKING NOTIFICATION ENABLED =====');
-    console.log('NotificationService: Type:', type);
-    console.log('NotificationService: Preferences:', preferences);
-    console.log('NotificationService: Push notifications enabled:', preferences.delivery.pushNotifications);
-    console.log('NotificationService: Crime reports enabled:', preferences.crimeReports.enabled);
-    console.log('NotificationService: Report solved enabled:', preferences.crimeReports.reportSolved);
-    
-    if (!preferences.delivery.pushNotifications) {
-      console.log('NotificationService: Push notifications disabled - BLOCKING NOTIFICATION');
-      return false;
-    }
-
-    let result = false;
-    
-    switch (type) {
-      case 'crime_report_submitted':
-        result = preferences.crimeReports.enabled && preferences.crimeReports.reportSubmitted;
-        break;
-      case 'crime_report_new':
-        result = preferences.crimeReports.enabled && preferences.crimeReports.newReports;
-        break;
-      case 'crime_report_solved':
-        result = preferences.crimeReports.enabled && preferences.crimeReports.reportSolved;
-        break;
-      case 'crime_report_updated':
-        result = preferences.crimeReports.enabled && preferences.crimeReports.reportUpdated;
-        break;
-      case 'sos_alert':
-        result = preferences.emergency.enabled && preferences.emergency.sosAlerts;
-        break;
-      case 'emergency_update':
-        result = preferences.emergency.enabled && preferences.emergency.emergencyUpdates;
-        break;
-      case 'app_update':
-        result = preferences.general.enabled && preferences.general.appUpdates;
-        break;
-      case 'security_alert':
-        result = preferences.general.enabled && preferences.general.securityAlerts;
-        break;
-      case 'community_update':
-        result = preferences.general.enabled && preferences.general.communityUpdates;
-        break;
-      default:
-        result = false;
-    }
-    
-    console.log('NotificationService: Final result for type', type, ':', result);
-    console.log('NotificationService: ===========================================');
-    return result;
-  }
-
-  /**
-   * Check if current time is within quiet hours
-   */
-  private isQuietHours(quietHours: { enabled: boolean; startTime: string; endTime: string }): boolean {
-    if (!quietHours.enabled) return false;
-
-    const now = new Date();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    
-    const [startHour, startMin] = quietHours.startTime.split(':').map(Number);
-    const [endHour, endMin] = quietHours.endTime.split(':').map(Number);
-    
-    const startTime = startHour * 60 + startMin;
-    const endTime = endHour * 60 + endMin;
-
-    // Handle overnight quiet hours (e.g., 22:00 to 08:00)
-    if (startTime > endTime) {
-      return currentTime >= startTime || currentTime <= endTime;
-    } else {
-      return currentTime >= startTime && currentTime <= endTime;
-    }
-  }
 
   /**
    * Get user's notification history
@@ -434,66 +290,16 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Mark notification as unread
-   */
-  async markNotificationAsUnread(userId: string, notificationId: string): Promise<boolean> {
-    try {
-      const notificationRef = ref(database, `civilian/civilian account/${userId}/notifications/${notificationId}`);
-      await update(notificationRef, { 
-        'data/read': false, 
-        'data/readAt': null 
-      });
-      return true;
-    } catch (error) {
-      console.error('Error marking notification as unread:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Delete notification
-   */
-  async deleteNotification(userId: string, notificationId: string): Promise<boolean> {
-    try {
-      const notificationRef = ref(database, `civilian/civilian account/${userId}/notifications/${notificationId}`);
-      await set(notificationRef, null);
-      return true;
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Clear all notifications for user
-   */
-  async clearAllNotifications(userId: string): Promise<boolean> {
-    try {
-      const notificationsRef = ref(database, `civilian/civilian account/${userId}/notifications`);
-      await set(notificationsRef, null);
-      return true;
-    } catch (error) {
-      console.error('Error clearing notifications:', error);
-      return false;
-    }
-  }
 
   /**
    * Send notification when a crime report status is updated
    */
   async sendReportStatusUpdateNotification(reportId: string, reporterUid: string, oldStatus: string, newStatus: string, reportTitle?: string): Promise<boolean> {
     try {
-      console.log('NotificationService: ===== SENDING REPORT STATUS UPDATE NOTIFICATION =====');
-      console.log('NotificationService: Report ID:', reportId);
-      console.log('NotificationService: Reporter UID:', reporterUid);
-      console.log('NotificationService: Status change:', oldStatus, '->', newStatus);
-      console.log('NotificationService: Report title:', reportTitle);
-      console.log('NotificationService: Is resolved status?', newStatus.toLowerCase() === 'resolved');
+      console.log('NotificationService: Sending report status update:', oldStatus, '->', newStatus);
 
       // Get user's language preference
       const userLanguage = await this.getUserLanguage(reporterUid);
-      console.log('NotificationService: User language:', userLanguage);
 
       // Determine notification type and content based on status change
       let notificationType: NotificationType;
@@ -531,9 +337,6 @@ export class NotificationService {
               .replace('{newStatus}', newStatus);
       }
 
-      console.log('NotificationService: Using notification type:', notificationType);
-      console.log('NotificationService: Title:', title);
-      console.log('NotificationService: Body:', body);
 
       const success = await this.sendNotification(
         reporterUid,
@@ -549,9 +352,7 @@ export class NotificationService {
         }
       );
 
-      console.log('NotificationService: ===== NOTIFICATION SEND RESULT =====');
       console.log('NotificationService: Report status update notification sent:', success);
-      console.log('NotificationService: ===========================================');
       return success;
     } catch (error) {
       console.error('NotificationService: Error sending report status update notification:', error);
@@ -565,21 +366,46 @@ export class NotificationService {
    */
   async createTestNotification(userId: string): Promise<boolean> {
     try {
-      const testNotification: NotificationPayload = {
-        type: 'app_update',
-        title: 'Test Notification',
-        body: 'This is a test notification to verify the notification system is working.',
-        data: { test: true },
+      // Use the proper sendNotification method to ensure FCM is triggered
+      const success = await this.sendNotification(
         userId,
-        timestamp: new Date().toISOString(),
-      };
-
-      const notificationsRef = ref(database, `civilian/civilian account/${userId}/notifications`);
-      await push(notificationsRef, testNotification);
-      console.log('Test notification created successfully');
-      return true;
+        'crime_report_submitted',
+        'Test Notification',
+        'This is a test notification to verify the notification system is working.',
+        { test: true }
+      );
+      
+      console.log('Test notification created successfully:', success);
+      return success;
     } catch (error) {
       console.error('Error creating test notification:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a test FCM push notification for debugging
+   */
+  async createTestFCMNotification(userId: string): Promise<boolean> {
+    try {
+      console.log('NotificationService: 🧪 Creating test FCM notification for user:', userId);
+      
+      const success = await this.sendNotification(
+        userId,
+        'crime_report_submitted',
+        '🧪 FCM Test Notification',
+        'This is a test to verify FCM push notifications are working. You should see this in your system tray.',
+        { 
+          test: true,
+          timestamp: new Date().toISOString(),
+          fcmTest: true
+        }
+      );
+      
+      console.log('NotificationService: 🧪 Test FCM notification sent:', success);
+      return success;
+    } catch (error) {
+      console.error('Error creating test FCM notification:', error);
       return false;
     }
   }
