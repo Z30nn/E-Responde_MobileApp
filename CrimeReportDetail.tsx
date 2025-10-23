@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
-import { useLanguage } from './services/languageContext';
 import { useAuth } from './services/authContext';
 import { useVoIP } from './services/voipContext';
 import CrimeReportMap from './CrimeReportMap';
@@ -35,8 +34,8 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
       try {
         onClose();
         console.log('CrimeReportDetail: onClose called successfully - modal should close');
-      } catch (error) {
-        console.error('CrimeReportDetail: Error calling onClose:', error);
+      } catch (closeError) {
+        console.error('CrimeReportDetail: Error calling onClose:', closeError);
       }
     } else {
       console.log('CrimeReportDetail: No onClose handler - this is the problem!');
@@ -44,7 +43,6 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
     }
   };
   const { isDarkMode, fontSize } = useTheme();
-  const { t } = useLanguage();
   const { user } = useAuth();
   const { setActiveCall } = useVoIP();
   const theme = isDarkMode ? colors.dark : colors.light;
@@ -56,11 +54,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadReportDetails();
-  }, [reportId]);
-
-  const loadReportDetails = async () => {
+  const loadReportDetails = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -75,13 +69,17 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
         console.log('CrimeReportDetail: Report not found for ID:', reportId);
         setError('Report not found');
       }
-    } catch (error) {
-      console.error('Error loading report details:', error);
+    } catch (loadError) {
+      console.error('Error loading report details:', loadError);
       setError('Failed to load report details');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [reportId]);
+
+  useEffect(() => {
+    loadReportDetails();
+  }, [loadReportDetails]);
 
   const handleImagePress = (imageUri: string) => {
     setSelectedImage(imageUri);
@@ -141,9 +139,9 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
         // Use global context to set active call
         setActiveCall(callData);
       }
-    } catch (error: any) {
-      console.error('Error calling officer:', error);
-      const errorMessage = error?.message || String(error) || 'Failed to initiate call';
+    } catch (callError: any) {
+      console.error('Error calling officer:', callError);
+      const errorMessage = callError?.message || String(callError) || 'Failed to initiate call';
       Alert.alert('Error', errorMessage);
     }
   };
@@ -198,11 +196,55 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
         // Use global context to set active call
         setActiveCall(callData);
       }
-    } catch (error: any) {
-      console.error('Error calling civilian:', error);
-      const errorMessage = error?.message || String(error) || 'Failed to initiate call';
+    } catch (callError: any) {
+      console.error('Error calling civilian:', callError);
+      const errorMessage = callError?.message || String(callError) || 'Failed to initiate call';
       Alert.alert('Error', errorMessage);
     }
+  };
+
+  const handleResolveCase = async () => {
+    if (!report || !user) {
+      Alert.alert('Error', 'Cannot resolve case');
+      return;
+    }
+
+    Alert.alert(
+      'Resolve Case',
+      'Are you sure you want to mark this case as resolved? This will clear your current assignment and set your status to Available.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Resolve',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await FirebaseService.resolveCase(reportId, user.uid);
+              Alert.alert(
+                'Case Resolved',
+                'The case has been marked as resolved. Your assignment has been cleared and you are now available for new assignments.',
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      // Close the detail view and return to dashboard
+                      onClose();
+                    },
+                  },
+                ]
+              );
+            } catch (resolveError: any) {
+              console.error('Error resolving case:', resolveError);
+              const errorMessage = resolveError?.message || String(resolveError) || 'Failed to resolve case';
+              Alert.alert('Error', errorMessage);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const formatDateTime = (dateString: string) => {
@@ -517,6 +559,28 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
       fontSize: 16,
       fontWeight: '700',
     },
+    resolveButton: {
+      backgroundColor: '#10B981',
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 10,
+      alignItems: 'center',
+      marginHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 8,
+      minHeight: 48,
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    resolveButtonText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: '700',
+    },
     mapButton: {
       backgroundColor: theme.primary,
       paddingHorizontal: 24,
@@ -751,6 +815,13 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
         {isPoliceView && user && report && !report.anonymous && (
           <TouchableOpacity style={styles.callButton} onPress={handleCallCivilian}>
             <Text style={styles.callButtonText}>Call Civilian Reporter</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Case Resolved Button - Only for police users */}
+        {isPoliceView && user && report && (
+          <TouchableOpacity style={styles.resolveButton} onPress={handleResolveCase}>
+            <Text style={styles.resolveButtonText}>Mark Case as Resolved</Text>
           </TouchableOpacity>
         )}
 
