@@ -16,11 +16,7 @@
 
 import messaging from '@react-native-firebase/messaging';
 import { Platform, Alert } from 'react-native';
-import { notificationService } from './notificationService';
 import { soundService } from './soundService';
-import { ref, push } from 'firebase/database';
-import { database } from '../firebaseConfig';
-import { PermissionsAndroid } from 'react-native';
 
 class FCMService {
   private static instance: FCMService;
@@ -147,7 +143,7 @@ class FCMService {
           return false;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('FCMService: Error requesting permission:', error);
       console.error('FCMService: Error details:', {
         message: error.message,
@@ -285,7 +281,7 @@ class FCMService {
       
       if (retryCount < maxRetries) {
         console.log('FCMService: ⚠️ Permission denied, will retry in 2 seconds...');
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+        await new Promise<void>(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
       }
     }
     
@@ -411,7 +407,7 @@ class FCMService {
         console.log('FCMService: ❌ FCM token verification failed');
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('FCMService: Error saving FCM token:', error);
       console.error('FCMService: Error details:', {
         message: error.message,
@@ -496,6 +492,9 @@ class FCMService {
       // Check notification settings
       await this.checkNotificationSettings();
       
+      // Note: Battery optimization should be handled by user manually
+      // This is the most reliable way to ensure FCM works when app is killed
+      
       // Check if permission is already granted first
       console.log('FCMService: Checking if notifications are already enabled...');
       const alreadyEnabled = await this.checkNotificationPermission();
@@ -552,7 +551,7 @@ class FCMService {
       });
 
       // Handle foreground messages (app is open)
-      const unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
+      messaging().onMessage(async (remoteMessage) => {
         console.log('FCMService: Received foreground message:', remoteMessage);
         await this.handleInAppNotification(remoteMessage);
       });
@@ -904,6 +903,57 @@ class FCMService {
     } catch (error) {
       console.error('FCMService: Error checking and reminding permissions:', error);
       return false;
+    }
+  }
+
+  /**
+   * Request battery optimization exemption for Android
+   * This helps prevent the system from killing FCM background processes
+   */
+  async requestBatteryOptimizationExemption(): Promise<void> {
+    try {
+      if (Platform.OS !== 'android') {
+        console.log('FCMService: Battery optimization exemption only needed on Android');
+        return;
+      }
+
+      console.log('FCMService: Requesting battery optimization exemption...');
+      
+      // Import Android-specific modules
+      const { Linking } = await import('react-native');
+      
+      // Show alert to guide user to battery optimization settings
+      Alert.alert(
+        '🔋 Battery Optimization',
+        'To ensure emergency notifications work when the app is closed, please disable battery optimization for E-Responde.\n\nThis is essential for receiving SOS alerts and emergency notifications.',
+        [
+          {
+            text: 'Skip',
+            style: 'cancel',
+            onPress: () => {
+              console.log('FCMService: User skipped battery optimization exemption');
+            }
+          },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              console.log('FCMService: Opening battery optimization settings...');
+              // Open battery optimization settings
+              Linking.openSettings().catch((error) => {
+                console.error('FCMService: Error opening settings:', error);
+                Alert.alert(
+                  'Settings',
+                  'Please manually go to Settings > Apps > E-Responde > Battery > Don\'t optimize'
+                );
+              });
+            }
+          }
+        ]
+      );
+      
+      console.log('FCMService: Battery optimization exemption requested');
+    } catch (error) {
+      console.error('FCMService: Error requesting battery optimization exemption:', error);
     }
   }
 

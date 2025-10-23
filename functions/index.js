@@ -92,6 +92,10 @@ exports.sendPushNotification = functions
             color: isSOSAlert ? '#FF0000' : '#FF6B35',
             priority: 'high',
             defaultSound: true,
+            // Enhanced settings for background delivery
+            visibility: 'public',
+            localOnly: false,
+            defaultVibrateTimings: true,
             ...(isSOSAlert && {
               vibrate: [0, 250, 250, 250],
               lightSettings: {
@@ -100,6 +104,12 @@ exports.sendPushNotification = functions
                 lightOffDurationMillis: 1000
               }
             })
+          },
+          // Additional settings for background delivery
+          data: {
+            'android_channel_id': isSOSAlert ? 'e-responde-sos' : 'e-responde-notifications',
+            'android_priority': 'high',
+            'android_visibility': 'public'
           }
         },
         data: {
