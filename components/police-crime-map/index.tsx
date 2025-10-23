@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker, Polyline, Circle } from 'react-native-maps';
-import { FirebaseService, CrimeReport } from '../../services/firebaseService';
+import { FirebaseService } from '../../services/firebaseService';
+import { database } from '../../firebaseConfig';
+import { ref, get } from 'firebase/database';
 
 interface PoliceCrimeReportMapProps {
   reportId: string;
@@ -53,7 +55,7 @@ const PoliceCrimeReportMap = ({
   const [routeCoordinates, setRouteCoordinates] = useState<{ [key: string]: RouteCoordinate[] }>({});
   const [etaMap, setEtaMap] = useState<{ [key: string]: number }>({});
   const [distanceMap, setDistanceMap] = useState<{ [key: string]: number }>({});
-  const [mapRegion, setMapRegion] = useState({
+  const [mapRegion] = useState({
     latitude: crimeLocation.latitude,
     longitude: crimeLocation.longitude,
     latitudeDelta: 0.02,
@@ -62,85 +64,7 @@ const PoliceCrimeReportMap = ({
 
   const isSOSReport = crimeType.toLowerCase().includes('sos') || crimeType.toLowerCase().includes('emergency');
 
-  useEffect(() => {
-    loadMapData();
-    // Set up real-time updates for police locations
-    const interval = setInterval(loadPoliceLocations, 5000); // Update every 5 seconds
-    return () => clearInterval(interval);
-  }, [reportId]);
-
-  const loadMapData = async () => {
-    try {
-      setIsLoading(true);
-      await Promise.all([
-        loadPoliceLocations(),
-        isSOSReport ? loadCivilianLocation() : Promise.resolve()
-      ]);
-    } catch (error) {
-      console.error('Error loading map data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadPoliceLocations = async () => {
-    try {
-      const policeUsers = await FirebaseService.getAllPoliceLocations();
-      
-      console.log('Loaded police locations:', policeUsers.length);
-      
-      const locations: PoliceLocation[] = policeUsers.map((police) => {
-        const name = police.firstName && police.lastName 
-          ? `${police.firstName} ${police.lastName}` 
-          : police.badgeNumber 
-            ? `Officer ${police.badgeNumber}` 
-            : 'Police Officer';
-        
-        return {
-          id: police.uid,
-          latitude: police.currentLocation!.latitude,
-          longitude: police.currentLocation!.longitude,
-          name: name,
-          lastUpdated: police.currentLocation!.lastUpdated,
-        };
-      });
-      
-      setPoliceLocations(locations);
-
-      // Fetch routes for each police officer
-      locations.forEach(async (officer) => {
-        await fetchRoute(
-          officer.id,
-          officer.latitude,
-          officer.longitude,
-          crimeLocation.latitude,
-          crimeLocation.longitude
-        );
-      });
-    } catch (error) {
-      console.error('Error loading police locations:', error);
-    }
-  };
-
-  const loadCivilianLocation = async () => {
-    try {
-      console.log('Loading civilian location for SOS report, reporterUid:', reporterUid);
-      
-      // For SOS reports, we use the crime report location as the civilian's location
-      // since SOS captures the user's current location at the time of the alert
-      setCivilianLocation({
-        latitude: crimeLocation.latitude,
-        longitude: crimeLocation.longitude,
-        timestamp: new Date().toISOString()
-      });
-      
-      console.log('Civilian location set from SOS report location');
-    } catch (error) {
-      console.error('Error loading civilian location:', error);
-    }
-  };
-
-  const fetchRoute = async (
+  const fetchRoute = useCallback(async (
     officerId: string,
     originLat: number,
     originLng: number,
@@ -170,10 +94,11 @@ const PoliceCrimeReportMap = ({
         setEtaMap(prev => ({ ...prev, [officerId]: durationInMinutes }));
         setDistanceMap(prev => ({ ...prev, [officerId]: distanceInKm }));
         
-        console.log('[Police Map] Route found for officer', officerId, '- Distance:', distanceInKm, 'km');
+        console.log(`[Police Map] Route found for officer ${officerId}: ${durationInMinutes} min, ${distanceInKm} km`);
       } else {
-        // Fallback to straight line if routing fails
-        console.warn('⚠️ [Police Map] OSRM routing failed for officer', officerId, ', using straight line');
+        console.log(`[Police Map] No route found for officer ${officerId}, using straight line`);
+        
+        // Fallback to straight line
         setRouteCoordinates(prev => ({
           ...prev,
           [officerId]: [
@@ -182,11 +107,8 @@ const PoliceCrimeReportMap = ({
           ]
         }));
         
-        // Calculate straight-line distance and estimate ETA
         const straightLineDistance = calculateDistance(originLat, originLng, destLat, destLng);
         setDistanceMap(prev => ({ ...prev, [officerId]: straightLineDistance }));
-        
-        // Estimate ETA: assume average speed of 40 km/h in city
         const estimatedMinutes = Math.ceil((straightLineDistance / 40) * 60);
         setEtaMap(prev => ({ ...prev, [officerId]: estimatedMinutes }));
       }
@@ -207,7 +129,110 @@ const PoliceCrimeReportMap = ({
       const estimatedMinutes = Math.ceil((straightLineDistance / 40) * 60);
       setEtaMap(prev => ({ ...prev, [officerId]: estimatedMinutes }));
     }
-  };
+  }, []);
+
+  const loadPoliceLocations = useCallback(async () => {
+    try {
+      // Get the crime report first to verify it exists
+      const crimeReport = await FirebaseService.getCrimeReport(reportId);
+      
+      if (!crimeReport) {
+        console.log('Crime report not found');
+        setPoliceLocations([]);
+        return;
+      }
+      
+      // Find the police officer assigned to this report by checking all police officers' current assignments
+      const allPoliceOfficers = await FirebaseService.getAllPoliceLocations();
+      
+      let assignedOfficer = null;
+      for (const officer of allPoliceOfficers) {
+        // Check if this officer has this reportId in their current assignment
+        const assignmentRef = ref(database, `police/police account/${officer.uid}/currentAssignment`);
+        const assignmentSnapshot = await get(assignmentRef);
+        
+        if (assignmentSnapshot.exists()) {
+          const assignment = assignmentSnapshot.val();
+          if (assignment.reportId === reportId) {
+            assignedOfficer = officer;
+            break;
+          }
+        }
+      }
+      
+      if (!assignedOfficer || !assignedOfficer.currentLocation) {
+        console.log('No officer assigned to this report or officer has no location data');
+        setPoliceLocations([]);
+        return;
+      }
+      
+      const name = assignedOfficer.firstName && assignedOfficer.lastName 
+        ? `${assignedOfficer.firstName} ${assignedOfficer.lastName}` 
+        : assignedOfficer.badgeNumber 
+          ? `Officer ${assignedOfficer.badgeNumber}` 
+          : 'Assigned Officer';
+      
+      const location: PoliceLocation = {
+        id: assignedOfficer.uid,
+        latitude: assignedOfficer.currentLocation.latitude,
+        longitude: assignedOfficer.currentLocation.longitude,
+        name: name,
+        lastUpdated: assignedOfficer.currentLocation.lastUpdated,
+      };
+      
+      setPoliceLocations([location]);
+
+      // Fetch route for the assigned officer
+      await fetchRoute(
+        location.id,
+        location.latitude,
+        location.longitude,
+        crimeLocation.latitude,
+        crimeLocation.longitude
+      );
+    } catch (error) {
+      console.error('Error loading police locations:', error);
+    }
+  }, [reportId, crimeLocation.latitude, crimeLocation.longitude, fetchRoute]);
+
+  const loadCivilianLocation = useCallback(async () => {
+    try {
+      console.log('Loading civilian location for SOS report, reporterUid:', reporterUid);
+      
+      // For SOS reports, we use the crime report location as the civilian's location
+      // since SOS captures the user's current location at the time of the alert
+      setCivilianLocation({
+        latitude: crimeLocation.latitude,
+        longitude: crimeLocation.longitude,
+        timestamp: new Date().toISOString()
+      });
+      
+      console.log('Civilian location set from SOS report location');
+    } catch (error) {
+      console.error('Error loading civilian location:', error);
+    }
+  }, [reporterUid, crimeLocation.latitude, crimeLocation.longitude]);
+
+  const loadMapData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      await Promise.all([
+        loadPoliceLocations(),
+        isSOSReport ? loadCivilianLocation() : Promise.resolve()
+      ]);
+    } catch (error) {
+      console.error('Error loading map data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [loadPoliceLocations, isSOSReport, loadCivilianLocation]);
+
+  useEffect(() => {
+    loadMapData();
+    // Set up real-time updates for police locations
+    const interval = setInterval(loadPoliceLocations, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, [loadMapData, loadPoliceLocations]);
 
   // Decode Google Maps polyline to coordinates
   const decodePolyline = (encoded: string): RouteCoordinate[] => {
@@ -448,9 +473,9 @@ const PoliceCrimeReportMap = ({
             <Text style={styles.crimeInfoText}>No officers currently tracking location</Text>
           )}
 
-          {policeLocations.length > 1 && (
-            <Text style={styles.additionalOfficers}>
-              +{policeLocations.length - 1} more officer{policeLocations.length > 2 ? 's' : ''} nearby
+          {policeLocations.length === 0 && (
+            <Text style={styles.noOfficerText}>
+              No officer assigned to this report
             </Text>
           )}
         </View>
@@ -630,9 +655,9 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
     marginTop: 2,
   },
-  additionalOfficers: {
+  noOfficerText: {
     fontSize: 12,
-    color: '#A0A0A0',
+    color: '#FF6B6B',
     fontStyle: 'italic',
     textAlign: 'center',
   },
