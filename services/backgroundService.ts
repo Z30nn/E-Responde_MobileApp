@@ -1,4 +1,4 @@
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import { gyroscopeService } from './gyroscopeService';
 
 export interface BackgroundServiceConfig {
@@ -47,6 +47,8 @@ class BackgroundService {
   private onAppForeground() {
     console.log('BackgroundService: App came to foreground');
     this.stopBackgroundMonitoring();
+    // Stop foreground service when app comes to foreground
+    this.stopForegroundService();
     // Gyroscope will be handled by the main app components
   }
 
@@ -55,6 +57,9 @@ class BackgroundService {
     if (this.config.enableBackgroundGyroscope) {
       this.startBackgroundMonitoring();
     }
+    
+    // Start foreground service for continuous background tasks
+    this.startForegroundService();
   }
 
   private startBackgroundMonitoring() {
@@ -107,6 +112,50 @@ class BackgroundService {
     // Additional background monitoring logic can be added here
     // For now, the gyroscope service handles the main functionality
   }
+
+  private startForegroundService() {
+    try {
+      console.log('BackgroundService: Starting foreground service...');
+      
+      // Import and start the foreground service
+      const { NativeModules } = require('react-native');
+      
+      if (NativeModules.BackgroundTaskModule) {
+        NativeModules.BackgroundTaskModule.startBackgroundService()
+          .then((success: boolean) => {
+            console.log('BackgroundService: ✅ Foreground service started:', success);
+          })
+          .catch((error: any) => {
+            console.error('BackgroundService: Error starting foreground service:', error);
+          });
+      } else {
+        console.log('BackgroundService: ⚠️ Foreground service module not available');
+      }
+    } catch (error) {
+      console.error('BackgroundService: Error starting foreground service:', error);
+    }
+  }
+
+  private stopForegroundService() {
+    try {
+      console.log('BackgroundService: Stopping foreground service...');
+      
+      const { NativeModules } = require('react-native');
+      
+      if (NativeModules.BackgroundTaskModule) {
+        NativeModules.BackgroundTaskModule.stopBackgroundService()
+          .then((success: boolean) => {
+            console.log('BackgroundService: ✅ Foreground service stopped:', success);
+          })
+          .catch((error: any) => {
+            console.error('BackgroundService: Error stopping foreground service:', error);
+          });
+      }
+    } catch (error) {
+      console.error('BackgroundService: Error stopping foreground service:', error);
+    }
+  }
+
 
   public start() {
     console.log('BackgroundService: Starting background service');
