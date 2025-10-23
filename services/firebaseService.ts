@@ -852,7 +852,7 @@ export class FirebaseService {
           location: {
             latitude: report.coordinates?.latitude || report.location?.latitude || 0,
             longitude: report.coordinates?.longitude || report.location?.longitude || 0,
-            address: report.location || report.location?.address || 'Unknown location'
+            address: report.location?.address || (typeof report.location === 'string' ? report.location : 'Unknown location')
           },
           anonymous: report.anonymous || false,
           reporterName: report.reportedBy?.name || report.reporterName || 'Unknown',
