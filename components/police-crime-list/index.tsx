@@ -209,7 +209,11 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
         
         <View style={styles.cardFooter}>
           <View style={styles.locationRow}>
-            <Text style={styles.location}>{item.location.address}</Text>
+            <Text style={styles.location}>
+              {typeof item.location === 'object' && item.location !== null 
+                ? (item.location.address || 'Location not available')
+                : 'Location not available'}
+            </Text>
           </View>
           
           {/* Vote Counts (Display Only - No Interaction) */}
