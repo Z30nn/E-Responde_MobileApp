@@ -44,7 +44,9 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
     
     // Status-based filters
     if (['pending', 'received', 'in progress', 'resolved'].includes(status)) {
-      return reportsList.filter(report => report.status && report.status.toLowerCase() === status.toLowerCase());
+      return reportsList.filter(report => 
+        report.status && report.status.toLowerCase() === status.toLowerCase()
+      );
     }
     
     // Time-based filters
@@ -74,7 +76,9 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         'moderate': 'Moderate',
         'low': 'Low'
       };
-      return reportsList.filter(report => report.severity === severityMap[status]);
+      return reportsList.filter(report => 
+        report.severity === severityMap[status]
+      );
     }
     
     return reportsList;
@@ -115,12 +119,13 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
               report.status.toLowerCase() === 'received' ||
               report.status.toLowerCase() === 'in progress' ||
               report.status.toLowerCase() === 'resolved' ||
-              report.status.toLowerCase() === 'pending' // Temporary to debug
+              report.status.toLowerCase() === 'pending' // Include pending for now
             )) {
               console.log('Real-time: Adding verified report:', reportId, 'Status:', report.status);
               otherUsersReports.push({
                 ...report,
-                reportId: reportId
+                reportId: reportId,
+                dateTime: new Date(report.dateTime)
               });
             } else {
               console.log('Real-time: Skipping report:', reportId, 'Status:', report.status, 'Reason:', report.reporterUid === currentUser.uid ? 'Own report' : 'Not verified');
@@ -138,7 +143,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
             }
             
             // If upvotes are equal, sort by date (newest first)
-            return new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime();
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
           });
           
           setReports(otherUsersReports);
@@ -166,42 +171,22 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         return;
       }
 
-      // Get all crime reports from Firebase
-      const allReports = await FirebaseService.getAllCrimeReports();
-      console.log('All crime reports loaded:', allReports.length);
+      // Get all crime reports excluding current user's reports
+      const otherUsersReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid);
+      console.log('Other users crime reports loaded:', otherUsersReports.length);
       
-      // Filter out current user's reports and only show verified reports (received or higher)
-      console.log('All reports before filtering:', allReports.length);
-      allReports.forEach(report => {
-        console.log('Report status:', report.status, 'Reporter UID:', report.reporterUid, 'Current UID:', currentUser.uid);
-      });
-      
-      const otherUsersReports = allReports.filter(report => 
-        report.reporterUid !== currentUser.uid && 
+      // Filter to only show verified reports (received or higher)
+      const verifiedReports = otherUsersReports.filter(report => 
         report.status && (
           report.status.toLowerCase() === 'received' ||
           report.status.toLowerCase() === 'in progress' ||
           report.status.toLowerCase() === 'resolved' ||
-          report.status.toLowerCase() === 'pending' // Temporary to debug
+          report.status.toLowerCase() === 'pending' // Include pending for now
         )
       );
-      console.log('Other users verified crime reports:', otherUsersReports.length);
+      console.log('Verified other users reports:', verifiedReports.length);
       
-      // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
-      otherUsersReports.sort((a, b) => {
-        const upvotesA = a.upvotes || 0;
-        const upvotesB = b.upvotes || 0;
-        
-        // First sort by upvotes (descending)
-        if (upvotesA !== upvotesB) {
-          return upvotesB - upvotesA;
-        }
-        
-        // If upvotes are equal, sort by date (newest first)
-        return new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime();
-      });
-      
-      setReports(otherUsersReports);
+      setReports(verifiedReports);
     } catch (error) {
       console.error('Error loading other users crime reports:', error);
       setError(t('crimeList.failedToLoad'));
