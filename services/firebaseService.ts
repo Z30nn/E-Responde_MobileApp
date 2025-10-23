@@ -18,6 +18,7 @@ import {
 } from 'firebase/database';
 import { auth, database } from '../firebaseConfig';
 import RNFS from 'react-native-fs';
+import storage from '@react-native-firebase/storage';
 
 export interface CivilianUser {
   firstName: string;
@@ -52,6 +53,7 @@ export interface CrimeReport {
   dateTime: Date;
   description: string;
   multimedia: string[];
+  videos?: string[]; // Video URLs from Firebase Storage
   location: {
     latitude: number;
     longitude: number;
@@ -194,6 +196,112 @@ export class FirebaseService {
       return base64Images;
     } catch (error) {
       console.error('Error processing multiple files:', error);
+      throw error;
+    }
+  }
+
+  // Upload video to Firebase Storage using React Native Firebase
+  static async uploadVideoToStorage(fileUri: string, fileName: string, reportId: string): Promise<string> {
+    try {
+      console.log('=== UPLOADING VIDEO TO FIREBASE STORAGE ===');
+      console.log('File URI:', fileUri);
+      console.log('File Name:', fileName);
+      console.log('Report ID:', reportId);
+      
+      // Check if user is authenticated
+      const currentUser = auth.currentUser;
+      console.log('Current user:', currentUser);
+      console.log('User UID:', currentUser?.uid);
+      console.log('User email:', currentUser?.email);
+      if (!currentUser) {
+        throw new Error('User must be authenticated to upload videos');
+      }
+      
+      // Create a reference to the video in Firebase Storage
+      // Try a simpler path first
+      const videoRef = storage().ref(`videos/${fileName}`);
+      console.log('Storage path:', `videos/${fileName}`);
+      
+      console.log('Uploading video to Firebase Storage...');
+      
+      // Upload the file using React Native Firebase Storage
+      await videoRef.putFile(fileUri);
+      
+      console.log('Video uploaded successfully');
+      
+      // Get the download URL
+      const downloadURL = await videoRef.getDownloadURL();
+      console.log('Download URL obtained:', downloadURL);
+      
+      return downloadURL;
+    } catch (error: any) {
+      console.error('Error uploading video to storage:', error);
+      throw new Error(`Failed to upload video: ${error.message}`);
+    }
+  }
+
+  // Process mixed media files (images for database, videos for storage)
+  static async processMixedMediaFiles(files: Array<{uri: string, name: string, type: string}>, reportId: string): Promise<{images: string[], videos: string[]}> {
+    try {
+      console.log(`Processing ${files.length} mixed media files`);
+      
+      // Check if user is authenticated
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('User must be authenticated to process files');
+      }
+      
+      const images: string[] = [];
+      const videos: string[] = [];
+      const errors: string[] = [];
+      
+      // Separate files by type
+      const imageFiles = files.filter(file => file.type.startsWith('image/'));
+      const videoFiles = files.filter(file => file.type.startsWith('video/'));
+      
+      console.log(`Found ${imageFiles.length} images and ${videoFiles.length} videos`);
+      
+      // Process images for database storage
+      if (imageFiles.length > 0) {
+        try {
+          const base64Images = await this.processImagesForDatabase(imageFiles);
+          images.push(...base64Images);
+          console.log(`Successfully processed ${base64Images.length} images`);
+        } catch (error: any) {
+          console.error('Error processing images:', error);
+          errors.push(`Images: ${error.message}`);
+        }
+      }
+      
+      // Process videos for storage
+      if (videoFiles.length > 0) {
+        for (const videoFile of videoFiles) {
+          try {
+            console.log(`Processing video: ${videoFile.name}`);
+            const downloadURL = await this.uploadVideoToStorage(videoFile.uri, videoFile.name, reportId);
+            videos.push(downloadURL);
+            console.log(`Successfully uploaded video: ${videoFile.name}`);
+          } catch (error: any) {
+            console.error(`Error uploading video ${videoFile.name}:`, error);
+            errors.push(`Video ${videoFile.name}: ${error.message}`);
+          }
+        }
+      }
+      
+      if (errors.length > 0) {
+        console.warn('Some files failed to process:', errors);
+        
+        if (images.length === 0 && videos.length === 0) {
+          throw new Error(`All files failed to process:\n${errors.join('\n')}`);
+        } else {
+          console.log(`Successfully processed ${images.length} images and ${videos.length} videos`);
+        }
+      }
+      
+      console.log('Mixed media processing completed');
+      return { images, videos };
+    } catch (error) {
+      console.error('Error processing mixed media files:', error);
       throw error;
     }
   }
@@ -687,6 +795,56 @@ export class FirebaseService {
     }
   }
 
+  // Submit crime report with mixed media (images and videos)
+  static async submitCrimeReportWithMedia(
+    crimeReport: Omit<CrimeReport, 'multimedia' | 'videos'>, 
+    files: Array<{uri: string, name: string, type: string}>
+  ): Promise<string> {
+    try {
+      const reportId = Date.now().toString(); // Generate unique ID
+      
+      console.log('=== SUBMITTING CRIME REPORT WITH MIXED MEDIA ===');
+      console.log('Report ID:', reportId);
+      console.log('Files to process:', files.length);
+      
+      // Process mixed media files
+      const { images, videos } = await this.processMixedMediaFiles(files, reportId);
+      
+      console.log(`Processed ${images.length} images and ${videos.length} videos`);
+      
+      // Create the complete crime report
+      const completeCrimeReport: CrimeReport = {
+        ...crimeReport,
+        multimedia: images, // Base64 images for database
+        videos: videos, // Video URLs from storage
+        reportId,
+      };
+      
+      // Store in civilian -> civilian crime reports
+      const crimeReportsRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      await set(crimeReportsRef, {
+        ...completeCrimeReport,
+        dateTime: completeCrimeReport.dateTime.toISOString(),
+      });
+
+      // Store in civilian -> civilian account -> uid -> crime reports
+      const userCrimeReportsRef = ref(database, `civilian/civilian account/${completeCrimeReport.reporterUid}/crime reports/${reportId}`);
+      await set(userCrimeReportsRef, {
+        ...completeCrimeReport,
+        dateTime: completeCrimeReport.dateTime.toISOString(),
+      });
+
+      // Send notifications to all users who have crime report notifications enabled
+      await this.notifyAllUsersOfNewCrimeReport(reportId, completeCrimeReport);
+
+      console.log('Crime report with mixed media submitted successfully');
+      return reportId;
+    } catch (error) {
+      console.error('Submit crime report with media error:', error);
+      throw error;
+    }
+  }
+
   // Update crime report status and notify the reporter
   static async updateCrimeReportStatus(reportId: string, newStatus: string, updatedBy?: string): Promise<boolean> {
     try {
@@ -849,6 +1007,7 @@ export class FirebaseService {
           dateTime: report.dateTime ? new Date(report.dateTime) : (report.dateReported ? new Date(report.dateReported) : new Date()),
           description: report.description || '',
           multimedia: report.multimedia || [],
+          videos: report.videos || [], // Video URLs from Firebase Storage
           location: {
             latitude: report.coordinates?.latitude || report.location?.latitude || 0,
             longitude: report.coordinates?.longitude || report.location?.longitude || 0,
