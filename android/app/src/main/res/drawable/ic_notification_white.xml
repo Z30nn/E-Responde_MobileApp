@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    
+    <!-- E-Responde Notification Icon - White Version (Larger) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,2L6,10V22C6,33.1 13.68,43.48 24,46C34.32,43.48 42,33.1 42,22V10L24,2M24,14C26.8,14 29.6,17.2 29.6,20V32H31V36H17V32H18.4V20C18.4,17.2 21.2,14 24,14M24,16.4C22.4,16.4 20.8,17.4 20.8,20V32H27.2V20C27.2,17.4 25.6,16.4 24,16.4Z" />
+</vector>

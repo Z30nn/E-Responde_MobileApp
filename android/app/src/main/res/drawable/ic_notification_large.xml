@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    
+    <!-- E-Responde Notification Icon - Extra Large Size -->
+    <!-- This is a simple shield/security icon representing your emergency response app -->
+    <path
+        android:fillColor="#FF6B35"
+        android:pathData="M32,3L8,13V29C8,44.13 18.24,57.97 32,61C45.76,57.97 56,44.13 56,29V13L32,3M32,19C35.6,19 39.2,22.8 39.2,27V43H41V48H23V43H24.8V27C24.8,22.8 28.4,19 32,19M32,21.6C29.6,21.6 27.2,22.8 27.2,27V43H36.8V27C36.8,22.8 34.4,21.6 32,21.6Z" />
+</vector>
