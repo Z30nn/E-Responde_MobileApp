@@ -38,6 +38,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       longitude: 0,
       address: 'Getting current location...',
     },
+    barangay: '',
     anonymous: false,
     status: 'pending',
     createdAt: new Date().toISOString(),
@@ -48,6 +49,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showCrimeTypeDropdown, setShowCrimeTypeDropdown] = useState(false);
   const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
+  const [showBarangayDropdown, setShowBarangayDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -73,6 +75,11 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     { value: 'High', label: 'High', color: '#FF6B35' },
     { value: 'Moderate', label: 'Moderate', color: '#FFA500' },
     { value: 'Low', label: 'Low', color: '#32CD32' },
+  ];
+
+  const barangayOptions = [
+    'Barangay 41',
+    'Barangay 43',
   ];
 
   const checkAuthentication = useCallback(() => {
@@ -659,7 +666,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
 
   const handleSubmit = async () => {
-    if (!formData.crimeType || !formData.description) {
+    if (!formData.crimeType || !formData.description || !formData.barangay) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
@@ -759,6 +766,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         multimedia: multimediaURLs, // Base64 images for database
         videos: videoURLs, // Video URLs from Firebase Storage
         location: formData.location!,
+        barangay: formData.barangay!,
         anonymous: formData.anonymous!,
         reporterName: formData.anonymous ? 'Anonymous' : userName,
         reporterUid: currentUser.uid,
@@ -1358,6 +1366,58 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           <Text style={styles.locationCoords}>
             Coordinates: {formData.location?.latitude.toFixed(6)}, {formData.location?.longitude.toFixed(6)}
           </Text>
+        </View>
+
+        {/* Barangay */}
+        <View style={styles.fieldContainer}>
+          <Text style={styles.label}>Barangay <Text style={styles.requiredIndicator}>*</Text></Text>
+          <View style={styles.dropdownContainer}>
+            <TouchableOpacity 
+              style={styles.pickerContainer}
+              onPress={() => setShowBarangayDropdown(!showBarangayDropdown)}
+            >
+              <Text style={[
+                styles.pickerText,
+                { color: formData.barangay ? theme.text : theme.placeholder }
+              ]}>
+                {formData.barangay || 'Select Barangay'}
+              </Text>
+              <Text style={[styles.dropdownArrow, { color: theme.text }]}>
+                {showBarangayDropdown ? '▲' : '▼'}
+              </Text>
+            </TouchableOpacity>
+            
+            {showBarangayDropdown && (
+              <>
+                <TouchableOpacity 
+                  style={styles.dropdownOverlay}
+                  onPress={() => setShowBarangayDropdown(false)}
+                />
+                <View style={styles.dropdownList}>
+                  {barangayOptions.map((barangay) => (
+                    <TouchableOpacity
+                      key={barangay}
+                      style={[
+                        styles.dropdownItem,
+                        formData.barangay === barangay && styles.selectedDropdownItem
+                      ]}
+                      onPress={() => {
+                        setFormData(prev => ({ ...prev, barangay }));
+                        setShowBarangayDropdown(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.dropdownItemText,
+                        formData.barangay === barangay && styles.selectedDropdownItemText
+                      ]}>
+                        {barangay}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
         </View>
 
         {/* Multimedia */}

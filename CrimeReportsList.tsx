@@ -369,7 +369,7 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       
       <View style={styles.cardFooter}>
         <Text style={styles.location}>
-          📍 {item.location.address}
+          📍 {item.barangay && `${item.barangay} • `}{item.location.address}
         </Text>
       </View>
     </TouchableOpacity>
