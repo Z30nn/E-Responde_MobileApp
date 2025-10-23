@@ -10,6 +10,7 @@ import {
   Image,
   Modal,
 } from 'react-native';
+import Video from 'react-native-video';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useAuth } from './services/authContext';
@@ -53,6 +54,8 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const [showMap, setShowMap] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
 
   const loadReportDetails = useCallback(async () => {
     try {
@@ -89,6 +92,16 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const closeImageModal = () => {
     setShowImageModal(false);
     setSelectedImage(null);
+  };
+
+  const handleVideoPress = (videoUri: string) => {
+    setSelectedVideo(videoUri);
+    setShowVideoModal(true);
+  };
+
+  const closeVideoModal = () => {
+    setShowVideoModal(false);
+    setSelectedVideo(null);
   };
 
   const openMap = () => {
@@ -631,6 +644,33 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
       height: '80%',
       resizeMode: 'contain',
     },
+    videoModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    videoModalClose: {
+      position: 'absolute',
+      top: 50,
+      right: 20,
+      zIndex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 20,
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    videoModalCloseText: {
+      color: 'white',
+      fontSize: 20,
+      fontWeight: 'bold',
+    },
+    fullScreenVideo: {
+      width: '90%',
+      height: '80%',
+    },
   });
 
   if (isLoading) {
@@ -756,33 +796,27 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
         </View>
 
         {/* Multimedia Evidence */}
-        {report.multimedia && report.multimedia.length > 0 && (
+        {((report.multimedia && report.multimedia.length > 0) || (report.videos && report.videos.length > 0)) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Evidence Attached</Text>
             <View style={styles.mediaGrid}>
-              {report.multimedia.map((item, index) => {
+              {/* Display images from multimedia array */}
+              {report.multimedia && report.multimedia.map((item, index) => {
                 // Check if it's a base64 data URL (for Realtime Database storage)
                 const isBase64Image = item.startsWith('data:image/');
                 // Check if it's a file path/URL with image extension (for Storage)
                 const isImageFile = item.match(/\.(jpg|jpeg|png|gif)$/i);
-                // Check if it's a video file
-                const isVideo = item.match(/\.(mp4|mov)$/i);
                 
                 const isImage = isBase64Image || isImageFile;
                 
                 return (
                   <TouchableOpacity
-                    key={index}
+                    key={`image-${index}`}
                     style={styles.mediaItem}
                     onPress={() => isImage ? handleImagePress(item) : null}
                   >
                     {isImage ? (
                       <Image source={{ uri: item }} style={styles.mediaImage} />
-                    ) : isVideo ? (
-                      <View style={styles.videoPlaceholder}>
-                        <Text style={styles.videoIcon}>🎥</Text>
-                        <Text style={styles.videoText}>Video File</Text>
-                      </View>
                     ) : (
                       <View style={styles.filePlaceholder}>
                         <Text style={styles.fileIcon}>📎</Text>
@@ -792,6 +826,20 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
                   </TouchableOpacity>
                 );
               })}
+              
+              {/* Display videos from videos array */}
+              {report.videos && report.videos.map((videoUrl, index) => (
+                <TouchableOpacity
+                  key={`video-${index}`}
+                  style={styles.mediaItem}
+                  onPress={() => handleVideoPress(videoUrl)}
+                >
+                  <View style={styles.videoPlaceholder}>
+                    <Text style={styles.videoIcon}>🎥</Text>
+                    <Text style={styles.videoText}>Video</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         )}
@@ -872,6 +920,32 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
               <Text style={styles.imageModalCloseText}>✕</Text>
             </TouchableOpacity>
             <Image source={{ uri: selectedImage }} style={styles.fullScreenImage} />
+          </View>
+        </Modal>
+      )}
+
+      {/* Video Modal */}
+      {showVideoModal && selectedVideo && (
+        <Modal
+          visible={showVideoModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={closeVideoModal}
+        >
+          <View style={styles.videoModalOverlay}>
+            <TouchableOpacity style={styles.videoModalClose} onPress={closeVideoModal}>
+              <Text style={styles.videoModalCloseText}>✕</Text>
+            </TouchableOpacity>
+            <Video
+              source={{ uri: selectedVideo }}
+              style={styles.fullScreenVideo}
+              controls={true}
+              resizeMode="contain"
+              onError={(error) => {
+                console.error('Video playback error:', error);
+                Alert.alert('Video Error', 'Failed to play video. Please try again.');
+              }}
+            />
           </View>
         </Modal>
       )}

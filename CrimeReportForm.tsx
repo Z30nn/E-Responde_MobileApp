@@ -275,16 +275,20 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       
       // Show action sheet for file selection
       Alert.alert(
-        'Select File Type',
-        'Choose how you want to select your file',
+        'Select Media Type',
+        'Choose how you want to select your media',
         [
           {
-            text: 'Camera',
+            text: 'Camera (Photo)',
             onPress: () => openCamera(),
           },
           {
             text: 'Photo Library',
             onPress: () => openImagePicker(),
+          },
+          {
+            text: 'Video Library',
+            onPress: () => openVideoPicker(),
           },
           {
             text: 'Cancel',
@@ -487,6 +491,71 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     }
   };
 
+  const openVideoPicker = async () => {
+    try {
+      const hasPermission = await requestStoragePermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Required', 'Storage permission is required to select videos.');
+        return;
+      }
+
+      const options = {
+        mediaType: 'video' as MediaType,
+        quality: 0.8 as any, // Higher quality for videos
+        storageOptions: {
+          skipBackup: true,
+        },
+        includeBase64: false,
+      };
+
+      launchImageLibrary(options, (response: ImagePickerResponse) => {
+        if (response.didCancel) {
+          console.log('Video picker cancelled');
+        } else if ((response as any).error) {
+          console.log('Video picker error:', (response as any).error);
+          Alert.alert('Error', 'Failed to open video library. Please check permissions.');
+        } else if (response.assets && response.assets[0]) {
+          const asset = response.assets[0];
+          const fileInfo = {
+            uri: asset.uri,
+            name: `video_${Date.now()}.${asset.type?.split('/')[1] || 'mp4'}`,
+            type: asset.type || 'video/mp4',
+            size: asset.fileSize || 0,
+          };
+          
+          // Validate video file before adding
+          if (validateVideoFile(fileInfo)) {
+            setUploadedFiles(prev => [...prev, fileInfo]);
+            setFormData(prev => ({
+              ...prev,
+              multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
+            }));
+          }
+        } else if ((response as any).uri) {
+          // Fallback for older API versions
+          const fileInfo = {
+            uri: (response as any).uri,
+            name: `video_${Date.now()}.mp4`,
+            type: 'video/mp4',
+            size: (response as any).fileSize || 0,
+          };
+          
+          // Validate video file before adding
+          if (validateVideoFile(fileInfo)) {
+            setUploadedFiles(prev => [...prev, fileInfo]);
+            setFormData(prev => ({
+              ...prev,
+              multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
+            }));
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error opening video picker:', error);
+      Alert.alert('Error', 'Failed to open video picker. Please try again.');
+    }
+  };
+
 
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
@@ -513,6 +582,41 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       Alert.alert(
         'Invalid File Type',
         `The file "${file.name}" is not a supported image format. Only images are allowed for Realtime Database storage.`,
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    // Check file name
+    if (!file.name || file.name.length > 100) {
+      Alert.alert(
+        'Invalid File Name',
+        'File name is invalid or too long. Please rename the file.',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const validateVideoFile = (file: any): boolean => {
+    // Check file size (max 50MB for videos in Firebase Storage)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size && file.size > maxSize) {
+      Alert.alert(
+        'Video Too Large',
+        `The video "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum allowed size is 50MB. Please compress the video.`,
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
+
+    // Check file type - only videos
+    if (!file.type || !file.type.startsWith('video/')) {
+      Alert.alert(
+        'Invalid File Type',
+        `The file "${file.name}" is not a supported video format. Only videos are allowed.`,
         [{ text: 'OK' }]
       );
       return false;
@@ -578,44 +682,38 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         return;
       }
 
-      // Process images for Realtime Database storage if any
+      // Process mixed media files (images and videos) if any
       let multimediaURLs: string[] = [];
+      let videoURLs: string[] = [];
       if (uploadedFiles.length > 0) {
         try {
-          console.log('Processing images for Realtime Database storage...');
-          Alert.alert('Processing Images', 'Please wait while we process your images...');
+          console.log('Processing mixed media files...');
+          Alert.alert('Processing Media', 'Please wait while we process your media files...');
           
-          // Process files individually (more reliable approach)
-          multimediaURLs = [];
-          for (const file of uploadedFiles) {
-            try {
-              console.log(`Processing file: ${file.name}`);
-              const base64Image = await FirebaseService.convertImageToBase64(file.uri, file.name);
-              multimediaURLs.push(base64Image);
-              console.log(`Successfully processed: ${file.name}`);
-            } catch (error: any) {
-              console.error(`Error processing ${file.name}:`, error);
-            }
-          }
-          console.log('Images processed successfully. Base64 data ready for database storage.');
+          // Use the new mixed media processing method
+          const { images, videos } = await FirebaseService.processMixedMediaFiles(uploadedFiles, 'temp-report-id');
+          multimediaURLs = images;
+          videoURLs = videos;
           
-          if (multimediaURLs.length < uploadedFiles.length) {
+          console.log(`Successfully processed ${images.length} images and ${videos.length} videos`);
+          
+          if (multimediaURLs.length + videoURLs.length < uploadedFiles.length) {
             Alert.alert(
               'Partial Processing Success',
-              `Successfully processed ${multimediaURLs.length} out of ${uploadedFiles.length} images. The report will be submitted with the processed images.`,
+              `Successfully processed ${multimediaURLs.length} images and ${videoURLs.length} videos out of ${uploadedFiles.length} files. The report will be submitted with the processed media.`,
               [{ text: 'Continue', onPress: () => {} }]
             );
           }
         } catch (processingError: any) {
-          console.error('Error processing images:', processingError);
+          console.error('Error processing mixed media:', processingError);
           
-          let errorMessage = 'Failed to process images. ';
+          let errorMessage = 'Failed to process media files. ';
           if (processingError.message) {
             errorMessage += processingError.message;
           }
           
           Alert.alert(
-            'Image Processing Error',
+            'Media Processing Error',
             `${errorMessage}\n\nDo you want to submit the report without attachments?`,
             [
               {
@@ -631,6 +729,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
                 onPress: () => {
                   // Continue without files
                   multimediaURLs = [];
+                  videoURLs = [];
                 }
               }
             ]
@@ -657,7 +756,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         crimeType: formData.crimeType!,
         dateTime: formData.dateTime!,
         description: formData.description!,
-        multimedia: multimediaURLs, // Use uploaded URLs instead of local URIs
+        multimedia: multimediaURLs, // Base64 images for database
+        videos: videoURLs, // Video URLs from Firebase Storage
         location: formData.location!,
         anonymous: formData.anonymous!,
         reporterName: formData.anonymous ? 'Anonymous' : userName,
@@ -1282,7 +1382,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               {uploadedFiles.map((file, index) => (
                 <View key={index} style={styles.uploadedFileItem}>
                   <Text style={styles.uploadedFileName}>
-                    {file.type === 'image' ? '🖼️' : '🎥'} {file.name}
+                    {file.type?.startsWith('image/') ? '🖼️' : file.type?.startsWith('video/') ? '🎥' : '📎'} {file.name}
                   </Text>
                   <TouchableOpacity
                     style={styles.removeFileButton}
