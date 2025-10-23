@@ -843,12 +843,32 @@ export class FirebaseService {
       console.log('FirebaseService: Snapshot value:', snapshot.val());
       
       if (snapshot.exists()) {
-        const report = snapshot.val() as CrimeReport;
-        return {
-          ...report,
+        const report = snapshot.val();
+        const crimeReport: CrimeReport = {
+          crimeType: report.type || report.crimeType || 'Unknown',
+          dateTime: report.dateTime ? new Date(report.dateTime) : (report.dateReported ? new Date(report.dateReported) : new Date()),
+          description: report.description || '',
+          multimedia: report.multimedia || [],
+          location: {
+            latitude: report.coordinates?.latitude || report.location?.latitude || 0,
+            longitude: report.coordinates?.longitude || report.location?.longitude || 0,
+            address: report.location || report.location?.address || 'Unknown location'
+          },
+          anonymous: report.anonymous || false,
+          reporterName: report.reportedBy?.name || report.reporterName || 'Unknown',
+          reporterUid: report.reportedBy?.uid || report.reporterUid || '',
+          status: report.status || 'Unknown',
+          createdAt: report.dateReported || report.createdAt || new Date().toISOString(),
           reportId: snapshot.key || undefined,
-          dateTime: new Date(report.dateTime),
+          severity: report.severity || 'Moderate',
+          upvotes: report.upvotes || 0,
+          downvotes: report.downvotes || 0,
+          userVotes: report.userVotes || {},
+          respondingOfficerId: report.respondingOfficerId,
+          respondingOfficerName: report.respondingOfficerName,
+          respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
         };
+        return crimeReport;
       }
       
       console.log('FirebaseService: Report not found for ID:', reportId);
@@ -1094,6 +1114,71 @@ export class FirebaseService {
       return true;
     } catch (error) {
       console.error('Error removing responding officer:', error);
+      throw error;
+    }
+  }
+
+  // Get assigned crime reports for a police officer
+  static async getAssignedCrimeReports(officerId: string): Promise<CrimeReport[]> {
+    try {
+      console.log('Fetching assigned crime reports for officer:', officerId);
+      
+      // Get the officer's current assignment
+      const officerRef = ref(database, `police/police account/${officerId}/currentAssignment`);
+      const assignmentSnapshot = await get(officerRef);
+      
+      if (!assignmentSnapshot.exists()) {
+        console.log('No current assignment found for officer');
+        return [];
+      }
+      
+      const assignment = assignmentSnapshot.val();
+      const reportId = assignment.reportId;
+      
+      if (!reportId) {
+        console.log('No reportId in current assignment');
+        return [];
+      }
+      
+      // Get the specific crime report
+      const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      const reportSnapshot = await get(reportRef);
+      
+      if (!reportSnapshot.exists()) {
+        console.log('Assigned report not found:', reportId);
+        return [];
+      }
+      
+      const report = reportSnapshot.val();
+      const crimeReport: CrimeReport = {
+        crimeType: report.type || report.crimeType || 'Unknown',
+        dateTime: report.dateTime ? new Date(report.dateTime) : (report.dateReported ? new Date(report.dateReported) : new Date()),
+        description: report.description || '',
+        multimedia: report.multimedia || [],
+        location: {
+          latitude: report.coordinates?.latitude || report.location?.latitude || 0,
+          longitude: report.coordinates?.longitude || report.location?.longitude || 0,
+          address: report.location || report.location?.address || 'Unknown location'
+        },
+        anonymous: report.anonymous || false,
+        reporterName: report.reportedBy?.name || report.reporterName || 'Unknown',
+        reporterUid: report.reportedBy?.uid || report.reporterUid || '',
+        status: report.status || 'Unknown',
+        createdAt: report.dateReported || report.createdAt || new Date().toISOString(),
+        reportId: reportSnapshot.key || undefined,
+        severity: report.severity || 'Moderate',
+        upvotes: report.upvotes || 0,
+        downvotes: report.downvotes || 0,
+        userVotes: report.userVotes || {},
+        respondingOfficerId: report.respondingOfficerId,
+        respondingOfficerName: report.respondingOfficerName,
+        respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
+      };
+      
+      console.log('Found assigned report:', crimeReport);
+      return [crimeReport];
+    } catch (error) {
+      console.error('Error fetching assigned crime reports:', error);
       throw error;
     }
   }

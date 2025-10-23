@@ -6,12 +6,11 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Alert,
   Image,
 } from 'react-native';
 import { FirebaseService, CrimeReport, CivilianUser } from '../../services/firebaseService';
 import { database } from '../../firebaseConfig';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, get } from 'firebase/database';
 import { useAuth } from '../../services/authContext';
 
 interface PoliceCrimeListProps {
@@ -24,28 +23,27 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [actioningReportId, setActioningReportId] = useState<string | null>(null);
   const [userDetails, setUserDetails] = useState<{ [uid: string]: CivilianUser }>({});
 
-  const fetchUserDetails = useCallback(async (reports: CrimeReport[]) => {
-    const uniqueUids = [...new Set(reports.map(report => report.reporterUid))];
+  const fetchUserDetails = useCallback(async (reportsData: CrimeReport[]) => {
+    const uniqueUids = [...new Set(reportsData.map(report => report.reporterUid))];
     const userDetailsMap: { [uid: string]: CivilianUser } = {};
     
     for (const uid of uniqueUids) {
       try {
-        const userDetails = await FirebaseService.getCivilianUser(uid);
-        if (userDetails) {
-          userDetailsMap[uid] = userDetails;
+        const userDetailsData = await FirebaseService.getCivilianUser(uid);
+        if (userDetailsData) {
+          userDetailsMap[uid] = userDetailsData;
         }
-      } catch (error) {
-        console.error(`Error fetching user details for ${uid}:`, error);
+      } catch (fetchError) {
+        console.error(`Error fetching user details for ${uid}:`, fetchError);
       }
     }
     
     setUserDetails(userDetailsMap);
   }, []);
 
-  const loadAllReports = useCallback(async (isRefresh = false) => {
+  const loadAssignedReports = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
         setIsRefreshing(true);
@@ -54,16 +52,20 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
       }
       setError(null);
 
-      // Get all crime reports from Firebase
-      const allReports = await FirebaseService.getAllCrimeReports();
-      console.log('Loaded all crime reports for police:', allReports.length);
-      setReports(allReports);
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get assigned crime reports for the current police officer
+      const assignedReports = await FirebaseService.getAssignedCrimeReports(user.uid);
+      console.log('Loaded assigned crime reports for police:', assignedReports.length);
+      setReports(assignedReports);
       
       // Fetch user details for all reporters
-      await fetchUserDetails(allReports);
-    } catch (error) {
-      console.error('Error loading crime reports:', error);
-      setError('Failed to load crime reports');
+      await fetchUserDetails(assignedReports);
+    } catch (loadError) {
+      console.error('Error loading assigned crime reports:', loadError);
+      setError('Failed to load assigned crime reports');
     } finally {
       if (isRefresh) {
         setIsRefreshing(false);
@@ -71,139 +73,56 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
         setIsLoading(false);
       }
     }
-  }, [fetchUserDetails]);
+  }, [fetchUserDetails, user]);
 
   useEffect(() => {
-    loadAllReports();
+    if (!user) return;
     
-    // Set up real-time listener for all crime reports
-    const reportsRef = ref(database, 'civilian/civilian crime reports');
+    loadAssignedReports();
     
-    const handleReportsUpdate = (snapshot: any) => {
+    // Set up real-time listener for the police officer's current assignment
+    const assignmentRef = ref(database, `police/police account/${user.uid}/currentAssignment`);
+    
+    const handleAssignmentUpdate = async (snapshot: any) => {
       if (snapshot.exists()) {
-        const reportsData = snapshot.val();
-        const reportsArray = Object.keys(reportsData).map(key => ({
-          ...reportsData[key],
-          reportId: key,
-          dateTime: new Date(reportsData[key].dateTime),
-        }));
-        
-        // Sort by creation date (newest first)
-        const sortedReports = reportsArray.sort((a, b) => 
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        setReports(sortedReports);
-        // Also fetch user details when reports update
-        fetchUserDetails(sortedReports);
+        const assignment = snapshot.val();
+        if (assignment.reportId) {
+          // Get the assigned report
+          const reportRef = ref(database, `civilian/civilian crime reports/${assignment.reportId}`);
+          const reportSnapshot = await get(reportRef);
+          
+          if (reportSnapshot.exists()) {
+            const report = reportSnapshot.val();
+            const crimeReport: CrimeReport = {
+              ...report,
+              reportId: reportSnapshot.key || undefined,
+              dateTime: new Date(report.dateTime),
+            };
+            setReports([crimeReport]);
+            await fetchUserDetails([crimeReport]);
+          } else {
+            setReports([]);
+          }
+        } else {
+          setReports([]);
+        }
       } else {
         setReports([]);
       }
     };
     
-    onValue(reportsRef, handleReportsUpdate);
+    onValue(assignmentRef, handleAssignmentUpdate);
     
     // Cleanup listener on unmount
     return () => {
-      off(reportsRef, 'value', handleReportsUpdate);
+      off(assignmentRef, 'value', handleAssignmentUpdate);
     };
-  }, [loadAllReports, fetchUserDetails]);
+  }, [loadAssignedReports, fetchUserDetails, user]);
 
   const handleRefresh = () => {
-    loadAllReports(true);
+    loadAssignedReports(true);
   };
 
-  const handleRespondToReport = async (reportId: string) => {
-    if (!user) {
-      Alert.alert('Error', 'You must be logged in to respond to reports');
-      return;
-    }
-
-    try {
-      setActioningReportId(reportId);
-      
-      Alert.alert(
-        'Respond to Report',
-        'Do you want to become the responding officer for this crime report?',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-            onPress: () => setActioningReportId(null),
-          },
-          {
-            text: 'Respond',
-            onPress: async () => {
-              try {
-                const success = await FirebaseService.assignRespondingOfficer(reportId, user.uid);
-                if (success) {
-                  Alert.alert('Success', 'You are now the responding officer for this report');
-                  loadAllReports(true);
-                }
-              } catch (error: any) {
-                console.error('Error assigning officer:', error);
-                const errorMessage = error?.message || String(error) || 'Failed to assign officer';
-                Alert.alert('Error', errorMessage);
-              } finally{
-                setActioningReportId(null);
-              }
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('Error responding to report:', error);
-      const errorMessage = error?.message || String(error) || 'Failed to respond to report';
-      Alert.alert('Error', errorMessage);
-      setActioningReportId(null);
-    }
-  };
-
-  const handleCancelResponse = async (reportId: string) => {
-    if (!user) {
-      Alert.alert('Error', 'You must be logged in to cancel response');
-      return;
-    }
-
-    try {
-      setActioningReportId(reportId);
-      
-      Alert.alert(
-        'Cancel Response',
-        'Are you sure you want to cancel your response to this report?',
-        [
-          {
-            text: 'No',
-            style: 'cancel',
-            onPress: () => setActioningReportId(null),
-          },
-          {
-            text: 'Yes, Cancel',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                const success = await FirebaseService.removeRespondingOfficer(reportId, user.uid);
-                if (success) {
-                  Alert.alert('Success', 'You are no longer the responding officer for this report');
-                  loadAllReports(true);
-                }
-              } catch (error: any) {
-                console.error('Error removing officer:', error);
-                const errorMessage = error?.message || String(error) || 'Failed to remove officer';
-                Alert.alert('Error', errorMessage);
-              } finally {
-                setActioningReportId(null);
-              }
-            },
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('Error canceling response:', error);
-      const errorMessage = error?.message || String(error) || 'Failed to cancel response';
-      Alert.alert('Error', errorMessage);
-      setActioningReportId(null);
-    }
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -258,21 +177,12 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
     }
   };
 
-  const isCurrentOfficerResponding = (report: CrimeReport) => {
-    return user && report.respondingOfficerId === user.uid;
-  };
 
   const renderReportCard = ({ item }: { item: CrimeReport }) => {
-    const isResponding = isCurrentOfficerResponding(item);
-    const hasRespondingOfficer = !!item.respondingOfficerId;
-    const isActioning = actioningReportId === item.reportId;
 
     return (
       <TouchableOpacity
-        style={[
-          styles.reportCard,
-          isResponding && styles.respondingReportCard
-        ]}
+        style={styles.reportCard}
         onPress={() => onViewReport(item.reportId || '')}
         activeOpacity={0.7}
       >
@@ -321,22 +231,9 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
           </View>
         </View>
 
-        {/* Responding Officer Info */}
-        {hasRespondingOfficer && (
-          <View style={styles.respondingOfficerInfo}>
-            <Text style={styles.respondingOfficerLabel}>
-              {isResponding ? 'You are responding' : `${item.respondingOfficerName}`}
-            </Text>
-            {item.respondingOfficerBadgeNumber && !isResponding && (
-              <Text style={styles.respondingOfficerBadge}>
-                Badge: {item.respondingOfficerBadgeNumber}
-              </Text>
-            )}
-          </View>
-        )}
 
         {/* Always show reporter name for police - even if anonymous to civilians */}
-        {userDetails[item.reporterUid] ? (
+        {item.reporterUid && userDetails[item.reporterUid] ? (
           <Text style={styles.reporter}>
             Reported by: {userDetails[item.reporterUid].firstName} {userDetails[item.reporterUid].lastName}
             {item.anonymous && <Text style={styles.anonymousNote}> (Anonymous to public)</Text>}
@@ -347,41 +244,9 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
           </Text>
         )}
 
-        {/* Respond/Cancel Button */}
-        <View style={styles.actionButtonContainer}>
-          {isResponding ? (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.cancelButton]}
-              onPress={() => handleCancelResponse(item.reportId || '')}
-              disabled={isActioning}
-            >
-              {isActioning ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Text style={styles.actionButtonText}>Cancel Response</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : !hasRespondingOfficer ? (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.respondButton]}
-              onPress={() => handleRespondToReport(item.reportId || '')}
-              disabled={isActioning}
-            >
-              {isActioning ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <Text style={styles.actionButtonText}>Respond to Report</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.actionButton, styles.assignedButton]}>
-              <Text style={styles.actionButtonText}>Already Assigned</Text>
-            </View>
-          )}
+        {/* Assigned Report Indicator */}
+        <View style={styles.assignedIndicator}>
+          <Text style={styles.assignedText}>✓ Assigned to You</Text>
         </View>
       </TouchableOpacity>
     );
@@ -391,7 +256,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2d3480" />
-        <Text style={styles.loadingText}>Loading crime reports...</Text>
+        <Text style={styles.loadingText}>Loading assigned crime reports...</Text>
       </View>
     );
   }
@@ -400,7 +265,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => loadAllReports()}>
+        <TouchableOpacity style={styles.retryButton} onPress={() => loadAssignedReports()}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -410,9 +275,9 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
   if (reports.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No crime reports yet</Text>
+        <Text style={styles.emptyText}>No assigned crime reports</Text>
         <Text style={styles.emptySubtext}>
-          Crime reports from civilians will appear here
+          Crime reports assigned to you will appear here
         </Text>
       </View>
     );
@@ -459,11 +324,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 5,
-  },
-  respondingReportCard: {
-    borderColor: '#3B82F6',
-    borderWidth: 2,
-    backgroundColor: '#1A2A3A',
   },
   cardHeader: {
     marginBottom: 12,
@@ -550,24 +410,6 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
     fontWeight: '500',
   },
-  respondingOfficerInfo: {
-    backgroundColor: '#1A2A3A',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3B82F6',
-  },
-  respondingOfficerLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#60A5FA',
-  },
-  respondingOfficerBadge: {
-    fontSize: 11,
-    color: '#93C5FD',
-    marginTop: 2,
-  },
   reporter: {
     fontSize: 12,
     color: '#808080',
@@ -580,27 +422,15 @@ const styles = StyleSheet.create({
     color: '#A0A0A0',
     fontStyle: 'normal',
   },
-  actionButtonContainer: {
+  assignedIndicator: {
+    backgroundColor: '#10B981',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
     marginTop: 12,
-  },
-  actionButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
   },
-  respondButton: {
-    backgroundColor: '#2d3480',
-  },
-  cancelButton: {
-    backgroundColor: '#EF4444',
-  },
-  assignedButton: {
-    backgroundColor: '#9CA3AF',
-  },
-  actionButtonText: {
+  assignedText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
