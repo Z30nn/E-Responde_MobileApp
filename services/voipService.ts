@@ -657,30 +657,59 @@ export class VoIPService {
   setSpeakerMode(enabled: boolean): void {
     try {
       if (enabled) {
+        // Enable loudspeaker for hands-free mode
         InCallManager.setForceSpeakerphoneOn(true);
         InCallManager.setSpeakerphoneOn(true);
-        console.log('Speaker mode enabled');
+        console.log('Speaker mode enabled - Audio routed to loudspeaker');
       } else {
+        // Disable loudspeaker for earpiece mode
         InCallManager.setForceSpeakerphoneOn(false);
         InCallManager.setSpeakerphoneOn(false);
-        console.log('Speaker mode disabled');
+        console.log('Speaker mode disabled - Audio routed to earpiece');
       }
     } catch (error) {
       console.error('Error setting speaker mode:', error);
     }
   }
 
-  toggleSpeaker(): boolean {
-    try {
-      // Get current speaker state and toggle it
-      InCallManager.getIsSpeakerphoneOn((isSpeakerOn: boolean) => {
-        this.setSpeakerMode(!isSpeakerOn);
-      });
-      return true;
-    } catch (error) {
-      console.error('Error toggling speaker:', error);
-      return false;
-    }
+  toggleSpeaker(): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        console.log('🔊 VoIPService: toggleSpeaker called');
+        // Get current speaker state and toggle it
+        InCallManager.getIsSpeakerphoneOn((isSpeakerOn: boolean) => {
+          console.log('🔊 VoIPService: Current speaker state:', isSpeakerOn);
+          const newSpeakerState = !isSpeakerOn;
+          console.log('🔊 VoIPService: Setting speaker to:', newSpeakerState);
+          this.setSpeakerMode(newSpeakerState);
+          
+          // Verify the change was applied
+          setTimeout(() => {
+            InCallManager.getIsSpeakerphoneOn((actualState: boolean) => {
+              console.log(`🔊 VoIPService: Speaker toggle: ${isSpeakerOn} -> ${actualState}`);
+              resolve(actualState === newSpeakerState);
+            });
+          }, 100);
+        });
+      } catch (error) {
+        console.error('🔊 VoIPService: Error toggling speaker:', error);
+        resolve(false);
+      }
+    });
+  }
+
+  // Get current speaker state
+  getSpeakerState(): Promise<boolean> {
+    return new Promise((resolve) => {
+      try {
+        InCallManager.getIsSpeakerphoneOn((isSpeakerOn: boolean) => {
+          resolve(isSpeakerOn);
+        });
+      } catch (error) {
+        console.error('Error getting speaker state:', error);
+        resolve(false);
+      }
+    });
   }
 
   // Get current mute status

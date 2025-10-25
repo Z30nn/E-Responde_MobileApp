@@ -14,6 +14,7 @@ import { useTheme, colors, fontSizes } from '../../../../services/themeContext';
 import { useLanguage } from '../../../../services/languageContext';
 import { FirebaseService } from '../../../../services/firebaseService';
 import { EmergencyContactsService } from '../../../../services/emergencyContactsService';
+import GeocodingService from '../../../../services/geocodingService';
 import SOSAlertsHistory from '../../../../components/sos-alerts-history';
 import Geolocation from '@react-native-community/geolocation';
 import { createStyles } from './styles';
@@ -197,55 +198,16 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
             };
 
             try {
-              const locationPromise = new Promise<{latitude: number, longitude: number, address: string}>((resolve, reject) => {
+              // First, capture location coordinates quickly
+              const locationPromise = new Promise<{latitude: number, longitude: number}>((resolve, reject) => {
                 console.log('SOS Report: Starting location capture...');
 
                 Geolocation.getCurrentPosition(
-                  async (position: any) => {
+                  (position: any) => {
                     console.log('SOS Report: Position received:', position);
                     const { latitude, longitude } = position.coords;
                     console.log('SOS Report: Coordinates - Lat:', latitude, 'Lng:', longitude);
-
-                    // Use reverse geocoding to get address
-                    let address = 'Location not available';
-                    try {
-                      console.log('SOS Report: Starting reverse geocoding...');
-                      const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-                        {
-                          headers: {
-                            'User-Agent': 'E-Responde-MobileApp/1.0',
-                            'Accept': 'application/json',
-                          },
-                        }
-                      );
-
-                      if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                      }
-
-                      const data = await response.json();
-                      console.log('SOS Report: Geocoding response:', data);
-                      if (data && data.display_name) {
-                        address = data.display_name;
-                        console.log('SOS Report: Address found:', address);
-                      } else {
-                        address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                        console.log('SOS Report: Using coordinate fallback:', address);
-                      }
-                    } catch (geocodeError) {
-                      console.log('SOS Report: Reverse geocoding failed:', geocodeError);
-                      address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                      console.log('SOS Report: Using coordinate fallback after error:', address);
-                    }
-
-                    const locationData = {
-                      latitude,
-                      longitude,
-                      address
-                    };
-                    console.log('SOS Report: Resolving with location data:', locationData);
-                    resolve(locationData);
+                    resolve({ latitude, longitude });
                   },
                   (error: any) => {
                     console.log('SOS Report: Location error:', error);
@@ -255,24 +217,48 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
                   },
                   {
                     enableHighAccuracy: false,
-                    timeout: 10000,
+                    timeout: 8000, // Reduced timeout for faster capture
                     maximumAge: 30000
                   }
                 );
               });
 
-              console.log('SOS Report: Waiting for location with 10 second timeout...');
-              sosLocation = await Promise.race([
+              console.log('SOS Report: Waiting for location with 8 second timeout...');
+              const coordinates = await Promise.race([
                 locationPromise,
-                new Promise<{latitude: number, longitude: number, address: string}>((_, reject) =>
+                new Promise<{latitude: number, longitude: number}>((_, reject) =>
                   setTimeout(() => {
-                    console.log('SOS Report: Location timeout after 10 seconds');
+                    console.log('SOS Report: Location timeout after 8 seconds');
                     reject(new Error('Location timeout'));
-                  }, 10000)
+                  }, 8000)
                 )
               ]);
 
-              console.log('SOS Report: Location captured successfully:', sosLocation);
+              console.log('SOS Report: Location captured successfully:', coordinates);
+
+              // Now do reverse geocoding with improved service
+              console.log('SOS Report: Starting reverse geocoding...');
+              const geocodingResult = await GeocodingService.reverseGeocode(
+                coordinates.latitude, 
+                coordinates.longitude
+              );
+              
+              const address = geocodingResult.address;
+              console.log('SOS Report: Geocoding result:', {
+                address,
+                success: geocodingResult.success,
+                source: geocodingResult.source,
+                error: geocodingResult.error
+              });
+
+              // Create final location object
+              sosLocation = {
+                latitude: coordinates.latitude,
+                longitude: coordinates.longitude,
+                address: address
+              };
+
+              console.log('SOS Report: Final location data:', sosLocation);
 
               if (sosLocation.latitude === 0 && sosLocation.longitude === 0) {
                 console.log('SOS Report: WARNING - Location is still 0,0 - this indicates a problem');

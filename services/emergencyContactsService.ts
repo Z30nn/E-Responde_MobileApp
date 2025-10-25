@@ -2,6 +2,7 @@ import { ref, set, get, remove, push, update, query, orderByChild, equalTo } fro
 import { database } from '../firebaseConfig';
 import { EmergencyContact, CreateEmergencyContactData, UpdateEmergencyContactData } from './types/emergency-types';
 import { FirebaseService } from './firebaseService';
+import GeocodingService from './geocodingService';
 import Geolocation from '@react-native-community/geolocation';
 
 export class EmergencyContactsService {
@@ -532,72 +533,57 @@ export class EmergencyContactsService {
       // Get user's current location (if available)
       let userLocation = null;
       try {
-        // Get current position with timeout (same approach as working crime reports)
-        const locationPromise = new Promise((resolve, reject) => {
+        // First, capture location coordinates quickly
+        const locationPromise = new Promise<{latitude: number, longitude: number}>((resolve, reject) => {
           Geolocation.getCurrentPosition(
-            async (position) => {
+            (position) => {
               const { latitude, longitude } = position.coords;
-              
-              // Use reverse geocoding to get address (same as working crime reports)
-              let address = 'Location not available';
-              try {
-                console.log('EmergencyContactsService: Starting reverse geocoding...');
-                const response = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-                  {
-                    headers: {
-                      'User-Agent': 'E-Responde-MobileApp/1.0',
-                      'Accept': 'application/json',
-                    },
-                  }
-                );
-                
-                if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('EmergencyContactsService: Geocoding response:', data);
-                if (data && data.display_name) {
-                  address = data.display_name;
-                  console.log('EmergencyContactsService: Address found:', address);
-                } else {
-                  // Fallback to coordinates if no address found
-                  address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                  console.log('EmergencyContactsService: Using coordinate fallback:', address);
-                }
-              } catch (geocodeError) {
-                console.log('EmergencyContactsService: Reverse geocoding failed:', geocodeError);
-                // Fallback to coordinates on error
-                address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                console.log('EmergencyContactsService: Using coordinate fallback after error:', address);
-              }
-              
-              resolve({
-                latitude,
-                longitude,
-                address
-              });
+              console.log('EmergencyContactsService: Location captured - Lat:', latitude, 'Lng:', longitude);
+              resolve({ latitude, longitude });
             },
             (error) => {
-              console.log('Location error:', error);
+              console.log('EmergencyContactsService: Location error:', error);
               reject(error);
             },
-                   {
-                     enableHighAccuracy: false, // Same as working crime reports
-                     timeout: 10000, // Same as working crime reports
-                     maximumAge: 30000 // Same as working crime reports
-                   }
+            {
+              enableHighAccuracy: false,
+              timeout: 8000, // Reduced timeout for faster capture
+              maximumAge: 30000
+            }
           );
         });
         
-        // Wait for location with same timeout as working crime reports
-        userLocation = await Promise.race([
+        // Wait for location with reduced timeout
+        const coordinates = await Promise.race([
           locationPromise,
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Location timeout')), 10000)
+          new Promise<{latitude: number, longitude: number}>((_, reject) => 
+            setTimeout(() => reject(new Error('Location timeout')), 8000)
           )
         ]);
+
+        console.log('EmergencyContactsService: Location captured successfully:', coordinates);
+
+        // Now do reverse geocoding with improved service
+        console.log('EmergencyContactsService: Starting reverse geocoding...');
+        const geocodingResult = await GeocodingService.reverseGeocode(
+          coordinates.latitude, 
+          coordinates.longitude
+        );
+        
+        const address = geocodingResult.address;
+        console.log('EmergencyContactsService: Geocoding result:', {
+          address,
+          success: geocodingResult.success,
+          source: geocodingResult.source,
+          error: geocodingResult.error
+        });
+
+        // Create final location object
+        userLocation = {
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          address: address
+        };
         
         console.log('SOS Alert: Location captured:', userLocation);
         console.log('SOS Alert: Location details - Lat:', userLocation.latitude, 'Lng:', userLocation.longitude, 'Address:', userLocation.address);

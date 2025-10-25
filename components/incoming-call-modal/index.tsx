@@ -8,6 +8,7 @@ import {
   Animated,
   Alert,
   Vibration,
+  Image,
 } from 'react-native';
 import { CallData } from '../../services/voipService';
 import VoIPService from '../../services/voipService';
@@ -109,8 +110,8 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
 
             <Text style={styles.callerName}>{callData.caller.name}</Text>
             <Text style={styles.callerType}>
-              {callData.caller.userType === 'police' ? '👮 Police Officer' : 
-               callData.caller.userType === 'admin' ? '👨‍💼 Admin' : '👤 Civilian'}
+              {callData.caller.userType === 'police' ? 'Police Officer' : 
+               callData.caller.userType === 'admin' ? 'Admin' : 'Civilian'}
             </Text>
 
             {callData.reportId && (
@@ -132,7 +133,11 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
               onPress={handleReject}
               disabled={isAnswering}
             >
-              <Text style={styles.actionIcon}>📞</Text>
+              <Image
+                source={require('../../assets/endcall.png')}
+                style={styles.actionIcon}
+                resizeMode="contain"
+              />
               <Text style={styles.actionText}>Decline</Text>
             </TouchableOpacity>
 
@@ -142,7 +147,11 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
               onPress={handleAccept}
               disabled={isAnswering}
             >
-              <Text style={styles.actionIcon}>📞</Text>
+              <Image
+                source={require('../../assets/answercall.png')}
+                style={styles.actionIcon}
+                resizeMode="contain"
+              />
               <Text style={styles.actionText}>{isAnswering ? 'Connecting...' : 'Accept'}</Text>
             </TouchableOpacity>
           </View>
@@ -254,8 +263,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981',
   },
   actionIcon: {
-    fontSize: 50,
+    width: 50,
+    height: 50,
     marginBottom: 10,
+    tintColor: '#FFFFFF',
   },
   actionText: {
     fontSize: 16,

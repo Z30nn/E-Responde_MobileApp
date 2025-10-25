@@ -78,6 +78,18 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
       const muteState = VoIPService.isMicrophoneMuted();
       setIsMuted(muteState);
 
+      // Initialize speaker state
+      const initializeSpeakerState = async () => {
+        try {
+          const speakerState = await VoIPService.getSpeakerState();
+          setIsSpeakerOn(speakerState);
+          console.log('Initialized speaker state:', speakerState);
+        } catch (error) {
+          console.error('Error initializing speaker state:', error);
+        }
+      };
+      initializeSpeakerState();
+
       // Initialize InCallManager for speaker control
       try {
         InCallManager.start({ media: 'audio' });
@@ -135,9 +147,25 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
     setIsMuted(!newMuteState); // newMuteState is true if unmuted, so we want the opposite for isMuted state
   };
 
-  const handleSpeakerToggle = () => {
-    VoIPService.toggleSpeaker();
-    setIsSpeakerOn(!isSpeakerOn);
+  const handleSpeakerToggle = async () => {
+    try {
+      console.log('🎤 Speaker button pressed! Current state:', isSpeakerOn);
+      console.log('🎤 Attempting to toggle speaker...');
+      
+      const success = await VoIPService.toggleSpeaker();
+      console.log('🎤 Speaker toggle result:', success);
+      
+      if (success) {
+        // Update UI state to reflect the actual speaker state
+        const actualSpeakerState = await VoIPService.getSpeakerState();
+        setIsSpeakerOn(actualSpeakerState);
+        console.log('🎤 Speaker toggled successfully, new state:', actualSpeakerState);
+      } else {
+        console.warn('🎤 Speaker toggle failed, keeping current state');
+      }
+    } catch (error) {
+      console.error('🎤 Error toggling speaker:', error);
+    }
   };
 
   // Safety check - if otherUser data is not available, don't render
@@ -200,7 +228,13 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
             <View style={styles.speakerButtonContainer}>
               <TouchableOpacity
                 style={[styles.speakerButton, isSpeakerOn && styles.speakerButtonActive]}
-                onPress={handleSpeakerToggle}
+                onPress={() => {
+                  console.log('🎤 TouchableOpacity onPress triggered!');
+                  handleSpeakerToggle();
+                }}
+                activeOpacity={0.7}
+                disabled={false}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Image
                   source={require('../../assets/mic.png')}
@@ -208,7 +242,9 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
                   resizeMode="contain"
                 />
               </TouchableOpacity>
-              <Text style={styles.speakerButtonLabel}>Speaker</Text>
+              <Text style={styles.speakerButtonLabel}>
+                {isSpeakerOn ? 'Loudspeaker' : 'Earpiece'}
+              </Text>
             </View>
           </View>
 
