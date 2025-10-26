@@ -61,8 +61,8 @@
         <!-- 🌍 Google Maps API Key -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBMy0IwuHbBk7PSE_sqGBbwpfazgqAHKwc" />
-
+            android:value="AIzaSyAuORkRy3Zra8wtkQoqtkE1ToYacgJ5auo" />
+        
         <!-- 🚨 Default Notification Channel for FCM -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
