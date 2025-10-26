@@ -49,13 +49,16 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
         
         console.log('AssignmentProvider: currentAssignment:', policeData.currentAssignment);
         
-        // Check if there's a current assignment
+        // Check if there's a current assignment and police is available (not dispatched)
         const hasAssignment = policeData.currentAssignment && policeData.currentAssignment.reportId;
+        const isAvailable = policeData.status === 'Available';
         
         console.log('AssignmentProvider: hasAssignment:', hasAssignment);
+        console.log('AssignmentProvider: police status:', policeData.status);
+        console.log('AssignmentProvider: isAvailable:', isAvailable);
         console.log('AssignmentProvider: assignment reportId:', policeData.currentAssignment?.reportId);
         
-        if (hasAssignment) {
+        if (hasAssignment && isAvailable) {
           const reportId = policeData.currentAssignment.reportId;
           console.log('AssignmentProvider: New assignment detected:', reportId);
           
@@ -73,7 +76,11 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
             console.error('AssignmentProvider: Error fetching crime report:', error);
           }
         } else {
-          console.log('AssignmentProvider: No current assignment');
+          if (hasAssignment && !isAvailable) {
+            console.log('AssignmentProvider: Has assignment but police is already dispatched - not showing modal');
+          } else {
+            console.log('AssignmentProvider: No current assignment');
+          }
           setCurrentAssignment(null);
           setShowAssignmentModal(false);
         }
