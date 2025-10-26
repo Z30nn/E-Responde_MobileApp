@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FC } from 'react';
+import React, { useState, useEffect, useCallback, FC } from 'react';
 import {
   View,
   Text,
@@ -18,110 +18,70 @@ const CrimeReportMap: FC<CrimeReportMapProps> = ({ reportId, crimeLocation, onCl
   const [eta, setEta] = useState<number | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [mapRegion, setMapRegion] = useState({
+  const [mapRegion] = useState({
     latitude: crimeLocation.latitude,
     longitude: crimeLocation.longitude,
     latitudeDelta: 0.01,
     longitudeDelta: 0.01,
   });
 
-  useEffect(() => {
-    loadRespondingOfficer();
-    // Set up real-time updates for the responding officer location
-    const interval = setInterval(loadRespondingOfficer, 5000); // Update every 5 seconds
-    return () => clearInterval(interval);
-  }, [reportId]);
+  // Decode Google Maps polyline to coordinates
+  const decodePolyline = useCallback((encoded: string): RouteCoordinate[] => {
+    const poly: RouteCoordinate[] = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0;
+    let lng = 0;
 
-  const loadRespondingOfficer = async () => {
-    try {
-      console.log('🔍 Loading responding officer for report:', reportId);
-      // Get the crime report to find the responding officer
-      const { FirebaseService } = await import('../../services/firebaseService');
-      const report = await FirebaseService.getCrimeReport(reportId);
-      
-      if (!report) {
-        console.log('❌ No report found for ID:', reportId);
-        setPoliceLocation(null);
-        setRouteCoordinates([]);
-        setEta(null);
-        setDistance(null);
-        setIsLoading(false);
-        return;
-      }
+    while (index < len) {
+      let b;
+      let shift = 0;
+      let result = 0;
 
-      if (!report.respondingOfficerId) {
-        console.log('ℹ️ No responding officer assigned yet for report:', reportId);
-        setPoliceLocation(null);
-        setRouteCoordinates([]);
-        setEta(null);
-        setDistance(null);
-        setIsLoading(false);
-        return;
-      }
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
 
-      console.log('👮 Found responding officer ID:', report.respondingOfficerId);
-      // Get the responding officer's data
-      const officer = await FirebaseService.getPoliceUser(report.respondingOfficerId);
-      
-      if (!officer) {
-        console.log('❌ Officer not found with ID:', report.respondingOfficerId);
-        setPoliceLocation(null);
-        setRouteCoordinates([]);
-        setEta(null);
-        setDistance(null);
-        setIsLoading(false);
-        return;
-      }
+      const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lat += dlat;
 
-      if (!officer.currentLocation) {
-        console.log('❌ Officer location not available for officer:', officer.uid);
-        setPoliceLocation(null);
-        setRouteCoordinates([]);
-        setEta(null);
-        setDistance(null);
-        setIsLoading(false);
-        return;
-      }
+      shift = 0;
+      result = 0;
 
-      const officerName = officer.firstName && officer.lastName 
-        ? `${officer.firstName} ${officer.lastName}` 
-        : officer.badgeNumber 
-          ? `Officer ${officer.badgeNumber}` 
-          : 'Police Officer';
+      do {
+        b = encoded.charCodeAt(index++) - 63;
+        result |= (b & 0x1f) << shift;
+        shift += 5;
+      } while (b >= 0x20);
 
-      const location: PoliceLocation = {
-        id: officer.uid,
-        latitude: officer.currentLocation.latitude,
-        longitude: officer.currentLocation.longitude,
-        name: officerName,
-        badgeNumber: officer.badgeNumber,
-        lastUpdated: officer.currentLocation.lastUpdated,
-      };
+      const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+      lng += dlng;
 
-      console.log('✅ Setting police location:', location);
-      setPoliceLocation(location);
-
-      // Fetch route from OSRM API
-      console.log('🗺️ Fetching route from officer to crime location...');
-      await fetchRoute(
-        officer.currentLocation.latitude,
-        officer.currentLocation.longitude,
-        crimeLocation.latitude,
-        crimeLocation.longitude
-      );
-
-    } catch (error) {
-      console.error('❌ Error loading responding officer:', error);
-      setPoliceLocation(null);
-      setRouteCoordinates([]);
-      setEta(null);
-      setDistance(null);
-    } finally {
-      setIsLoading(false);
+      poly.push({
+        latitude: lat / 1e5,
+        longitude: lng / 1e5,
+      });
     }
-  };
 
-  const fetchRoute = async (
+    return poly;
+  }, []);
+
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radius of the Earth in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distanceCalc = R * c;
+    return parseFloat(distanceCalc.toFixed(2));
+  }, []);
+
+  const fetchRoute = useCallback(async (
     originLat: number,
     originLng: number,
     destLat: number,
@@ -187,65 +147,97 @@ const CrimeReportMap: FC<CrimeReportMapProps> = ({ reportId, crimeLocation, onCl
       const estimatedMinutes = Math.ceil((straightLineDistance / 40) * 60);
       setEta(estimatedMinutes);
       
-      console.log('📏 Fallback straight line distance:', straightLineDistance, 'km, ETA:', estimatedMinutes, 'min');
     }
-  };
+  }, [decodePolyline, calculateDistance]);
 
-  // Decode Google Maps polyline to coordinates
-  const decodePolyline = (encoded: string): RouteCoordinate[] => {
-    const poly: RouteCoordinate[] = [];
-    let index = 0;
-    const len = encoded.length;
-    let lat = 0;
-    let lng = 0;
+  const loadRespondingOfficer = useCallback(async () => {
+    try {
+      // Get the crime report to find the responding officer
+      const { FirebaseService } = await import('../../services/firebaseService');
+      const report = await FirebaseService.getCrimeReport(reportId);
+      
+      if (!report) {
+        setPoliceLocation(null);
+        setRouteCoordinates([]);
+        setEta(null);
+        setDistance(null);
+        setIsLoading(false);
+        return;
+      }
 
-    while (index < len) {
-      let b;
-      let shift = 0;
-      let result = 0;
+      if (!report.respondingOfficerId) {
+        setPoliceLocation(null);
+        setRouteCoordinates([]);
+        setEta(null);
+        setDistance(null);
+        setIsLoading(false);
+        return;
+      }
 
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
+      // Get the responding officer's data
+      const officer = await FirebaseService.getPoliceUser(report.respondingOfficerId);
+      
+      if (!officer) {
+        setPoliceLocation(null);
+        setRouteCoordinates([]);
+        setEta(null);
+        setDistance(null);
+        setIsLoading(false);
+        return;
+      }
 
-      const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-      lat += dlat;
+      if (!officer.currentLocation) {
+        setPoliceLocation(null);
+        setRouteCoordinates([]);
+        setEta(null);
+        setDistance(null);
+        setIsLoading(false);
+        return;
+      }
 
-      shift = 0;
-      result = 0;
+      const officerName = officer.firstName && officer.lastName 
+        ? `${officer.firstName} ${officer.lastName}` 
+        : officer.badgeNumber 
+          ? `Officer ${officer.badgeNumber}` 
+          : 'Police Officer';
 
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
+      const location: PoliceLocation = {
+        id: officer.uid,
+        latitude: officer.currentLocation.latitude,
+        longitude: officer.currentLocation.longitude,
+        name: officerName,
+        badgeNumber: officer.badgeNumber,
+        lastUpdated: officer.currentLocation.lastUpdated,
+      };
 
-      const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-      lng += dlng;
+      setPoliceLocation(location);
 
-      poly.push({
-        latitude: lat / 1e5,
-        longitude: lng / 1e5,
-      });
+      // Fetch route from OSRM API
+      await fetchRoute(
+        officer.currentLocation.latitude,
+        officer.currentLocation.longitude,
+        crimeLocation.latitude,
+        crimeLocation.longitude
+      );
+
+    } catch (error) {
+      console.error('Error loading responding officer:', error);
+      setPoliceLocation(null);
+      setRouteCoordinates([]);
+      setEta(null);
+      setDistance(null);
+    } finally {
+      setIsLoading(false);
     }
+  }, [reportId, crimeLocation.latitude, crimeLocation.longitude, fetchRoute]);
 
-    return poly;
-  };
+  useEffect(() => {
+    loadRespondingOfficer();
+    // Set up real-time updates for the responding officer location
+    const interval = setInterval(loadRespondingOfficer, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, [reportId, loadRespondingOfficer]);
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of the Earth in kilometers
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distanceCalc = R * c;
-    return parseFloat(distanceCalc.toFixed(2));
-  };
 
   if (isLoading) {
     return (
@@ -256,14 +248,8 @@ const CrimeReportMap: FC<CrimeReportMapProps> = ({ reportId, crimeLocation, onCl
     );
   }
 
-  console.log('🗺️ Rendering map with data:', {
-    crimeLocation,
-    policeLocation,
-    routeCoordinates: routeCoordinates.length,
-    eta,
-    distance,
-    isLoading
-  });
+
+
 
   return (
     <View style={styles(theme).container}>
@@ -280,12 +266,13 @@ const CrimeReportMap: FC<CrimeReportMapProps> = ({ reportId, crimeLocation, onCl
       <View style={styles(theme).mapContainer}>
         <MapView
           style={styles(theme).map}
-          region={mapRegion}
+          initialRegion={mapRegion}
           showsUserLocation={true}
           showsMyLocationButton={true}
           mapType={isDarkMode ? 'satellite' : 'standard'}
+          onMapReady={() => setIsLoading(false)}
         >
-          {/* Crime Location Marker - Always show */}
+          {/* Crime Location Marker */}
           <Marker
             coordinate={{
               latitude: crimeLocation.latitude,
@@ -299,7 +286,7 @@ const CrimeReportMap: FC<CrimeReportMapProps> = ({ reportId, crimeLocation, onCl
             </View>
           </Marker>
 
-          {/* Police Officer Marker - Only if officer is assigned */}
+          {/* Police Officer Marker */}
           {policeLocation && (
             <Marker
               coordinate={{
@@ -315,7 +302,7 @@ const CrimeReportMap: FC<CrimeReportMapProps> = ({ reportId, crimeLocation, onCl
             </Marker>
           )}
 
-          {/* Route Polyline - Only if officer is assigned */}
+          {/* Route Polyline */}
           {policeLocation && routeCoordinates.length > 0 && (
             <Polyline
               coordinates={routeCoordinates}

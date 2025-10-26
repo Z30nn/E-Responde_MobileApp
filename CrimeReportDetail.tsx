@@ -15,7 +15,7 @@ import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useAuth } from './services/authContext';
 import { useVoIP } from './services/voipContext';
-import CrimeReportMap from './CrimeReportMap';
+import CrimeReportMap from './components/crime-report-map';
 import PoliceCrimeReportMap from './components/police-crime-map';
 import VoIPService, { CallData } from './services/voipService';
 
