@@ -57,6 +57,15 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
       // Remove currentAssignment from police account
       await FirebaseService.removeCurrentAssignment(user.uid);
       
+      // Update crime report: status = "Pending", assignmentStatus = "Declined"
+      if (crimeReport?.reportId) {
+        await FirebaseService.updateAssignmentStatus(
+          crimeReport.reportId,
+          'Pending',
+          'Declined'
+        );
+      }
+      
       // Call the timeout callback
       onTimeout(crimeReport?.reportId || '');
     } catch (error) {
@@ -108,6 +117,13 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
       // Update police status to Dispatched
       await FirebaseService.updatePoliceStatus(user.uid, 'Dispatched');
       
+      // Update crime report: status = "Dispatched", assignmentStatus = "Confirmed"
+      await FirebaseService.updateAssignmentStatus(
+        crimeReport.reportId || '',
+        'Dispatched',
+        'Confirmed'
+      );
+      
       // Call the accept callback
       onAccept(crimeReport.reportId || '');
       
@@ -132,6 +148,13 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
       
       // Remove currentAssignment from police account
       await FirebaseService.removeCurrentAssignment(user.uid);
+      
+      // Update crime report: status = "Pending", assignmentStatus = "Declined"
+      await FirebaseService.updateAssignmentStatus(
+        crimeReport.reportId || '',
+        'Pending',
+        'Declined'
+      );
       
       // Call the decline callback
       onDecline(crimeReport.reportId || '');

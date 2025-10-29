@@ -73,6 +73,7 @@ export interface CrimeReport {
   respondingOfficerId?: string;
   respondingOfficerName?: string;
   respondingOfficerBadgeNumber?: string;
+  assignmentStatus?: 'Pending Confirmation' | 'Declined' | 'Confirmed';
 }
 
 export class FirebaseService {
@@ -846,6 +847,45 @@ export class FirebaseService {
     }
   }
 
+  // Update assignment status and report status (used when police accepts/declines/timeout)
+  static async updateAssignmentStatus(reportId: string, status: string, assignmentStatus: 'Declined' | 'Confirmed'): Promise<boolean> {
+    try {
+      console.log('FirebaseService: Updating assignment status:', reportId, 'status:', status, 'assignmentStatus:', assignmentStatus);
+      
+      // Update in main civilian crime reports collection
+      const crimeReportsRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      const reportSnapshot = await get(crimeReportsRef);
+      
+      if (!reportSnapshot.exists()) {
+        console.error('FirebaseService: Report not found:', reportId);
+        return false;
+      }
+      
+      const reportData = reportSnapshot.val();
+      
+      // Update both status and assignmentStatus
+      await update(crimeReportsRef, {
+        status: status,
+        assignmentStatus: assignmentStatus,
+        statusUpdatedAt: new Date().toISOString(),
+      });
+      
+      // Update in user's personal crime reports collection
+      const userCrimeReportsRef = ref(database, `civilian/civilian account/${reportData.reporterUid}/crime reports/${reportId}`);
+      await update(userCrimeReportsRef, {
+        status: status,
+        assignmentStatus: assignmentStatus,
+        statusUpdatedAt: new Date().toISOString(),
+      });
+      
+      console.log('FirebaseService: Assignment status updated successfully');
+      return true;
+    } catch (error) {
+      console.error('FirebaseService: Error updating assignment status:', error);
+      throw error;
+    }
+  }
+
   // Update crime report status and notify the reporter
   static async updateCrimeReportStatus(reportId: string, newStatus: string, updatedBy?: string): Promise<boolean> {
     try {
@@ -1036,7 +1076,8 @@ export class FirebaseService {
           userVotes: report.userVotes || {},
           respondingOfficerId: respondingOfficerId,
           respondingOfficerName: report.respondingOfficerName,
-          respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
+          respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber,
+          assignmentStatus: report.assignmentStatus
         };
         return crimeReport;
       }
@@ -1310,7 +1351,8 @@ export class FirebaseService {
         respondingOfficerId: officerId,
         respondingOfficerName: officerName,
         respondingOfficerBadgeNumber: policeUser.badgeNumber || '',
-        status: 'in progress'
+        status: 'Assigned',
+        assignmentStatus: 'Pending Confirmation'
       });
       
       // Update in user's personal crime reports collection
@@ -1319,7 +1361,8 @@ export class FirebaseService {
         respondingOfficerId: officerId,
         respondingOfficerName: officerName,
         respondingOfficerBadgeNumber: policeUser.badgeNumber || '',
-        status: 'in progress'
+        status: 'Assigned',
+        assignmentStatus: 'Pending Confirmation'
       });
       
       console.log(`Successfully assigned officer ${officerId} to report ${reportId}`);
