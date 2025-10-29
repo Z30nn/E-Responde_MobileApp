@@ -969,11 +969,16 @@ export class FirebaseService {
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
         snapshot.forEach((childSnapshot) => {
-          const report = childSnapshot.val() as CrimeReport;
+          const report = childSnapshot.val() as any;
+          
+          // Extract respondingOfficerId from dispatchInfo.unit if available
+          const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+          
           reports.push({
             ...report,
             reportId: childSnapshot.key,
             dateTime: new Date(report.dateTime),
+            respondingOfficerId: respondingOfficerId,
           });
         });
         
@@ -1003,6 +1008,10 @@ export class FirebaseService {
       
       if (snapshot.exists()) {
         const report = snapshot.val();
+        
+        // Extract respondingOfficerId from dispatchInfo.unit if available
+        const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+        
         const crimeReport: CrimeReport = {
           crimeType: report.type || report.crimeType || 'Unknown',
           dateTime: report.dateTime ? new Date(report.dateTime) : (report.dateReported ? new Date(report.dateReported) : new Date()),
@@ -1025,7 +1034,7 @@ export class FirebaseService {
           upvotes: report.upvotes || 0,
           downvotes: report.downvotes || 0,
           userVotes: report.userVotes || {},
-          respondingOfficerId: report.respondingOfficerId,
+          respondingOfficerId: respondingOfficerId,
           respondingOfficerName: report.respondingOfficerName,
           respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
         };
@@ -1053,11 +1062,16 @@ export class FirebaseService {
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
         snapshot.forEach((childSnapshot) => {
-          const report = childSnapshot.val() as CrimeReport;
+          const report = childSnapshot.val() as any;
+          
+          // Extract respondingOfficerId from dispatchInfo.unit if available
+          const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+          
           reports.push({
             ...report,
             reportId: childSnapshot.key,
             dateTime: new Date(report.dateTime),
+            respondingOfficerId: respondingOfficerId,
           });
         });
         
@@ -1085,13 +1099,18 @@ export class FirebaseService {
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
         snapshot.forEach((childSnapshot) => {
-          const report = childSnapshot.val() as CrimeReport;
+          const report = childSnapshot.val() as any;
+          
+          // Extract respondingOfficerId from dispatchInfo.unit if available
+          const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+          
           // Exclude current user's reports
           if (report.reporterUid !== currentUserId) {
             reports.push({
               ...report,
               reportId: childSnapshot.key,
               dateTime: new Date(report.dateTime),
+              respondingOfficerId: respondingOfficerId,
             });
           }
         });
@@ -1387,6 +1406,10 @@ export class FirebaseService {
       }
       
       const report = reportSnapshot.val();
+      
+      // Extract respondingOfficerId from dispatchInfo.unit if available
+      const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+      
       const crimeReport: CrimeReport = {
         crimeType: report.type || report.crimeType || 'Unknown',
         dateTime: report.dateTime ? new Date(report.dateTime) : (report.dateReported ? new Date(report.dateReported) : new Date()),
@@ -1408,7 +1431,7 @@ export class FirebaseService {
         upvotes: report.upvotes || 0,
         downvotes: report.downvotes || 0,
         userVotes: report.userVotes || {},
-        respondingOfficerId: report.respondingOfficerId,
+        respondingOfficerId: respondingOfficerId,
         respondingOfficerName: report.respondingOfficerName,
         respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
       };

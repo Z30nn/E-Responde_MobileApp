@@ -23,7 +23,6 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
   const [callStatus, setCallStatus] = useState<string>(isOutgoing ? 'Calling...' : 'Connecting...');
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isSpeakerOn, setIsSpeakerOn] = useState<boolean>(false);
   const [remoteStream, setRemoteStream] = useState<any>(null);
 
   // Listen for real-time call status updates
@@ -135,11 +134,6 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
     setIsMuted(!newMuteState); // newMuteState is true if unmuted, so we want the opposite for isMuted state
   };
 
-  const handleSpeakerToggle = () => {
-    VoIPService.toggleSpeaker();
-    setIsSpeakerOn(!isSpeakerOn);
-  };
-
   // Safety check - if otherUser data is not available, don't render
   const otherUser = isOutgoing ? currentCallData?.callee : currentCallData?.caller;
   if (!otherUser || !otherUser.name) {
@@ -196,32 +190,17 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
               <Text style={styles.muteButtonLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
             </View>
 
-            {/* Speaker Button */}
-            <View style={styles.speakerButtonContainer}>
-              <TouchableOpacity
-                style={[styles.speakerButton, isSpeakerOn && styles.speakerButtonActive]}
-                onPress={handleSpeakerToggle}
-              >
+            {/* End Call Button */}
+            <View style={styles.endCallButtonContainer}>
+              <TouchableOpacity style={styles.endCallButton} onPress={handleEndCall}>
                 <Image
-                  source={require('../../assets/mic.png')}
-                  style={[styles.speakerIcon, { tintColor: isSpeakerOn ? '#374151' : '#FFFFFF' }]}
+                  source={require('../../assets/end.png')}
+                  style={styles.endCallIcon}
                   resizeMode="contain"
                 />
               </TouchableOpacity>
-              <Text style={styles.speakerButtonLabel}>Speaker</Text>
+              <Text style={styles.endCallButtonLabel}>End Call</Text>
             </View>
-          </View>
-
-          {/* End Call Button */}
-          <View style={styles.endCallButtonContainer}>
-            <TouchableOpacity style={styles.endCallButton} onPress={handleEndCall}>
-              <Image
-                source={require('../../assets/end.png')}
-                style={styles.endCallIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-            <Text style={styles.endCallButtonLabel}>End Call</Text>
           </View>
         </View>
 
@@ -312,7 +291,8 @@ const styles = StyleSheet.create({
   },
   controlsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 40,
   },
   controlButton: {
@@ -350,42 +330,11 @@ const styles = StyleSheet.create({
     height: 32,
     tintColor: '#FFFFFF',
   },
-  speakerButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#374151',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  speakerButtonActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  speakerIcon: {
-    width: 32,
-    height: 32,
-  },
   muteButtonContainer: {
     alignItems: 'center',
+    marginRight: 40,
   },
   muteButtonLabel: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginTop: 8,
-  },
-  speakerButtonContainer: {
-    alignItems: 'center',
-  },
-  speakerButtonLabel: {
     fontSize: 14,
     color: '#FFFFFF',
     fontWeight: '600',
