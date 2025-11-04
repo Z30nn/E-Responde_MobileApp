@@ -9,6 +9,9 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { EmergencyContact, CreateEmergencyContactData, UpdateEmergencyContactData } from '../../services/types/emergency-types';
 import { useTheme, colors, fontSizes } from '../../services/themeContext';
@@ -37,6 +40,8 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
     isPrimary: false,
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { isDarkMode, fontSize } = useTheme();
   const { language, t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
@@ -213,6 +218,33 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
     }
   };
 
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        setIsKeyboardVisible(true);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(event.endCoordinates.height);
+        }
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(0);
+        }
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
   return (
     <Modal
       visible={visible}
@@ -242,7 +274,22 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.form} showsVerticalScrollIndicator={true}>
+        <View style={[
+          { flex: 1 },
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+        ]}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+            enabled={Platform.OS === 'ios'}
+            style={{ flex: 1 }}
+          >
+            <ScrollView 
+              style={styles.form} 
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.name')} *</Text>
             <TextInput
@@ -310,6 +357,8 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
             />
           </View>
         </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
       </View>
       </View>
     </Modal>

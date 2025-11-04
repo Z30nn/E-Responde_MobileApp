@@ -212,10 +212,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               
               for (const [reportId, mainReportData] of Object.entries(mainReportsData)) {
                 if (userReportsData[reportId]) {
-                  const mainStatus = (mainReportData as any).status;
-                  const userStatus = userReportsData[reportId].status;
+                  const mainStatus = (mainReportData as any)?.status;
+                  const userStatus = userReportsData[reportId]?.status;
                   
-                  if (mainStatus !== userStatus) {
+                  // Only update if mainStatus exists and is different from userStatus
+                  if (mainStatus && mainStatus !== userStatus) {
                     console.log('Dashboard: Status mismatch detected in main collection:', reportId, 'Main:', mainStatus, 'User:', userStatus);
                     
                     // Update user's collection to match main collection
@@ -228,14 +229,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     });
                     
                     // Send notification for the status change
-                    if (mainStatus && mainStatus.toLowerCase() === 'resolved') {
+                    if (mainStatus.toLowerCase() === 'resolved') {
                       console.log('Dashboard: Sending resolved notification for report:', reportId);
                       notificationService.sendReportStatusUpdateNotification(
                         reportId,
                         user.uid,
-                        userStatus,
+                        userStatus || 'pending',
                         mainStatus,
-                        (mainReportData as any).crimeType || 'Crime Report'
+                        (mainReportData as any)?.crimeType || 'Crime Report'
                       ).then(success => {
                         console.log('Dashboard: Resolved notification sent:', success);
                       }).catch(error => {
@@ -268,10 +269,12 @@ const Dashboard: React.FC<DashboardProps> = ({
               
               for (const [reportId, userReportData] of Object.entries(userReportsData)) {
                 if (mainReportsData[reportId]) {
-                  const mainStatus = (mainReportsData as any).status;
-                  const userStatus = (userReportData as any).status;
+                  const mainReportData = mainReportsData[reportId];
+                  const mainStatus = (mainReportData as any)?.status;
+                  const userStatus = (userReportData as any)?.status;
                   
-                  if (mainStatus !== userStatus) {
+                  // Only update if mainStatus exists and is different from userStatus
+                  if (mainStatus && mainStatus !== userStatus) {
                     console.log('Dashboard: Periodic check found mismatch:', reportId, 'Main:', mainStatus, 'User:', userStatus);
                     
                     // Update user's collection
@@ -284,14 +287,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     });
                     
                     // Send notification if resolved
-                    if (mainStatus && mainStatus.toLowerCase() === 'resolved') {
+                    if (mainStatus.toLowerCase() === 'resolved') {
                       console.log('Dashboard: Periodic check sending resolved notification for report:', reportId);
                       notificationService.sendReportStatusUpdateNotification(
                         reportId,
                         user.uid,
-                        userStatus,
+                        userStatus || 'pending',
                         mainStatus,
-                        (mainReportsData as any).crimeType || 'Crime Report'
+                        (mainReportData as any)?.crimeType || 'Crime Report'
                       ).then(success => {
                         console.log('Dashboard: Periodic resolved notification sent:', success);
                       }).catch(error => {

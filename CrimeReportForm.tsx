@@ -12,6 +12,8 @@ import {
   Modal,
   PermissionsAndroid,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
@@ -56,6 +58,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [manualAddress, setManualAddress] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const crimeTypes = [
     t('crime.crimeTypes.theft'),
@@ -98,6 +102,33 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     getCurrentLocation();
     checkAuthentication();
   }, [checkAuthentication]);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        setIsKeyboardVisible(true);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(event.endCoordinates.height);
+        }
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(0);
+        }
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const reverseGeocode = async (latitude: number, longitude: number): Promise<string> => {
     try {
@@ -280,7 +311,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     try {
       setIsUploading(true);
       
-      // Show action sheet for file selection
+      // Show action sheet for file selection with cancel button
       Alert.alert(
         'Select Media Type',
         'Choose how you want to select your media',
@@ -300,13 +331,21 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           {
             text: 'Cancel',
             style: 'cancel',
+            onPress: () => {
+              setIsUploading(false);
+            },
           },
-        ]
+        ],
+        { 
+          cancelable: true, 
+          onDismiss: () => {
+            setIsUploading(false);
+          }
+        }
       );
     } catch (error) {
       console.error('Error opening file picker:', error);
       Alert.alert('Error', 'Failed to open file picker. Please try again.');
-    } finally {
       setIsUploading(false);
     }
   };
@@ -356,9 +395,11 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       launchCamera(options, (response: ImagePickerResponse) => {
         if (response.didCancel) {
           console.log('Camera cancelled');
+          setIsUploading(false);
         } else if ((response as any).error) {
           console.log('Camera error:', (response as any).error);
           Alert.alert('Error', 'Failed to open camera. Please check permissions.');
+          setIsUploading(false);
         } else if (response.assets && response.assets[0]) {
           const asset = response.assets[0];
           const fileInfo = {
@@ -376,6 +417,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
             }));
           }
+          setIsUploading(false);
         } else if ((response as any).uri) {
           // Fallback for older API versions
           const fileInfo = {
@@ -393,11 +435,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
             }));
           }
+          setIsUploading(false);
         }
       });
     } catch (error) {
       console.error('Error opening camera:', error);
       Alert.alert('Error', 'Failed to open camera. Please try again.');
+      setIsUploading(false);
     }
   };
 
@@ -453,9 +497,11 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       launchImageLibrary(options, (response: ImagePickerResponse) => {
         if (response.didCancel) {
           console.log('Image picker cancelled');
+          setIsUploading(false);
         } else if ((response as any).error) {
           console.log('Image picker error:', (response as any).error);
           Alert.alert('Error', 'Failed to open photo library. Please check permissions.');
+          setIsUploading(false);
         } else if (response.assets && response.assets[0]) {
           const asset = response.assets[0];
           const fileInfo = {
@@ -473,6 +519,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
             }));
           }
+          setIsUploading(false);
         } else if ((response as any).uri) {
           // Fallback for older API versions
           const fileInfo = {
@@ -490,11 +537,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
             }));
           }
+          setIsUploading(false);
         }
       });
     } catch (error) {
       console.error('Error opening image picker:', error);
       Alert.alert('Error', 'Failed to open image picker. Please try again.');
+      setIsUploading(false);
     }
   };
 
@@ -518,9 +567,11 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       launchImageLibrary(options, (response: ImagePickerResponse) => {
         if (response.didCancel) {
           console.log('Video picker cancelled');
+          setIsUploading(false);
         } else if ((response as any).error) {
           console.log('Video picker error:', (response as any).error);
           Alert.alert('Error', 'Failed to open video library. Please check permissions.');
+          setIsUploading(false);
         } else if (response.assets && response.assets[0]) {
           const asset = response.assets[0];
           const fileInfo = {
@@ -538,6 +589,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               multimedia: [...(prev.multimedia || []), asset.uri].filter((uri): uri is string => uri !== undefined),
             }));
           }
+          setIsUploading(false);
         } else if ((response as any).uri) {
           // Fallback for older API versions
           const fileInfo = {
@@ -555,11 +607,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               multimedia: [...(prev.multimedia || []), (response as any).uri].filter((uri): uri is string => uri !== undefined),
             }));
           }
+          setIsUploading(false);
         }
       });
     } catch (error) {
       console.error('Error opening video picker:', error);
       Alert.alert('Error', 'Failed to open video picker. Please try again.');
+      setIsUploading(false);
     }
   };
 
@@ -644,23 +698,43 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(false);
+    if (event.type === 'dismissed') {
+      return;
+    }
     if (selectedDate) {
+      const now = new Date();
+      // Ensure selected date is not in the future
+      const dateToUse = selectedDate > now ? now : selectedDate;
       const currentTime = formData.dateTime || new Date();
-      const newDateTime = new Date(selectedDate);
+      const newDateTime = new Date(dateToUse);
       newDateTime.setHours(currentTime.getHours());
       newDateTime.setMinutes(currentTime.getMinutes());
-      setFormData(prev => ({ ...prev, dateTime: newDateTime }));
+      // Ensure the combined date-time is not in the future
+      if (newDateTime > now) {
+        setFormData(prev => ({ ...prev, dateTime: now }));
+      } else {
+        setFormData(prev => ({ ...prev, dateTime: newDateTime }));
+      }
     }
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
     setShowTimePicker(false);
+    if (event.type === 'dismissed') {
+      return;
+    }
     if (selectedTime) {
+      const now = new Date();
       const currentDate = formData.dateTime || new Date();
       const newDateTime = new Date(currentDate);
       newDateTime.setHours(selectedTime.getHours());
       newDateTime.setMinutes(selectedTime.getMinutes());
-      setFormData(prev => ({ ...prev, dateTime: newDateTime }));
+      // Ensure the combined date-time is not in the future
+      if (newDateTime > now) {
+        setFormData(prev => ({ ...prev, dateTime: now }));
+      } else {
+        setFormData(prev => ({ ...prev, dateTime: newDateTime }));
+      }
     }
   };
 
@@ -830,6 +904,9 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     container: {
       flex: 1,
       backgroundColor: theme.background,
+    },
+    scrollContent: {
+      flexGrow: 1,
     },
     header: {
       flexDirection: 'row',
@@ -1215,15 +1292,30 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   });
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('crime.reportCrime')}</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Text style={styles.closeButtonText}>✕</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={[
+      styles.container,
+      Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+    ]}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        enabled={Platform.OS === 'ios'}
+      >
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>{t('crime.reportCrime')}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Text style={styles.closeButtonText}>✕</Text>
+          </TouchableOpacity>
+        </View>
 
-      <View style={styles.form}>
+        <View style={styles.form}>
         {/* Crime Type */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>{t('crime.crimeType')} *</Text>
@@ -1485,6 +1577,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           )}
         </TouchableOpacity>
       </View>
+      </ScrollView>
 
       {/* Crime Type Dropdown - Positioned outside form to overlay above severity */}
       {showCrimeTypeDropdown && (
@@ -1526,6 +1619,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           display="default"
           onChange={handleDateChange}
           themeVariant={isDarkMode ? 'dark' : 'light'}
+          maximumDate={new Date()}
         />
       )}
       {showTimePicker && (
@@ -1583,7 +1677,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 };
 
