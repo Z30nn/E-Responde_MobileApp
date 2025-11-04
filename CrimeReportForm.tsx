@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
@@ -60,6 +62,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [isUploading, setIsUploading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const appState = useRef(AppState.currentState);
+  const isSubmittingRef = useRef(false);
 
   const crimeTypes = [
     t('crime.crimeTypes.theft'),
@@ -102,6 +106,40 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     getCurrentLocation();
     checkAuthentication();
   }, [checkAuthentication]);
+
+  // Handle app state changes to prevent auto-submission when app returns from background
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        // App has come to the foreground
+        // Reset submission flag to prevent any auto-submission that might occur
+        // This ensures the form only submits when user explicitly presses the submit button
+        console.log('CrimeReportForm: App returned to foreground, resetting submission state to prevent auto-submission');
+        isSubmittingRef.current = false;
+        setIsLoading(false);
+      } else if (
+        appState.current === 'active' &&
+        nextAppState.match(/inactive|background/)
+      ) {
+        // App has gone to the background
+        // Reset submission flag to prevent state issues when app returns
+        console.log('CrimeReportForm: App went to background, resetting submission state');
+        isSubmittingRef.current = false;
+        setIsLoading(false);
+      }
+      
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -740,6 +778,12 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
 
   const handleSubmit = async () => {
+    // Prevent multiple submissions
+    if (isSubmittingRef.current || isLoading) {
+      console.log('CrimeReportForm: Submission already in progress, ignoring duplicate submit');
+      return;
+    }
+
     if (!formData.crimeType || !formData.description || !formData.barangay) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
@@ -752,6 +796,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       return;
     }
 
+    // Set submission flag to prevent duplicate submissions
+    isSubmittingRef.current = true;
     setIsLoading(true);
     try {
       // Get current user info from Firebase Auth
@@ -760,6 +806,8 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       
       if (!currentUser) {
         Alert.alert('Error', 'You must be logged in to submit a crime report. Please log in again.');
+        setIsLoading(false);
+        isSubmittingRef.current = false;
         return;
       }
 
@@ -802,6 +850,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
                 style: 'cancel',
                 onPress: () => {
                   setIsLoading(false);
+                  isSubmittingRef.current = false;
                   return;
                 }
               },
@@ -818,6 +867,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           
           // User cancelled or chose to continue without files
           setIsLoading(false);
+          isSubmittingRef.current = false;
           return;
         }
       }
@@ -887,6 +937,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
