@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Switch,
   Image,
-  ActivityIndicator,
 } from 'react-native';
 import { auth } from '../../../../firebaseConfig';
 import { useTheme, colors, fontSizes } from '../../../../services/themeContext';
@@ -14,6 +13,7 @@ import { useLanguage } from '../../../../services/languageContext';
 import { FirebaseService } from '../../../../services/firebaseService';
 import { useAuth } from '../../../../services/authContext';
 import { gyroscopeService } from '../../../../services/gyroscopeService';
+import DevicePairingModal from '../../../../components/device-pairing-modal';
 import { createStyles } from './styles';
 
 interface UserProfile {
@@ -40,6 +40,7 @@ const ProfileTab: FC<ProfileTabProps> = ({
 }) => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [gyroscopeEnabled, setGyroscopeEnabled] = useState(true);
+  const [deviceModalVisible, setDeviceModalVisible] = useState(false);
   const { isDarkMode, toggleTheme, fontSize } = useTheme();
   const { language, t } = useLanguage();
   const { logout } = useAuth();
@@ -132,6 +133,14 @@ const ProfileTab: FC<ProfileTabProps> = ({
             onPress={onChangePassword}
           >
             <Text style={styles.menuItemText}>{t('auth.changePassword')}</Text>
+            <Text style={styles.chevronRight}>›</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => setDeviceModalVisible(true)}
+          >
+            <Text style={styles.menuItemText}>{t('profile.deviceConnections')}</Text>
             <Text style={styles.chevronRight}>›</Text>
           </TouchableOpacity>
 
@@ -230,6 +239,12 @@ const ProfileTab: FC<ProfileTabProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Device Pairing Modal */}
+      <DevicePairingModal
+        visible={deviceModalVisible}
+        onClose={() => setDeviceModalVisible(false)}
+      />
     </ScrollView>
   );
 };

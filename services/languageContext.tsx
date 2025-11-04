@@ -340,6 +340,7 @@ const translations = {
     // Profile
     'profile.email': 'Email',
     'profile.contactNumber': 'Contact Number',
+    'profile.deviceConnections': 'Device Connections',
   },
   fil: {
     // Common
@@ -660,6 +661,7 @@ const translations = {
     // Profile
     'profile.email': 'Email',
     'profile.contactNumber': 'Numero ng Telepono',
+    'profile.deviceConnections': 'Mga Koneksyon ng Device',
   },
 };
 
