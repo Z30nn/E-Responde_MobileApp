@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -6,9 +6,8 @@ import {
   Image,
   Text,
   Modal,
-  SafeAreaView,
   ScrollView,
-  Alert,
+  BackHandler,
 } from 'react-native';
 import { useTheme, colors, fontSizes } from '../../services/themeContext';
 import { useLanguage } from '../../services/languageContext';
@@ -85,7 +84,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
   const crimeListRef = useRef<CrimeListFromOthersRef>(null);
-  const sosTabRef = globalSosTabRef || useRef<SOSTabRef>(null);
+  const localSosTabRef = useRef<SOSTabRef>(null);
+  const sosTabRef = globalSosTabRef || localSosTabRef;
   const { isDarkMode, fontSize, setFontSize } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { user } = useAuth();
@@ -425,7 +425,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleModalChange = (modalState: { 
+  const handleModalChange = useCallback((modalState: { 
     showCrimeReportForm?: boolean; 
     selectedReportId?: string | null;
     showTermsModal?: boolean;
@@ -489,7 +489,83 @@ const Dashboard: React.FC<DashboardProps> = ({
         showUserReportsFilterModal: modalState.showUserReportsFilterModal ?? showUserReportsFilterModal,
       });
     }
-  };
+  }, [
+    selectedReportId,
+    showCrimeReportForm,
+    showTermsModal,
+    showPrivacyModal,
+    showChangePassword,
+    showFontSizeModal,
+    showLanguageModal,
+    showSOSInfoModal,
+    showUserReportsFilterModal,
+    onGlobalModalChange,
+  ]);
+
+  // Back button handler to close modals (must be after handleModalChange)
+  // Note: CrimeReportDetail handles its own back button, so we don't check selectedReportId here
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // Close modals in order of priority (most recent/important first)
+      if (showCrimeReportForm) {
+        handleModalChange({ showCrimeReportForm: false });
+        return true;
+      }
+      
+      // CrimeReportDetail handles its own back button via its own BackHandler
+      // If selectedReportId is set, CrimeReportDetail's handler will run first
+      
+      if (showUserReportsFilterModal) {
+        handleModalChange({ showUserReportsFilterModal: false });
+        return true;
+      }
+      
+      if (showSOSInfoModal) {
+        handleModalChange({ showSOSInfoModal: false });
+        return true;
+      }
+      
+      if (showLanguageModal) {
+        handleModalChange({ showLanguageModal: false });
+        return true;
+      }
+      
+      if (showFontSizeModal) {
+        handleModalChange({ showFontSizeModal: false });
+        return true;
+      }
+      
+      if (showChangePassword) {
+        handleModalChange({ showChangePassword: false });
+        return true;
+      }
+      
+      if (showPrivacyModal) {
+        handleModalChange({ showPrivacyModal: false });
+        return true;
+      }
+      
+      if (showTermsModal) {
+        handleModalChange({ showTermsModal: false });
+        return true;
+      }
+      
+      // No modals open, allow default behavior (exit confirmation at App level)
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, [
+    showCrimeReportForm,
+    showUserReportsFilterModal,
+    showSOSInfoModal,
+    showLanguageModal,
+    showFontSizeModal,
+    showChangePassword,
+    showPrivacyModal,
+    showTermsModal,
+    handleModalChange,
+  ]);
 
   const getUnreadCount = () => {
     if (!notifications) return 0;

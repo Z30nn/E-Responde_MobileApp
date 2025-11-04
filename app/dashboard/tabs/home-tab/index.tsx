@@ -7,7 +7,7 @@ import { createStyles } from './styles';
 
 interface HomeTabProps {
   onViewReport: (reportId: string) => void;
-  crimeListRef: React.RefObject<CrimeListFromOthersRef>;
+  crimeListRef: React.RefObject<CrimeListFromOthersRef | null>;
 }
 
 const HomeTab: FC<HomeTabProps> = ({ onViewReport, crimeListRef }) => {
