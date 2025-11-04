@@ -13,6 +13,7 @@ import { auth, database } from './firebaseConfig';
 import { ref, onValue, off } from 'firebase/database';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import Pagination from './components/pagination';
+import Geolocation from '@react-native-community/geolocation';
 // import { notificationService } from './services/notificationService'; // Removed to avoid duplicate notifications
 
 interface CrimeReportsListProps {
@@ -31,59 +32,156 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   // const [previousReports, setPreviousReports] = useState<{[key: string]: CrimeReport}>({}); // Removed to avoid duplicate notifications
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+  };
+
+  // Get user's current location
+  useEffect(() => {
+    if (selectedStatus === 'nearest') {
+      Geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setUserLocation(null);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    }
+  }, [selectedStatus]);
 
   // Filter reports based on selected status
   const filterReports = (reportsList: CrimeReport[], status: string) => {
+    let filtered = reportsList;
+
     if (status === 'all') {
-      return reportsList;
-    }
-    
-    // Status-based filters
-    if (['pending', 'received', 'in progress', 'resolved'].includes(status)) {
-      return reportsList.filter(report => report.status && report.status.toLowerCase() === status.toLowerCase());
-    }
-    
-    // Time-based filters
-    if (status === 'recent') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      return reportsList.filter(report => {
-        const reportDate = new Date(report.createdAt);
-        return reportDate >= sevenDaysAgo;
+      filtered = reportsList;
+    } else if (['pending', 'received', 'in progress', 'resolved', 'dispatched'].includes(status.toLowerCase())) {
+      // Status-based filters
+      filtered = reportsList.filter(report => {
+        if (!report.status) return false;
+        const reportStatus = report.status.toLowerCase().trim();
+        const filterStatus = status.toLowerCase();
+        
+        // Handle "Case Resolved" status in database (stored as "Case Resolved")
+        if (filterStatus === 'resolved') {
+          return reportStatus === 'resolved' || reportStatus === 'case resolved';
+        }
+        
+        // Handle "In Progress" status (may be stored as "In Progress" or "in progress")
+        if (filterStatus === 'in progress') {
+          return reportStatus === 'in progress';
+        }
+        
+        return reportStatus === filterStatus;
       });
-    }
-    
-    if (status === 'this_month') {
+    } else if (status === 'thisWeek') {
+      // This Week filter - using createdAt ISO string (e.g., "2025-10-23T04:34:25.736Z")
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      return reportsList.filter(report => {
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999); // End of today
+      
+      // Calculate start of week (Sunday at 00:00:00)
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      filtered = reportsList.filter(report => {
+        // Use createdAt directly (ISO string format: "2025-10-23T04:34:25.736Z")
+        if (!report.createdAt) return false;
+        
         const reportDate = new Date(report.createdAt);
-        return reportDate >= startOfMonth;
+        
+        // Check if date is valid
+        if (isNaN(reportDate.getTime())) return false;
+        
+        // Report must be between start of week and end of today
+        return reportDate.getTime() >= startOfWeek.getTime() && 
+               reportDate.getTime() <= endOfToday.getTime();
       });
+    } else if (status === 'thisMonth') {
+      // This Month filter - using createdAt ISO string (e.g., "2025-10-23T04:34:25.736Z")
+      const now = new Date();
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999); // End of today
+      
+      // Calculate start of current month (1st day at 00:00:00)
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      filtered = reportsList.filter(report => {
+        // Use createdAt directly (ISO string format: "2025-10-23T04:34:25.736Z")
+        if (!report.createdAt) return false;
+        
+        const reportDate = new Date(report.createdAt);
+        
+        // Check if date is valid
+        if (isNaN(reportDate.getTime())) return false;
+        
+        // Report must be between start of month and end of today
+        return reportDate.getTime() >= startOfMonth.getTime() && 
+               reportDate.getTime() <= endOfToday.getTime();
+      });
+    } else if (status === 'nearest') {
+      // Nearest crime reports filter
+      if (userLocation) {
+        filtered = reportsList.map(report => ({
+          ...report,
+          distance: report.location ? calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            report.location.latitude,
+            report.location.longitude
+          ) : Infinity
+        }));
+        // Filter out reports without location and sort by distance (nearest first)
+        filtered = filtered
+          .filter(report => report.distance !== undefined && report.distance !== Infinity)
+          .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+        // Limit to nearest 50 reports, then sort chronologically
+        filtered = filtered.slice(0, 50);
+      } else {
+        // If location not available, return empty array
+        filtered = [];
+      }
+    } else {
+      // Crime type filter
+      const crimeTypes = ['Assault', 'Breaking and Entering', 'Domestic Violence', 'Drug-related', 'Fraud', 'Harassment', 'Theft', 'Vandalism', 'Vehicle Theft', 'Other'];
+      if (crimeTypes.includes(status)) {
+        filtered = reportsList.filter(report => report.crimeType === status);
+      }
     }
-    
-    // Severity-based filters
-    if (['immediate', 'high', 'moderate', 'low'].includes(status)) {
-      const severityMap: { [key: string]: string } = {
-        'immediate': 'Immediate',
-        'high': 'High',
-        'moderate': 'Moderate',
-        'low': 'Low'
-      };
-      return reportsList.filter(report => report.severity === severityMap[status]);
-    }
-    
-    return reportsList;
+
+    // Always sort by creation date (most recent first) regardless of filter
+    return filtered.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   };
 
-  // Apply filter when reports or selectedStatus changes
+  // Apply filter when reports, selectedStatus, or userLocation changes
   useEffect(() => {
     const filtered = filterReports(reports, selectedStatus);
     setFilteredReports(filtered);
     // Reset to page 1 when filter changes
     setCurrentPage(1);
-  }, [reports, selectedStatus]);
+  }, [reports, selectedStatus, userLocation]);
 
   // Note: Status change monitoring is handled by Dashboard.tsx to avoid duplicate notifications
 
@@ -112,7 +210,7 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
             return report;
           });
           
-          // Sort by creation date (newest first)
+          // Sort by creation date (newest first) - will be re-sorted in filterReports
           const sortedReports = reportsArray.sort((a, b) => 
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
@@ -198,7 +296,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
   };
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    const statusLower = status.toLowerCase().trim();
+    switch (statusLower) {
       case 'reported':
         return '#3B82F6'; // Blue (neutral, just logged)
       case 'received':
@@ -206,7 +305,10 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       case 'in progress':
         return '#F97316'; // Orange (active, ongoing, urgent)
       case 'resolved':
+      case 'case resolved':
         return '#10B981'; // Green (completed, successful outcome)
+      case 'dispatched':
+        return '#8B5CF6'; // Purple (officer dispatched)
       // Backward compatibility with old status names
       case 'pending':
         return '#F59E0B'; // Yellow
