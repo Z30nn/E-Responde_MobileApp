@@ -81,6 +81,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [showSOSInfoModal, setShowSOSInfoModal] = useState(false);
   const [showUserReportsFilterModal, setShowUserReportsFilterModal] = useState(false);
   const [selectedUserReportsStatus, setSelectedUserReportsStatus] = useState<string>('all');
+  const [selectedUserReportsFilterType, setSelectedUserReportsFilterType] = useState<string>('all');
+  const [showUserReportsFilterSubmenu, setShowUserReportsFilterSubmenu] = useState<'status' | 'crimeType' | null>(null);
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
 
   const crimeListRef = useRef<CrimeListFromOthersRef>(null);
@@ -1046,14 +1048,34 @@ const Dashboard: React.FC<DashboardProps> = ({
           visible={showUserReportsFilterModal}
           transparent={true}
           animationType="fade"
-          onRequestClose={() => handleModalChange({ showUserReportsFilterModal: false })}
+          onRequestClose={() => {
+            setShowUserReportsFilterSubmenu(null);
+            handleModalChange({ showUserReportsFilterModal: false });
+          }}
         >
           <View style={styles.userReportsFilterModalOverlay}>
             <View style={[styles.userReportsFilterModalContainer, { backgroundColor: theme.background }]}>
               <View style={[styles.userReportsFilterModalHeader, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.userReportsFilterModalTitle, { color: theme.text }]}>Filter Your Reports</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  {showUserReportsFilterSubmenu && (
+                    <TouchableOpacity
+                      onPress={() => setShowUserReportsFilterSubmenu(null)}
+                      style={{ marginRight: 12, padding: 4 }}
+                    >
+                      <Text style={[styles.userReportsFilterCloseButtonText, { color: theme.text, fontSize: 20 }]}>←</Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={[styles.userReportsFilterModalTitle, { color: theme.text, flex: 1 }]}>
+                    {showUserReportsFilterSubmenu === 'status' ? 'Select Status' :
+                     showUserReportsFilterSubmenu === 'crimeType' ? 'Select Crime Type' :
+                     'Filter Crime Reports'}
+                  </Text>
+                </View>
                 <TouchableOpacity 
-                  onPress={() => handleModalChange({ showUserReportsFilterModal: false })} 
+                  onPress={() => {
+                    setShowUserReportsFilterSubmenu(null);
+                    handleModalChange({ showUserReportsFilterModal: false });
+                  }} 
                   style={styles.userReportsFilterCloseButton}
                 >
                   <Text style={[styles.userReportsFilterCloseButtonText, { color: theme.secondaryText }]}>×</Text>
@@ -1061,40 +1083,177 @@ const Dashboard: React.FC<DashboardProps> = ({
               </View>
               
               <View style={styles.userReportsFilterOptions}>
-                {[
-                  { key: 'all', label: 'All Reports' },
-                  { key: 'pending', label: 'Pending' },
-                  { key: 'received', label: 'Received' },
-                  { key: 'in progress', label: 'In Progress' },
-                  { key: 'resolved', label: 'Resolved' },
-                  { key: 'recent', label: 'Recent (7 days)' },
-                  { key: 'this_month', label: 'This Month' },
-                  { key: 'immediate', label: 'Immediate' },
-                  { key: 'high', label: 'High Priority' },
-                  { key: 'moderate', label: 'Moderate' },
-                  { key: 'low', label: 'Low Priority' }
-                ].map((option) => (
-                  <TouchableOpacity
-                    key={option.key}
-                    style={[
-                      styles.userReportsFilterOption,
-                      { borderBottomColor: theme.border },
-                      selectedUserReportsStatus === option.key && { backgroundColor: theme.primary }
-                    ]}
-                    onPress={() => {
-                      setSelectedUserReportsStatus(option.key);
-                      handleModalChange({ showUserReportsFilterModal: false });
-                    }}
-                  >
-                    <Text style={[
-                      styles.userReportsFilterOptionText,
-                      { color: theme.text },
-                      selectedUserReportsStatus === option.key && { color: 'white' }
-                    ]}>
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {!showUserReportsFilterSubmenu ? (
+                  // Main filter menu
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        styles.userReportsFilterOption,
+                        { borderBottomColor: theme.border },
+                        selectedUserReportsFilterType === 'all' && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => {
+                        setSelectedUserReportsFilterType('all');
+                        setSelectedUserReportsStatus('all');
+                        handleModalChange({ showUserReportsFilterModal: false });
+                      }}
+                    >
+                      <Text style={[
+                        styles.userReportsFilterOptionText,
+                        { color: theme.text },
+                        selectedUserReportsFilterType === 'all' && { color: 'white' }
+                      ]}>
+                        All Crime Reports
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.userReportsFilterOption,
+                        { borderBottomColor: theme.border },
+                        selectedUserReportsFilterType === 'status' && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => setShowUserReportsFilterSubmenu('status')}
+                    >
+                      <Text style={[
+                        styles.userReportsFilterOptionText,
+                        { color: theme.text },
+                        selectedUserReportsFilterType === 'status' && { color: 'white' }
+                      ]}>
+                        Status →
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.userReportsFilterOption,
+                        { borderBottomColor: theme.border },
+                        selectedUserReportsFilterType === 'crimeType' && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => setShowUserReportsFilterSubmenu('crimeType')}
+                    >
+                      <Text style={[
+                        styles.userReportsFilterOptionText,
+                        { color: theme.text },
+                        selectedUserReportsFilterType === 'crimeType' && { color: 'white' }
+                      ]}>
+                        Crime Type →
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.userReportsFilterOption,
+                        { borderBottomColor: theme.border },
+                        selectedUserReportsFilterType === 'thisWeek' && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => {
+                        setSelectedUserReportsFilterType('thisWeek');
+                        setSelectedUserReportsStatus('thisWeek');
+                        handleModalChange({ showUserReportsFilterModal: false });
+                      }}
+                    >
+                      <Text style={[
+                        styles.userReportsFilterOptionText,
+                        { color: theme.text },
+                        selectedUserReportsFilterType === 'thisWeek' && { color: 'white' }
+                      ]}>
+                        This Week
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.userReportsFilterOption,
+                        { borderBottomColor: theme.border },
+                        selectedUserReportsFilterType === 'thisMonth' && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => {
+                        setSelectedUserReportsFilterType('thisMonth');
+                        setSelectedUserReportsStatus('thisMonth');
+                        handleModalChange({ showUserReportsFilterModal: false });
+                      }}
+                    >
+                      <Text style={[
+                        styles.userReportsFilterOptionText,
+                        { color: theme.text },
+                        selectedUserReportsFilterType === 'thisMonth' && { color: 'white' }
+                      ]}>
+                        This Month
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.userReportsFilterOption,
+                        { borderBottomColor: theme.border },
+                        selectedUserReportsFilterType === 'nearest' && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => {
+                        setSelectedUserReportsFilterType('nearest');
+                        setSelectedUserReportsStatus('nearest');
+                        handleModalChange({ showUserReportsFilterModal: false });
+                      }}
+                    >
+                      <Text style={[
+                        styles.userReportsFilterOptionText,
+                        { color: theme.text },
+                        selectedUserReportsFilterType === 'nearest' && { color: 'white' }
+                      ]}>
+                        Nearest Crime Reports
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : showUserReportsFilterSubmenu === 'status' ? (
+                  // Status submenu
+                  <>
+                    {['Pending', 'Received', 'In Progress', 'Resolved', 'Dispatched'].map((status) => (
+                      <TouchableOpacity
+                        key={status}
+                        style={[
+                          styles.userReportsFilterOption,
+                          { borderBottomColor: theme.border },
+                          selectedUserReportsStatus.toLowerCase() === status.toLowerCase() && { backgroundColor: theme.primary }
+                        ]}
+                        onPress={() => {
+                          setSelectedUserReportsFilterType('status');
+                          setSelectedUserReportsStatus(status.toLowerCase());
+                          handleModalChange({ showUserReportsFilterModal: false });
+                        }}
+                      >
+                        <Text style={[
+                          styles.userReportsFilterOptionText,
+                          { color: theme.text },
+                          selectedUserReportsStatus.toLowerCase() === status.toLowerCase() && { color: 'white' }
+                        ]}>
+                          {status}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                ) : (
+                  // Crime Type submenu
+                  <>
+                    {['Assault', 'Breaking and Entering', 'Domestic Violence', 'Drug-related', 'Fraud', 'Harassment', 'Theft', 'Vandalism', 'Vehicle Theft', 'Other'].map((crimeType) => (
+                      <TouchableOpacity
+                        key={crimeType}
+                        style={[
+                          styles.userReportsFilterOption,
+                          { borderBottomColor: theme.border },
+                          selectedUserReportsStatus === crimeType && { backgroundColor: theme.primary }
+                        ]}
+                        onPress={() => {
+                          setSelectedUserReportsFilterType('crimeType');
+                          setSelectedUserReportsStatus(crimeType);
+                          handleModalChange({ showUserReportsFilterModal: false });
+                        }}
+                      >
+                        <Text style={[
+                          styles.userReportsFilterOptionText,
+                          { color: theme.text },
+                          selectedUserReportsStatus === crimeType && { color: 'white' }
+                        ]}>
+                          {crimeType}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
               </View>
             </View>
           </View>

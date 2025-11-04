@@ -16,6 +16,7 @@ import { ref as firebaseRef, onValue, off } from 'firebase/database';
 import { useTheme, colors } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
 import Pagination from './components/pagination';
+import Geolocation from '@react-native-community/geolocation';
 
 interface CrimeListFromOthersProps {
   onViewReport?: (reportId: string) => void;
@@ -36,64 +37,159 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   const [votingReports, setVotingReports] = useState<Set<string>>(new Set());
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedFilterType, setSelectedFilterType] = useState<string>('all');
+  const [showFilterSubmenu, setShowFilterSubmenu] = useState<'status' | 'crimeType' | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+  };
+
+  // Get user's current location
+  useEffect(() => {
+    if (selectedStatus === 'nearest') {
+      Geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setUserLocation(null);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    }
+  }, [selectedStatus]);
 
   // Filter reports based on selected status
   const filterReports = (reportsList: CrimeReport[], status: string) => {
+    let filtered = reportsList;
+
     if (status === 'all') {
-      return reportsList;
-    }
-    
-    // Status-based filters
-    if (['pending', 'received', 'in progress', 'resolved'].includes(status)) {
-      return reportsList.filter(report => 
-        report.status && report.status.toLowerCase() === status.toLowerCase()
-      );
-    }
-    
-    // Time-based filters
-    if (status === 'recent') {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      return reportsList.filter(report => {
-        const reportDate = new Date(report.createdAt);
-        return reportDate >= sevenDaysAgo;
+      filtered = reportsList;
+    } else if (['pending', 'received', 'in progress', 'resolved', 'dispatched'].includes(status.toLowerCase())) {
+      // Status-based filters
+      filtered = reportsList.filter(report => {
+        if (!report.status) return false;
+        const reportStatus = report.status.toLowerCase().trim();
+        const filterStatus = status.toLowerCase();
+        
+        // Handle "Case Resolved" status in database (stored as "Case Resolved")
+        if (filterStatus === 'resolved') {
+          return reportStatus === 'resolved' || reportStatus === 'case resolved';
+        }
+        
+        // Handle "In Progress" status (may be stored as "In Progress" or "in progress")
+        if (filterStatus === 'in progress') {
+          return reportStatus === 'in progress';
+        }
+        
+        return reportStatus === filterStatus;
       });
-    }
-    
-    if (status === 'this_month') {
+    } else if (status === 'thisWeek') {
+      // This Week filter - using createdAt ISO string (e.g., "2025-10-23T04:34:25.736Z")
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      return reportsList.filter(report => {
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999); // End of today
+      
+      // Calculate start of week (Sunday at 00:00:00)
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      filtered = reportsList.filter(report => {
+        // Use createdAt directly (ISO string format: "2025-10-23T04:34:25.736Z")
+        if (!report.createdAt) return false;
+        
         const reportDate = new Date(report.createdAt);
-        return reportDate >= startOfMonth;
+        
+        // Check if date is valid
+        if (isNaN(reportDate.getTime())) return false;
+        
+        // Report must be between start of week and end of today
+        return reportDate.getTime() >= startOfWeek.getTime() && 
+               reportDate.getTime() <= endOfToday.getTime();
       });
+    } else if (status === 'thisMonth') {
+      // This Month filter - using createdAt ISO string (e.g., "2025-10-23T04:34:25.736Z")
+      const now = new Date();
+      const endOfToday = new Date(now);
+      endOfToday.setHours(23, 59, 59, 999); // End of today
+      
+      // Calculate start of current month (1st day at 00:00:00)
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      
+      filtered = reportsList.filter(report => {
+        // Use createdAt directly (ISO string format: "2025-10-23T04:34:25.736Z")
+        if (!report.createdAt) return false;
+        
+        const reportDate = new Date(report.createdAt);
+        
+        // Check if date is valid
+        if (isNaN(reportDate.getTime())) return false;
+        
+        // Report must be between start of month and end of today
+        return reportDate.getTime() >= startOfMonth.getTime() && 
+               reportDate.getTime() <= endOfToday.getTime();
+      });
+    } else if (status === 'nearest') {
+      // Nearest crime reports filter
+      if (userLocation) {
+        filtered = reportsList.map(report => ({
+          ...report,
+          distance: report.location ? calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            report.location.latitude,
+            report.location.longitude
+          ) : Infinity
+        }));
+        // Filter out reports without location and sort by distance (nearest first)
+        filtered = filtered
+          .filter(report => report.distance !== undefined && report.distance !== Infinity)
+          .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
+        // Limit to nearest 50 reports, then sort chronologically
+        filtered = filtered.slice(0, 50);
+      } else {
+        // If location not available, return empty array
+        filtered = [];
+      }
+    } else {
+      // Crime type filter
+      const crimeTypes = ['Assault', 'Breaking and Entering', 'Domestic Violence', 'Drug-related', 'Fraud', 'Harassment', 'Theft', 'Vandalism', 'Vehicle Theft', 'Other'];
+      if (crimeTypes.includes(status)) {
+        filtered = reportsList.filter(report => report.crimeType === status);
+      }
     }
-    
-    // Severity-based filters
-    if (['immediate', 'high', 'moderate', 'low'].includes(status)) {
-      const severityMap: { [key: string]: string } = {
-        'immediate': 'Immediate',
-        'high': 'High',
-        'moderate': 'Moderate',
-        'low': 'Low'
-      };
-      return reportsList.filter(report => 
-        report.severity === severityMap[status]
-      );
-    }
-    
-    return reportsList;
+
+    // Always sort by creation date (most recent first) regardless of filter
+    return filtered.sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   };
 
-  // Apply filter when reports or selectedStatus changes
+  // Apply filter when reports, selectedStatus, or userLocation changes
   useEffect(() => {
     const filtered = filterReports(reports, selectedStatus);
     setFilteredReports(filtered);
     // Reset to page 1 when filter changes
     setCurrentPage(1);
-  }, [reports, selectedStatus]);
+  }, [reports, selectedStatus, userLocation]);
 
   // Expose filter modal control to parent
   useImperativeHandle(ref, () => ({
@@ -120,11 +216,14 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
             const report = allReportsData[reportId];
             console.log('Real-time: Checking report:', reportId, 'Status:', report.status, 'Reporter UID:', report.reporterUid);
             // Only include reports from other users that are "received" or higher (verified by authorities)
+            const reportStatusLower = report.status ? report.status.toLowerCase().trim() : '';
             if (report.reporterUid !== currentUser.uid && report.status && (
-              report.status.toLowerCase() === 'received' ||
-              report.status.toLowerCase() === 'in progress' ||
-              report.status.toLowerCase() === 'resolved' ||
-              report.status.toLowerCase() === 'pending' // Include pending for now
+              reportStatusLower === 'received' ||
+              reportStatusLower === 'in progress' ||
+              reportStatusLower === 'resolved' ||
+              reportStatusLower === 'case resolved' ||
+              reportStatusLower === 'dispatched' ||
+              reportStatusLower === 'pending' // Include pending for now
             )) {
               console.log('Real-time: Adding verified report:', reportId, 'Status:', report.status);
               otherUsersReports.push({
@@ -138,6 +237,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
           });
           
           // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
+          // Note: Final sorting will be done in filterReports to ensure chronological order
           otherUsersReports.sort((a, b) => {
             const upvotesA = a.upvotes || 0;
             const upvotesB = b.upvotes || 0;
@@ -181,14 +281,18 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       console.log('Other users crime reports loaded:', otherUsersReports.length);
       
       // Filter to only show verified reports (received or higher)
-      const verifiedReports = otherUsersReports.filter(report => 
-        report.status && (
-          report.status.toLowerCase() === 'received' ||
-          report.status.toLowerCase() === 'in progress' ||
-          report.status.toLowerCase() === 'resolved' ||
-          report.status.toLowerCase() === 'pending' // Include pending for now
-        )
-      );
+      const verifiedReports = otherUsersReports.filter(report => {
+        if (!report.status) return false;
+        const reportStatusLower = report.status.toLowerCase().trim();
+        return (
+          reportStatusLower === 'received' ||
+          reportStatusLower === 'in progress' ||
+          reportStatusLower === 'resolved' ||
+          reportStatusLower === 'case resolved' ||
+          reportStatusLower === 'dispatched' ||
+          reportStatusLower === 'pending' // Include pending for now
+        );
+      });
       console.log('Verified other users reports:', verifiedReports.length);
       
       setReports(verifiedReports);
@@ -218,7 +322,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   };
 
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
+    const statusLower = status.toLowerCase().trim();
+    switch (statusLower) {
       case 'reported':
         return '#3B82F6'; // Blue (neutral, just logged)
       case 'received':
@@ -226,7 +331,10 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       case 'in progress':
         return '#F97316'; // Orange (active, ongoing, urgent)
       case 'resolved':
+      case 'case resolved':
         return '#10B981'; // Green (completed, successful outcome)
+      case 'dispatched':
+        return '#8B5CF6'; // Purple (officer dispatched)
       // Backward compatibility with old status names
       case 'pending':
         return '#F59E0B'; // Yellow
@@ -668,52 +776,212 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         visible={showFilterModal}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowFilterModal(false)}
+        onRequestClose={() => {
+          setShowFilterSubmenu(null);
+          setShowFilterModal(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Filter Reports</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)} style={styles.closeButton}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                {showFilterSubmenu && (
+                  <TouchableOpacity
+                    onPress={() => setShowFilterSubmenu(null)}
+                    style={{ marginRight: 12, padding: 4 }}
+                  >
+                    <Text style={[styles.closeButtonText, { color: theme.text, fontSize: 20 }]}>←</Text>
+                  </TouchableOpacity>
+                )}
+                <Text style={[styles.modalTitle, { color: theme.text, flex: 1 }]}>
+                  {showFilterSubmenu === 'status' ? 'Select Status' :
+                   showFilterSubmenu === 'crimeType' ? 'Select Crime Type' :
+                   'Filter Crime Reports'}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowFilterSubmenu(null);
+                  setShowFilterModal(false);
+                }} 
+                style={styles.closeButton}
+              >
                 <Text style={[styles.closeButtonText, { color: theme.secondaryText }]}>×</Text>
               </TouchableOpacity>
             </View>
             
             <View style={styles.filterOptions}>
-              {[
-                { key: 'all', label: 'All Reports' },
-                { key: 'pending', label: 'Pending' },
-                { key: 'received', label: 'Received' },
-                { key: 'in progress', label: 'In Progress' },
-                { key: 'resolved', label: 'Resolved' },
-                { key: 'recent', label: 'Recent (7 days)' },
-                { key: 'this_month', label: 'This Month' },
-                { key: 'immediate', label: 'Immediate' },
-                { key: 'high', label: 'High Priority' },
-                { key: 'moderate', label: 'Moderate' },
-                { key: 'low', label: 'Low Priority' }
-              ].map((option) => (
-                <TouchableOpacity
-                  key={option.key}
-                  style={[
-                    styles.filterOption,
-                    { borderBottomColor: theme.border },
-                    selectedStatus === option.key && { backgroundColor: theme.primary }
-                  ]}
-                  onPress={() => {
-                    setSelectedStatus(option.key);
-                    setShowFilterModal(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.filterOptionText,
-                    { color: theme.text },
-                    selectedStatus === option.key && { color: 'white' }
-                  ]}>
-                    {option.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {!showFilterSubmenu ? (
+                // Main filter menu
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: theme.border },
+                      selectedFilterType === 'all' && { backgroundColor: theme.primary }
+                    ]}
+                    onPress={() => {
+                      setSelectedFilterType('all');
+                      setSelectedStatus('all');
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: theme.text },
+                      selectedFilterType === 'all' && { color: 'white' }
+                    ]}>
+                      All Crime Reports
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: theme.border },
+                      selectedFilterType === 'status' && { backgroundColor: theme.primary }
+                    ]}
+                    onPress={() => setShowFilterSubmenu('status')}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: theme.text },
+                      selectedFilterType === 'status' && { color: 'white' }
+                    ]}>
+                      Status →
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: theme.border },
+                      selectedFilterType === 'crimeType' && { backgroundColor: theme.primary }
+                    ]}
+                    onPress={() => setShowFilterSubmenu('crimeType')}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: theme.text },
+                      selectedFilterType === 'crimeType' && { color: 'white' }
+                    ]}>
+                      Crime Type →
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: theme.border },
+                      selectedFilterType === 'thisWeek' && { backgroundColor: theme.primary }
+                    ]}
+                    onPress={() => {
+                      setSelectedFilterType('thisWeek');
+                      setSelectedStatus('thisWeek');
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: theme.text },
+                      selectedFilterType === 'thisWeek' && { color: 'white' }
+                    ]}>
+                      This Week
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: theme.border },
+                      selectedFilterType === 'thisMonth' && { backgroundColor: theme.primary }
+                    ]}
+                    onPress={() => {
+                      setSelectedFilterType('thisMonth');
+                      setSelectedStatus('thisMonth');
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: theme.text },
+                      selectedFilterType === 'thisMonth' && { color: 'white' }
+                    ]}>
+                      This Month
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterOption,
+                      { borderBottomColor: theme.border },
+                      selectedFilterType === 'nearest' && { backgroundColor: theme.primary }
+                    ]}
+                    onPress={() => {
+                      setSelectedFilterType('nearest');
+                      setSelectedStatus('nearest');
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.filterOptionText,
+                      { color: theme.text },
+                      selectedFilterType === 'nearest' && { color: 'white' }
+                    ]}>
+                      Nearest Crime Reports
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : showFilterSubmenu === 'status' ? (
+                // Status submenu
+                <>
+                  {['Pending', 'Received', 'In Progress', 'Resolved', 'Dispatched'].map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      style={[
+                        styles.filterOption,
+                        { borderBottomColor: theme.border },
+                        selectedStatus.toLowerCase() === status.toLowerCase() && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => {
+                        setSelectedFilterType('status');
+                        setSelectedStatus(status.toLowerCase());
+                        setShowFilterModal(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.filterOptionText,
+                        { color: theme.text },
+                        selectedStatus.toLowerCase() === status.toLowerCase() && { color: 'white' }
+                      ]}>
+                        {status}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              ) : (
+                // Crime Type submenu
+                <>
+                  {['Assault', 'Breaking and Entering', 'Domestic Violence', 'Drug-related', 'Fraud', 'Harassment', 'Theft', 'Vandalism', 'Vehicle Theft', 'Other'].map((crimeType) => (
+                    <TouchableOpacity
+                      key={crimeType}
+                      style={[
+                        styles.filterOption,
+                        { borderBottomColor: theme.border },
+                        selectedStatus === crimeType && { backgroundColor: theme.primary }
+                      ]}
+                      onPress={() => {
+                        setSelectedFilterType('crimeType');
+                        setSelectedStatus(crimeType);
+                        setShowFilterModal(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.filterOptionText,
+                        { color: theme.text },
+                        selectedStatus === crimeType && { color: 'white' }
+                      ]}>
+                        {crimeType}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </>
+              )}
             </View>
           </View>
         </View>
