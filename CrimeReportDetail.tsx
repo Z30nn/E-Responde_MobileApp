@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   Image,
   Modal,
+  BackHandler,
 } from 'react-native';
 import Video from 'react-native-video';
 import { FirebaseService, CrimeReport, CivilianUser } from './services/firebaseService';
@@ -57,6 +58,12 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [civilianUser, setCivilianUser] = useState<CivilianUser | null>(null);
+  
+  // Store latest onClose in ref to avoid stale closure issues
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const loadReportDetails = useCallback(async () => {
     try {
@@ -94,6 +101,21 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   useEffect(() => {
     loadReportDetails();
   }, [loadReportDetails]);
+
+  // Handle hardware back button
+  // This must be called unconditionally before any early returns
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      console.log('CrimeReportDetail: Hardware back button pressed');
+      if (onCloseRef.current) {
+        onCloseRef.current();
+        return true; // Prevent default behavior
+      }
+      return false;
+    });
+
+    return () => backHandler.remove();
+  }, []);
 
   const handleImagePress = (imageUri: string) => {
     setSelectedImage(imageUri);

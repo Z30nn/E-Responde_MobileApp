@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Animated, Image, StatusBar, Alert, Modal } from 'react-native';
+import { ActivityIndicator, Animated, Image, StatusBar, Alert, Modal, BackHandler, ToastAndroid, Platform } from 'react-native';
 import { ThemeProvider, useTheme } from './services/themeContext';
 import { LanguageProvider, useLanguage } from './services/languageContext';
 import { AuthProvider, useAuth } from './services/authContext';
@@ -126,6 +126,7 @@ const AppContent = () => {
   const [currentActiveTab, setCurrentActiveTab] = useState<number>(0);
   const sosTabRef = useRef<any>(null);
   const [isCallScreenVisible, setIsCallScreenVisible] = useState(false);
+  const lastBackPressRef = useRef<number>(0);
   const [globalModalState, setGlobalModalState] = useState({
     showCrimeReportForm: false,
     showCrimeReportDetail: false,
@@ -373,6 +374,51 @@ const AppContent = () => {
       }
     }
   }, [isAuthenticated, userType, user, authChecked]);
+
+  // Back button handler for exit confirmation (only when no modals are open)
+  // This handler runs AFTER Dashboard's handler (handlers are called in reverse order)
+  // If Dashboard returns true (modal closed), this handler won't need to do anything
+  // If Dashboard returns false (no modals), this handler shows exit confirmation
+  useEffect(() => {
+    // Only add exit confirmation handler if user is authenticated
+    if (!isAuthenticated || !authChecked) {
+      return;
+    }
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      // If call screen is visible, close it first
+      if (isCallScreenVisible && activeCall) {
+        handleEndCall();
+        return true;
+      }
+
+      // If incoming call is visible, dismiss it
+      if (incomingCall && !isCallScreenVisible) {
+        handleRejectCall();
+        return true;
+      }
+
+      // Check time since last back press for exit confirmation
+      const now = Date.now();
+      const timeSinceLastPress = now - lastBackPressRef.current;
+
+      if (timeSinceLastPress < 2000 && lastBackPressRef.current > 0) {
+        // Less than 2 seconds since last press, exit the app
+        BackHandler.exitApp();
+        return true;
+      } else {
+        // First press or more than 2 seconds, show exit message
+        lastBackPressRef.current = now;
+        if (Platform.OS === 'android') {
+          ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
+        }
+        // Prevent default back behavior (app exit)
+        return true;
+      }
+    });
+
+    return () => backHandler.remove();
+  }, [isAuthenticated, authChecked, isCallScreenVisible, activeCall, incomingCall]);
 
   // Show splash screen while auth is loading or for 0.3 seconds after auth is determined
   if (showSplash || isLoading) {
