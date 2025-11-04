@@ -15,6 +15,7 @@ import { auth, database } from './firebaseConfig';
 import { ref as firebaseRef, onValue, off } from 'firebase/database';
 import { useTheme, colors } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
+import Pagination from './components/pagination';
 
 interface CrimeListFromOthersProps {
   onViewReport?: (reportId: string) => void;
@@ -35,6 +36,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   const [votingReports, setVotingReports] = useState<Set<string>>(new Set());
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Filter reports based on selected status
   const filterReports = (reportsList: CrimeReport[], status: string) => {
@@ -88,6 +91,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   useEffect(() => {
     const filtered = filterReports(reports, selectedStatus);
     setFilteredReports(filtered);
+    // Reset to page 1 when filter changes
+    setCurrentPage(1);
   }, [reports, selectedStatus]);
 
   // Expose filter modal control to parent
@@ -629,10 +634,25 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
     );
   }
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedReports = filteredReports.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   return (
     <View style={styles.listContainer}>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+      />
       <FlatList
-        data={filteredReports}
+        data={paginatedReports}
         renderItem={renderReportCard}
         keyExtractor={(item) => item.reportId || item.createdAt}
         style={styles.list}

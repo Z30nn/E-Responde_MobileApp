@@ -12,6 +12,7 @@ import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { auth, database } from './firebaseConfig';
 import { ref, onValue, off } from 'firebase/database';
 import { useTheme, colors, fontSizes } from './services/themeContext';
+import Pagination from './components/pagination';
 // import { notificationService } from './services/notificationService'; // Removed to avoid duplicate notifications
 
 interface CrimeReportsListProps {
@@ -28,6 +29,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   // const [previousReports, setPreviousReports] = useState<{[key: string]: CrimeReport}>({}); // Removed to avoid duplicate notifications
 
   // Filter reports based on selected status
@@ -78,6 +81,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
   useEffect(() => {
     const filtered = filterReports(reports, selectedStatus);
     setFilteredReports(filtered);
+    // Reset to page 1 when filter changes
+    setCurrentPage(1);
   }, [reports, selectedStatus]);
 
   // Note: Status change monitoring is handled by Dashboard.tsx to avoid duplicate notifications
@@ -406,10 +411,25 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
     );
   }
 
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedReports = filteredReports.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   return (
     <View style={styles.listContainer}>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+      />
       <FlatList
-        data={filteredReports}
+        data={paginatedReports}
         renderItem={renderReportCard}
         keyExtractor={(item) => item.reportId || item.createdAt}
         style={styles.list}
