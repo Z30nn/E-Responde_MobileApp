@@ -49,19 +49,19 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
         
         console.log('AssignmentProvider: currentAssignment:', policeData.currentAssignment);
         
-        // Check if there's a current assignment and police is available (not dispatched)
+        // Check if there's a current assignment and police is on standby (not dispatched)
         const hasAssignment = policeData.currentAssignment && policeData.currentAssignment.reportId;
-        const isAvailable = policeData.status === 'Available';
+        const isStandby = policeData.status === 'Standby';
         const isDispatched = policeData.status === 'Dispatched';
         
         console.log('AssignmentProvider: hasAssignment:', hasAssignment);
         console.log('AssignmentProvider: police status:', policeData.status);
-        console.log('AssignmentProvider: isAvailable:', isAvailable);
+        console.log('AssignmentProvider: isStandby:', isStandby);
         console.log('AssignmentProvider: isDispatched:', isDispatched);
         console.log('AssignmentProvider: assignment reportId:', policeData.currentAssignment?.reportId);
         
-        // Only show modal if police has assignment AND is available (not dispatched)
-        if (hasAssignment && isAvailable && !isDispatched) {
+        // Only show modal if police has assignment AND is on standby (not dispatched)
+        if (hasAssignment && isStandby && !isDispatched) {
           const reportId = policeData.currentAssignment.reportId;
           console.log('AssignmentProvider: New assignment detected:', reportId);
           
@@ -81,8 +81,8 @@ export const AssignmentProvider: React.FC<AssignmentProviderProps> = ({ children
         } else {
           if (hasAssignment && isDispatched) {
             console.log('AssignmentProvider: Has assignment but police is already dispatched - not showing modal');
-          } else if (hasAssignment && !isAvailable) {
-            console.log('AssignmentProvider: Has assignment but police is not available - not showing modal');
+          } else if (hasAssignment && !isStandby) {
+            console.log('AssignmentProvider: Has assignment but police is not on standby - not showing modal');
           } else {
             console.log('AssignmentProvider: No current assignment');
           }

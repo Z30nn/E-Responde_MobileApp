@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,41 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
   const progressAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const handleTimeout = useCallback(async () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    if (!user) {
+      onTimeout(crimeReport?.reportId || '');
+      return;
+    }
+    
+    try {
+      // Update police status back to Available
+      await FirebaseService.updatePoliceStatus(user.uid, 'Available');
+      
+      // Remove currentAssignment from police account
+      await FirebaseService.removeCurrentAssignment(user.uid);
+      
+      // Update crime report: status = "Pending", assignmentStatus = "Declined"
+      if (crimeReport?.reportId) {
+        await FirebaseService.updateAssignmentStatus(
+          crimeReport.reportId,
+          'Pending',
+          'Declined'
+        );
+      }
+      
+      // Call the timeout callback
+      onTimeout(crimeReport?.reportId || '');
+    } catch (error) {
+      console.error('Error handling timeout:', error);
+      // Still call timeout callback even if status update fails
+      onTimeout(crimeReport?.reportId || '');
+    }
+  }, [user, crimeReport, onTimeout]);
+
   // Timer countdown effect
   useEffect(() => {
     if (visible && crimeReport) {
@@ -72,14 +107,7 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
         }
       };
     }
-  }, [visible, crimeReport]);
-
-  const handleTimeout = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    onTimeout(crimeReport?.reportId || '');
-  };
+  }, [visible, crimeReport, handleTimeout]);
 
   const handleAccept = async () => {
     if (isProcessing || !crimeReport || !user) return;
@@ -88,6 +116,13 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
     try {
       // Update police status to Dispatched
       await FirebaseService.updatePoliceStatus(user.uid, 'Dispatched');
+      
+      // Update crime report: status = "Dispatched", assignmentStatus = "Confirmed"
+      await FirebaseService.updateAssignmentStatus(
+        crimeReport.reportId || '',
+        'Dispatched',
+        'Confirmed'
+      );
       
       // Call the accept callback
       onAccept(crimeReport.reportId || '');
@@ -108,8 +143,18 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
     
     setIsProcessing(true);
     try {
+      // Update police status back to Available
+      await FirebaseService.updatePoliceStatus(user.uid, 'Available');
+      
       // Remove currentAssignment from police account
       await FirebaseService.removeCurrentAssignment(user.uid);
+      
+      // Update crime report: status = "Pending", assignmentStatus = "Declined"
+      await FirebaseService.updateAssignmentStatus(
+        crimeReport.reportId || '',
+        'Pending',
+        'Declined'
+      );
       
       // Call the decline callback
       onDecline(crimeReport.reportId || '');

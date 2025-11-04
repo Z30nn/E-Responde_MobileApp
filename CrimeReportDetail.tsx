@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import Video from 'react-native-video';
-import { FirebaseService, CrimeReport } from './services/firebaseService';
+import { FirebaseService, CrimeReport, CivilianUser } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useAuth } from './services/authContext';
 import { useVoIP } from './services/voipContext';
@@ -56,6 +56,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [civilianUser, setCivilianUser] = useState<CivilianUser | null>(null);
 
   const loadReportDetails = useCallback(async () => {
     try {
@@ -68,6 +69,16 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
       
       if (reportDetails) {
         setReport(reportDetails);
+        
+        // If police view, fetch civilian user details even if anonymous
+        if (isPoliceView && reportDetails.reporterUid) {
+          try {
+            const civilianDetails = await FirebaseService.getCivilianUser(reportDetails.reporterUid);
+            setCivilianUser(civilianDetails);
+          } catch (userError) {
+            console.error('Error fetching civilian user details:', userError);
+          }
+        }
       } else {
         console.log('CrimeReportDetail: Report not found for ID:', reportId);
         setError('Report not found');
@@ -78,7 +89,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
     } finally {
       setIsLoading(false);
     }
-  }, [reportId]);
+  }, [reportId, isPoliceView]);
 
   useEffect(() => {
     loadReportDetails();
@@ -166,12 +177,11 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
     }
 
     try {
-      const civilianName = report.anonymous ? 'Anonymous Reporter' : (report.reporterName || 'Civilian');
-      
-      if (report.anonymous) {
-        Alert.alert('Error', 'Cannot call anonymous reporters');
-        return;
-      }
+      // Get real civilian name even if anonymous
+      const civilianUser = await FirebaseService.getCivilianUser(report.reporterUid);
+      const civilianName = civilianUser && civilianUser.firstName && civilianUser.lastName
+        ? `${civilianUser.firstName} ${civilianUser.lastName}`
+        : report.reporterName || 'Civilian';
       
       const callId = await VoIPService.initiateCall(
         report.reporterUid,
@@ -741,7 +751,11 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Reporter:</Text>
             <Text style={styles.infoValue}>
-              {report.anonymous ? 'Anonymous' : report.reporterName}
+              {isPoliceView && civilianUser && civilianUser.firstName && civilianUser.lastName
+                ? `${civilianUser.firstName} ${civilianUser.lastName}`
+                : report.anonymous
+                  ? 'Anonymous'
+                  : report.reporterName}
             </Text>
           </View>
         </View>
@@ -865,7 +879,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
           </TouchableOpacity>
         )}
 
-        {isPoliceView && user && report && !report.anonymous && (
+        {isPoliceView && user && report && report.reporterUid && (
           <TouchableOpacity style={styles.callButton} onPress={handleCallCivilian}>
             <Text style={styles.callButtonText}>Call Civilian Reporter</Text>
           </TouchableOpacity>

@@ -73,6 +73,7 @@ export interface CrimeReport {
   respondingOfficerId?: string;
   respondingOfficerName?: string;
   respondingOfficerBadgeNumber?: string;
+  assignmentStatus?: 'Pending Confirmation' | 'Declined' | 'Confirmed';
 }
 
 export class FirebaseService {
@@ -846,6 +847,45 @@ export class FirebaseService {
     }
   }
 
+  // Update assignment status and report status (used when police accepts/declines/timeout)
+  static async updateAssignmentStatus(reportId: string, status: string, assignmentStatus: 'Declined' | 'Confirmed'): Promise<boolean> {
+    try {
+      console.log('FirebaseService: Updating assignment status:', reportId, 'status:', status, 'assignmentStatus:', assignmentStatus);
+      
+      // Update in main civilian crime reports collection
+      const crimeReportsRef = ref(database, `civilian/civilian crime reports/${reportId}`);
+      const reportSnapshot = await get(crimeReportsRef);
+      
+      if (!reportSnapshot.exists()) {
+        console.error('FirebaseService: Report not found:', reportId);
+        return false;
+      }
+      
+      const reportData = reportSnapshot.val();
+      
+      // Update both status and assignmentStatus
+      await update(crimeReportsRef, {
+        status: status,
+        assignmentStatus: assignmentStatus,
+        statusUpdatedAt: new Date().toISOString(),
+      });
+      
+      // Update in user's personal crime reports collection
+      const userCrimeReportsRef = ref(database, `civilian/civilian account/${reportData.reporterUid}/crime reports/${reportId}`);
+      await update(userCrimeReportsRef, {
+        status: status,
+        assignmentStatus: assignmentStatus,
+        statusUpdatedAt: new Date().toISOString(),
+      });
+      
+      console.log('FirebaseService: Assignment status updated successfully');
+      return true;
+    } catch (error) {
+      console.error('FirebaseService: Error updating assignment status:', error);
+      throw error;
+    }
+  }
+
   // Update crime report status and notify the reporter
   static async updateCrimeReportStatus(reportId: string, newStatus: string, updatedBy?: string): Promise<boolean> {
     try {
@@ -969,11 +1009,16 @@ export class FirebaseService {
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
         snapshot.forEach((childSnapshot) => {
-          const report = childSnapshot.val() as CrimeReport;
+          const report = childSnapshot.val() as any;
+          
+          // Extract respondingOfficerId from dispatchInfo.unit if available
+          const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+          
           reports.push({
             ...report,
             reportId: childSnapshot.key,
             dateTime: new Date(report.dateTime),
+            respondingOfficerId: respondingOfficerId,
           });
         });
         
@@ -1003,6 +1048,10 @@ export class FirebaseService {
       
       if (snapshot.exists()) {
         const report = snapshot.val();
+        
+        // Extract respondingOfficerId from dispatchInfo.unit if available
+        const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+        
         const crimeReport: CrimeReport = {
           crimeType: report.type || report.crimeType || 'Unknown',
           dateTime: report.dateTime ? new Date(report.dateTime) : (report.dateReported ? new Date(report.dateReported) : new Date()),
@@ -1025,9 +1074,10 @@ export class FirebaseService {
           upvotes: report.upvotes || 0,
           downvotes: report.downvotes || 0,
           userVotes: report.userVotes || {},
-          respondingOfficerId: report.respondingOfficerId,
+          respondingOfficerId: respondingOfficerId,
           respondingOfficerName: report.respondingOfficerName,
-          respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
+          respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber,
+          assignmentStatus: report.assignmentStatus
         };
         return crimeReport;
       }
@@ -1053,11 +1103,16 @@ export class FirebaseService {
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
         snapshot.forEach((childSnapshot) => {
-          const report = childSnapshot.val() as CrimeReport;
+          const report = childSnapshot.val() as any;
+          
+          // Extract respondingOfficerId from dispatchInfo.unit if available
+          const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+          
           reports.push({
             ...report,
             reportId: childSnapshot.key,
             dateTime: new Date(report.dateTime),
+            respondingOfficerId: respondingOfficerId,
           });
         });
         
@@ -1085,13 +1140,18 @@ export class FirebaseService {
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
         snapshot.forEach((childSnapshot) => {
-          const report = childSnapshot.val() as CrimeReport;
+          const report = childSnapshot.val() as any;
+          
+          // Extract respondingOfficerId from dispatchInfo.unit if available
+          const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+          
           // Exclude current user's reports
           if (report.reporterUid !== currentUserId) {
             reports.push({
               ...report,
               reportId: childSnapshot.key,
               dateTime: new Date(report.dateTime),
+              respondingOfficerId: respondingOfficerId,
             });
           }
         });
@@ -1291,7 +1351,8 @@ export class FirebaseService {
         respondingOfficerId: officerId,
         respondingOfficerName: officerName,
         respondingOfficerBadgeNumber: policeUser.badgeNumber || '',
-        status: 'in progress'
+        status: 'Assigned',
+        assignmentStatus: 'Pending Confirmation'
       });
       
       // Update in user's personal crime reports collection
@@ -1300,7 +1361,8 @@ export class FirebaseService {
         respondingOfficerId: officerId,
         respondingOfficerName: officerName,
         respondingOfficerBadgeNumber: policeUser.badgeNumber || '',
-        status: 'in progress'
+        status: 'Assigned',
+        assignmentStatus: 'Pending Confirmation'
       });
       
       console.log(`Successfully assigned officer ${officerId} to report ${reportId}`);
@@ -1387,6 +1449,10 @@ export class FirebaseService {
       }
       
       const report = reportSnapshot.val();
+      
+      // Extract respondingOfficerId from dispatchInfo.unit if available
+      const respondingOfficerId = report.respondingOfficerId || report.dispatchInfo?.unit || null;
+      
       const crimeReport: CrimeReport = {
         crimeType: report.type || report.crimeType || 'Unknown',
         dateTime: report.dateTime ? new Date(report.dateTime) : (report.dateReported ? new Date(report.dateReported) : new Date()),
@@ -1408,7 +1474,7 @@ export class FirebaseService {
         upvotes: report.upvotes || 0,
         downvotes: report.downvotes || 0,
         userVotes: report.userVotes || {},
-        respondingOfficerId: report.respondingOfficerId,
+        respondingOfficerId: respondingOfficerId,
         respondingOfficerName: report.respondingOfficerName,
         respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
       };
