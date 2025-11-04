@@ -538,10 +538,10 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       
       <View style={styles.cardFooter}>
         <Text style={styles.location}>
-          📍 {item.barangay && `${item.barangay} • `}{item.location.address}
+          📍 {item.barangay && `${item.barangay} • `}{item.location?.address || 'Location not available'}
         </Text>
         <Text style={styles.reporter}>
-          {item.anonymous ? 'Anonymous Report' : `By: ${item.reporterName}`}
+          {item.anonymous ? 'Anonymous Report' : `By: ${item.reporterName || 'Unknown'}`}
         </Text>
       </View>
 

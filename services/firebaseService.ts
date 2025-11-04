@@ -545,8 +545,16 @@ export class FirebaseService {
         longitude,
         lastUpdated: new Date().toISOString(),
       });
-    } catch (error) {
+      console.log(`FirebaseService: ✅ Police location updated for ${uid}`);
+    } catch (error: any) {
       console.error('Update police location error:', error);
+      // Log more details for permission errors
+      if (error?.code === 'PERMISSION_DENIED' || error?.message?.includes('permission')) {
+        console.error('FirebaseService: Permission denied updating police location');
+        console.error('FirebaseService: Path attempted:', `police/police account/${uid}/currentLocation`);
+        console.error('FirebaseService: Current auth UID:', auth.currentUser?.uid);
+        console.error('FirebaseService: Target UID:', uid);
+      }
       throw error;
     }
   }
