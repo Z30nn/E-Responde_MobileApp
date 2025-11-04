@@ -820,18 +820,34 @@ class FCMService {
       
       // Remove FCM token from user profile before clearing currentUserId
       if (this.currentUserId) {
-        const { doc, updateDoc, getDoc } = await import('firebase/firestore');
-        const { db } = await import('../firebaseConfig');
-        
-        const userRef = doc(db, 'users', this.currentUserId);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          await updateDoc(userRef, {
-            fcmToken: null,
-            fcmTokenUpdated: null
-          });
-          console.log('FCMService: ✅ FCM token removed from user profile');
+        // Check if user is still authenticated before attempting Firestore write
+        const { auth } = await import('../firebaseConfig');
+        if (!auth.currentUser) {
+          console.log('FCMService: User already logged out, skipping FCM token removal from Firestore');
+        } else {
+          try {
+            const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+            const { db } = await import('../firebaseConfig');
+            
+            const userRef = doc(db, 'users', this.currentUserId);
+            const userDoc = await getDoc(userRef);
+            
+            if (userDoc.exists()) {
+              await updateDoc(userRef, {
+                fcmToken: null,
+                fcmTokenUpdated: null
+              });
+              console.log('FCMService: ✅ FCM token removed from user profile');
+            } else {
+              console.log('FCMService: User document does not exist in Firestore, skipping cleanup');
+            }
+          } catch (firestoreError: any) {
+            // Log but don't throw - cleanup should not fail if token removal fails
+            console.error('FCMService: Error removing FCM token from Firestore:', firestoreError);
+            if (firestoreError?.code === 'permission-denied') {
+              console.warn('FCMService: Permission denied - user may have already been logged out');
+            }
+          }
         }
       }
       
