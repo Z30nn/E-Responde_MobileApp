@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC, useState, useEffect } from 'react';
 import {
   Text,
   TextInput,
@@ -9,6 +9,9 @@ import {
   Alert,
   useWindowDimensions,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import Register from '../register';
 import ForgotPassword from '../forgot-password';
@@ -30,6 +33,8 @@ const Login: FC = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { login } = useAuth();
   const styles = createStyles();
 
@@ -121,6 +126,33 @@ const Login: FC = () => {
 
   const isFormValid = formData.email && !emailError && formData.password;
 
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        setIsKeyboardVisible(true);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(event.endCoordinates.height);
+        }
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(0);
+        }
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
   return (
     showEmailVerification ? (
       <EmailVerification
@@ -133,12 +165,23 @@ const Login: FC = () => {
     ) : showSignUp ? (
       <Register onGoToLogin={() => setShowSignUp(false)} />
     ) : (
-      <View style={styles.container}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}
+      <View style={[
+        styles.container,
+        Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+      ]}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+          enabled={Platform.OS === 'ios'}
         >
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollViewContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+          >
           {/* Form Container */}
           <View style={styles.formContainer}>
             {/* Form Title */}
@@ -220,6 +263,7 @@ const Login: FC = () => {
             </Text>
           </Text>
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     )
   );

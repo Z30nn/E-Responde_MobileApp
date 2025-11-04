@@ -1,5 +1,5 @@
 /* eslint-disable react-native/no-inline-styles */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Text,
   TextInput,
@@ -10,6 +10,9 @@ import {
   Pressable,
   useWindowDimensions,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { FirebaseService } from './services/firebaseService';
 import { useLanguage } from './services/languageContext';
@@ -22,6 +25,8 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [emailError, setEmailError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const validateEmail = (value: string) => {
     if (!value) return 'Email is required.';
@@ -72,25 +77,62 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
     }
   };
 
-  return (
-    <View style={{ 
-      flex: 1, 
-      backgroundColor: '#2d3480',
-      marginTop: -50,
-      marginBottom: -50,
-    }}>
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        setIsKeyboardVisible(true);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(event.endCoordinates.height);
+        }
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(0);
+        }
+      }
+    );
 
-      <ScrollView
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
+  return (
+    <View style={[
+      { 
+        flex: 1, 
+        backgroundColor: '#2d3480',
+        marginTop: -50,
+        marginBottom: -50,
+      },
+      Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+    ]}>
+      <KeyboardAvoidingView 
         style={{ flex: 1 }}
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20,
-          paddingTop: 30,
-        }}
-        showsVerticalScrollIndicator={false}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        enabled={Platform.OS === 'ios'}
       >
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 20,
+            paddingTop: 30,
+          }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
         {/* Enhanced Form Container */}
         <View style={{
           backgroundColor: '#ffffff',
@@ -205,6 +247,7 @@ const ForgotPassword = ({ onGoToLogin }: { onGoToLogin: () => void }) => {
           </Text>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 };

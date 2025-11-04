@@ -1,4 +1,4 @@
-import React, { FC, useState } from 'react';
+import React, { FC, useState, useEffect } from 'react';
 import {
   Text,
   TextInput,
@@ -9,6 +9,10 @@ import {
   Modal,
   TouchableOpacity,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
 import { FirebaseService } from '../../services/firebaseService';
 import { useTheme, colors } from '../../services/themeContext';
@@ -29,6 +33,8 @@ const ChangePassword: FC<ChangePasswordProps> = ({ onClose }) => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { isDarkMode } = useTheme();
   const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
@@ -116,6 +122,33 @@ const ChangePassword: FC<ChangePasswordProps> = ({ onClose }) => {
     formData.newPassword === formData.confirmPassword &&
     formData.currentPassword !== formData.newPassword;
 
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (event) => {
+        setIsKeyboardVisible(true);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(event.endCoordinates.height);
+        }
+      }
+    );
+    
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        if (Platform.OS === 'android') {
+          setKeyboardHeight(0);
+        }
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
   return (
     <Modal
       visible={true}
@@ -128,15 +161,30 @@ const ChangePassword: FC<ChangePasswordProps> = ({ onClose }) => {
         onPress={onClose}
         disabled={isLoading}
       >
-        <Pressable
-          style={styles.formContainer}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <Text style={styles.formTitle}>
-            Change Password
-          </Text>
+        <View style={[
+          { flex: 1 },
+          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+        ]}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+            enabled={Platform.OS === 'ios'}
+            style={{ flex: 1 }}
+          >
+            <Pressable
+              style={styles.formContainer}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <Text style={styles.formTitle}>
+                Change Password
+              </Text>
 
-          <View style={styles.formFields}>
+              <ScrollView 
+                style={styles.formFields}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                contentContainerStyle={{ flexGrow: 1 }}
+              >
             {/* Current Password */}
             <View style={styles.passwordContainer}>
               <TextInput
@@ -233,8 +281,10 @@ const ChangePassword: FC<ChangePasswordProps> = ({ onClose }) => {
                 Cancel
               </Text>
             </TouchableOpacity>
-          </View>
-        </Pressable>
+            </ScrollView>
+          </Pressable>
+          </KeyboardAvoidingView>
+        </View>
       </Pressable>
     </Modal>
   );
