@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -26,18 +26,46 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
   const [userDetails, setUserDetails] = useState<{ [uid: string]: CivilianUser }>({});
 
   const fetchUserDetails = useCallback(async (reportsData: CrimeReport[]) => {
-    const uniqueUids = [...new Set(reportsData.map(report => report.reporterUid))];
+    const uniqueUids = [...new Set(reportsData.map(report => report.reporterUid).filter(Boolean))];
+    if (uniqueUids.length === 0) {
+      setUserDetails({});
+      return;
+    }
+
     const userDetailsMap: { [uid: string]: CivilianUser } = {};
     
+    // Check cache first
+    const { cache, cacheKeys } = await import('../../services/utils/cache');
+    const uncachedUids: string[] = [];
+    
     for (const uid of uniqueUids) {
-      try {
-        const userDetailsData = await FirebaseService.getCivilianUser(uid);
-        if (userDetailsData) {
-          userDetailsMap[uid] = userDetailsData;
-        }
-      } catch (fetchError) {
-        console.error(`Error fetching user details for ${uid}:`, fetchError);
+      const cacheKey = cacheKeys.userProfile(uid);
+      const cached = cache.get<CivilianUser>(cacheKey);
+      if (cached) {
+        userDetailsMap[uid] = cached;
+      } else {
+        uncachedUids.push(uid);
       }
+    }
+    
+    // Fetch uncached user details in parallel (but limit concurrency)
+    const batchSize = 5;
+    for (let i = 0; i < uncachedUids.length; i += batchSize) {
+      const batch = uncachedUids.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (uid) => {
+          try {
+            const userDetailsData = await FirebaseService.getCivilianUser(uid);
+            if (userDetailsData) {
+              userDetailsMap[uid] = userDetailsData;
+              // Cache for 5 minutes
+              cache.set(cacheKeys.userProfile(uid), userDetailsData, 5 * 60 * 1000);
+            }
+          } catch (fetchError) {
+            console.error(`Error fetching user details for ${uid}:`, fetchError);
+          }
+        })
+      );
     }
     
     setUserDetails(userDetailsMap);
@@ -124,24 +152,24 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
   };
 
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
-  };
+  }, []);
 
-  const formatTime = (dateString: string) => {
+  const formatTime = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status.toLowerCase()) {
       case 'reported':
         return '#3B82F6'; // Blue
@@ -160,9 +188,9 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
       default:
         return '#6B7280'; // Gray
     }
-  };
+  }, []);
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = useCallback((severity: string) => {
     switch (severity) {
       case 'Immediate':
         return '#EF4444'; // Red
@@ -175,11 +203,10 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
       default:
         return '#6B7280'; // Gray
     }
-  };
+  }, []);
 
 
-  const renderReportCard = ({ item }: { item: CrimeReport }) => {
-
+  const renderReportCard = useCallback(({ item }: { item: CrimeReport }) => {
     return (
       <TouchableOpacity
         style={styles.reportCard}
@@ -255,7 +282,15 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [formatDate, formatTime, getStatusColor, getSeverityColor, userDetails, onViewReport]);
+
+  // Memoize FlatList helpers - must be before early returns
+  const keyExtractor = useCallback((item: CrimeReport) => item.reportId || item.createdAt || '', []);
+  const getItemLayout = useCallback((_data: any, index: number) => ({
+    length: 200, // Approximate item height
+    offset: 200 * index,
+    index,
+  }), []);
 
   if (isLoading) {
     return (
@@ -293,12 +328,18 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
       <FlatList
         data={reports}
         renderItem={renderReportCard}
-        keyExtractor={(item) => item.reportId || item.createdAt}
+        keyExtractor={keyExtractor}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         onRefresh={handleRefresh}
         refreshing={isRefreshing}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
+        getItemLayout={getItemLayout}
       />
     </View>
   );
@@ -494,4 +535,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PoliceCrimeList;
+export default memo(PoliceCrimeList);

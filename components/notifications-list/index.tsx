@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -129,7 +129,7 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
   };
 
 
-  const handleNotificationPress = async (notification: NotificationPayload) => {
+  const handleNotificationPress = useCallback(async (notification: NotificationPayload) => {
     console.log('NotificationsList: handleNotificationPress called with notification:', notification.type, notification.id);
     // Mark notification as read first
     if (!notification.data?.read && notification.id) {
@@ -176,9 +176,9 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
           break;
       }
     }
-  };
+  }, [markAsRead, onNavigateToScreen]);
 
-  const handleNotificationLongPress = async (notification: NotificationPayload) => {
+  const handleNotificationLongPress = useCallback(async (notification: NotificationPayload) => {
     console.log('NotificationsList: Long press detected for notification:', notification.type, notification.id);
     
     const options = [];
@@ -244,7 +244,7 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
     };
 
     showActionSheet();
-  };
+  }, [t]);
 
   const handleActionSheetSelection = async (buttonIndex: number, notification: NotificationPayload, options: string[]) => {
     const selectedOption = options[buttonIndex];
@@ -429,6 +429,72 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
     }
   };
 
+  // Memoize render function - must be before early returns
+  const renderNotificationItem = useCallback((notification: NotificationPayload, index: number) => (
+    <TouchableOpacity
+      key={`${notification.timestamp}-${index}`}
+      style={[
+        styles.notificationItem,
+        notification.type === 'sos_alert' && styles.sosNotificationItem
+      ]}
+      onPress={() => handleNotificationPress(notification)}
+      onLongPress={() => {
+        console.log('NotificationsList: TouchableOpacity onLongPress triggered');
+        handleNotificationLongPress(notification);
+      }}
+      delayLongPress={500}
+      activeOpacity={0.7}
+    >
+      <View style={styles.notificationHeader}>
+        <View style={[
+          styles.notificationIconContainer,
+          { backgroundColor: getNotificationIconColor(notification.type) },
+          notification.type === 'sos_alert' && styles.sosIconContainer
+        ]}>
+          <Text style={[
+            styles.notificationIcon,
+            notification.type === 'sos_alert' && styles.sosIcon
+          ]}>
+            {getNotificationIcon(notification.type)}
+          </Text>
+          {!notification.data?.read && (
+            <View style={[
+              styles.notificationBadge,
+              notification.type === 'sos_alert' && styles.sosBadge
+            ]} />
+          )}
+        </View>
+        <View style={styles.notificationContent}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+            <Text style={[
+              styles.notificationTitle,
+              notification.type === 'sos_alert' && styles.sosTitle
+            ]} numberOfLines={2}>
+              {notification.title}
+            </Text>
+            <Text style={[
+              styles.notificationTime,
+              notification.type === 'sos_alert' && styles.sosTime
+            ]}>
+              {formatTimestamp(notification.timestamp)}
+            </Text>
+          </View>
+          <Text style={[
+            styles.notificationBody,
+            notification.type === 'sos_alert' && styles.sosBody
+          ]} numberOfLines={3}>
+            {notification.body}
+          </Text>
+          
+          <Text style={[styles.longPressHint, { color: theme.secondaryText, fontSize: fonts.caption }]}>
+            {t('notifications.longPressHint')}
+          </Text>
+          
+        </View>
+      </View>
+    </TouchableOpacity>
+  ), [handleNotificationPress, handleNotificationLongPress, formatTimestamp, getNotificationIcon, getNotificationIconColor, theme, fonts, t]);
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -467,77 +533,14 @@ const NotificationsList: React.FC<NotificationsListProps> = ({ userId, onNavigat
 
   return (
     <>
-      
       <ScrollView 
         style={styles.container}
         showsVerticalScrollIndicator={false}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
+        removeClippedSubviews={true}
       >
-        {localNotifications.map((notification, index) => (
-           <TouchableOpacity
-             key={`${notification.timestamp}-${index}`}
-             style={[
-               styles.notificationItem,
-               notification.type === 'sos_alert' && styles.sosNotificationItem
-             ]}
-             onPress={() => handleNotificationPress(notification)}
-             onLongPress={() => {
-               console.log('NotificationsList: TouchableOpacity onLongPress triggered');
-               handleNotificationLongPress(notification);
-             }}
-             delayLongPress={500}
-             activeOpacity={0.7}
-           >
-            <View style={styles.notificationHeader}>
-              <View style={[
-                styles.notificationIconContainer,
-                { backgroundColor: getNotificationIconColor(notification.type) },
-                notification.type === 'sos_alert' && styles.sosIconContainer
-              ]}>
-                <Text style={[
-                  styles.notificationIcon,
-                  notification.type === 'sos_alert' && styles.sosIcon
-                ]}>
-                  {getNotificationIcon(notification.type)}
-                </Text>
-                {!notification.data?.read && (
-                  <View style={[
-                    styles.notificationBadge,
-                    notification.type === 'sos_alert' && styles.sosBadge
-                  ]} />
-                )}
-              </View>
-              <View style={styles.notificationContent}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                  <Text style={[
-                    styles.notificationTitle,
-                    notification.type === 'sos_alert' && styles.sosTitle
-                  ]} numberOfLines={2}>
-                    {notification.title}
-                  </Text>
-                  <Text style={[
-                    styles.notificationTime,
-                    notification.type === 'sos_alert' && styles.sosTime
-                  ]}>
-                    {formatTimestamp(notification.timestamp)}
-                  </Text>
-                </View>
-                <Text style={[
-                  styles.notificationBody,
-                  notification.type === 'sos_alert' && styles.sosBody
-                ]} numberOfLines={3}>
-                  {notification.body}
-                </Text>
-                
-                <Text style={[styles.longPressHint, { color: theme.secondaryText, fontSize: fonts.caption }]}>
-                  {t('notifications.longPressHint')}
-                </Text>
-                
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {localNotifications.map((notification, index) => renderNotificationItem(notification, index))}
       </ScrollView>
 
       {/* SOS Alert Details Modal */}

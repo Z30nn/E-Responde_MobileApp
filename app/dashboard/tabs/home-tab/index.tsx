@@ -8,9 +8,10 @@ import { createStyles } from './styles';
 interface HomeTabProps {
   onViewReport: (reportId: string) => void;
   crimeListRef: React.RefObject<CrimeListFromOthersRef | null>;
+  isVisible?: boolean;
 }
 
-const HomeTab: FC<HomeTabProps> = ({ onViewReport, crimeListRef }) => {
+const HomeTab: FC<HomeTabProps> = ({ onViewReport, crimeListRef, isVisible = true }) => {
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
@@ -43,6 +44,7 @@ const HomeTab: FC<HomeTabProps> = ({ onViewReport, crimeListRef }) => {
         <CrimeListFromOthers
           ref={crimeListRef}
           onViewReport={onViewReport}
+          isVisible={isVisible}
         />
       </View>
     </View>

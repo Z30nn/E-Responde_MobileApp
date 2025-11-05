@@ -128,26 +128,34 @@ export class FirebaseService {
       const base64Images: string[] = [];
       const errors: string[] = [];
       
-      // Process files sequentially to avoid memory issues
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        try {
-          console.log(`Processing image ${i + 1}/${files.length}: ${file.name}`);
-          
-          // Validate file type
-          if (!file.type || (!file.type.startsWith('image/'))) {
-            throw new Error(`Unsupported file type: ${file.type || 'unknown'}. Only images are allowed.`);
-          }
-          
-          // Convert to base64
-          const base64DataUrl = await this.convertImageToBase64(file.uri, file.name);
-          base64Images.push(base64DataUrl);
-          
-          console.log(`Image ${i + 1} processed successfully`);
-        } catch (error: any) {
-          console.error(`Error processing image ${i + 1} (${file.name}):`, error);
-          errors.push(`${file.name}: ${error.message}`);
-        }
+      // Process files in parallel batches for better performance (but limit concurrency)
+      const batchSize = 3; // Process 3 images at a time to balance memory and speed
+      
+      for (let i = 0; i < files.length; i += batchSize) {
+        const batch = files.slice(i, i + batchSize);
+        
+        await Promise.all(
+          batch.map(async (file, batchIndex) => {
+            const globalIndex = i + batchIndex + 1;
+            try {
+              console.log(`Processing image ${globalIndex}/${files.length}: ${file.name}`);
+              
+              // Validate file type
+              if (!file.type || (!file.type.startsWith('image/'))) {
+                throw new Error(`Unsupported file type: ${file.type || 'unknown'}. Only images are allowed.`);
+              }
+              
+              // Convert to base64
+              const base64DataUrl = await this.convertImageToBase64(file.uri, file.name);
+              base64Images.push(base64DataUrl);
+              
+              console.log(`Image ${globalIndex} processed successfully`);
+            } catch (error: any) {
+              console.error(`Error processing image ${globalIndex} (${file.name}):`, error);
+              errors.push(`${file.name}: ${error.message}`);
+            }
+          })
+        );
       }
       
       if (errors.length > 0) {
