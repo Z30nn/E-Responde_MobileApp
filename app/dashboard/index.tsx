@@ -257,7 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         
         console.log('Dashboard: Real-time status monitoring set up successfully for both collections');
         
-        // Add periodic check every 2 minutes as backup (NON-INTERFERING)
+        // Add periodic check every 5 minutes as backup (NON-INTERFERING) - reduced frequency for performance
         const periodicCheck = setInterval(async () => {
           try {
             console.log('Dashboard: Running NON-INTERFERING periodic status check...');
@@ -269,6 +269,9 @@ const Dashboard: React.FC<DashboardProps> = ({
               const userReportsData = userSnapshot.val();
               const mainReportsData = mainSnapshot.val();
               
+              // Batch updates to reduce database writes
+              const updates: Array<{ reportId: string; status: string; reportData: any }> = [];
+              
               for (const [reportId, userReportData] of Object.entries(userReportsData)) {
                 if (mainReportsData[reportId]) {
                   const mainReportData = mainReportsData[reportId];
@@ -278,31 +281,43 @@ const Dashboard: React.FC<DashboardProps> = ({
                   // Only update if mainStatus exists and is different from userStatus
                   if (mainStatus && mainStatus !== userStatus) {
                     console.log('Dashboard: Periodic check found mismatch:', reportId, 'Main:', mainStatus, 'User:', userStatus);
-                    
-                    // Update user's collection
-                    const { update } = await import('firebase/database');
-                    const userReportRef = ref(database, `civilian/civilian account/${user.uid}/crime reports/${reportId}`);
-                    await update(userReportRef, {
+                    updates.push({
+                      reportId,
                       status: mainStatus,
-                      statusUpdatedAt: new Date().toISOString(),
-                      statusUpdatedBy: 'periodic_sync'
+                      reportData: mainReportData
                     });
-                    
-                    // Send notification if resolved
-                    if (mainStatus.toLowerCase() === 'resolved') {
-                      console.log('Dashboard: Periodic check sending resolved notification for report:', reportId);
-                      notificationService.sendReportStatusUpdateNotification(
-                        reportId,
-                        user.uid,
-                        userStatus || 'pending',
-                        mainStatus,
-                        (mainReportData as any)?.crimeType || 'Crime Report'
-                      ).then(success => {
-                        console.log('Dashboard: Periodic resolved notification sent:', success);
-                      }).catch(error => {
-                        console.error('Dashboard: Error sending periodic resolved notification:', error);
-                      });
-                    }
+                  }
+                }
+              }
+              
+              // Batch apply updates
+              if (updates.length > 0) {
+                const { update: updateFn } = await import('firebase/database');
+                const batchUpdates: Record<string, any> = {};
+                
+                for (const { reportId, status } of updates) {
+                  batchUpdates[`civilian/civilian account/${user.uid}/crime reports/${reportId}/status`] = status;
+                  batchUpdates[`civilian/civilian account/${user.uid}/crime reports/${reportId}/statusUpdatedAt`] = new Date().toISOString();
+                  batchUpdates[`civilian/civilian account/${user.uid}/crime reports/${reportId}/statusUpdatedBy`] = 'periodic_sync';
+                }
+                
+                // Single batch update
+                const rootRef = ref(database);
+                await updateFn(rootRef, batchUpdates);
+                
+                // Send notifications for resolved reports
+                for (const { reportId, status, reportData } of updates) {
+                  if (status.toLowerCase() === 'resolved') {
+                    console.log('Dashboard: Periodic check sending resolved notification for report:', reportId);
+                    notificationService.sendReportStatusUpdateNotification(
+                      reportId,
+                      user.uid,
+                      (userReportsData[reportId] as any)?.status || 'pending',
+                      status,
+                      (reportData as any)?.crimeType || 'Crime Report'
+                    ).catch(error => {
+                      console.error('Dashboard: Error sending periodic resolved notification:', error);
+                    });
                   }
                 }
               }
@@ -310,7 +325,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           } catch (error) {
             console.error('Dashboard: Error in periodic check:', error);
           }
-        }, 120000); // Check every 2 minutes (NON-INTERFERING)
+        }, 300000); // Check every 5 minutes (NON-INTERFERING) - reduced from 2 minutes for better performance
         
         // Return cleanup function
         return () => {
@@ -623,6 +638,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <HomeTab
             onViewReport={setSelectedReportId}
             crimeListRef={crimeListRef}
+            isVisible={activeTab === 0}
           />
         );
       case 1:

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,13 +20,15 @@ import Geolocation from '@react-native-community/geolocation';
 
 interface CrimeListFromOthersProps {
   onViewReport?: (reportId: string) => void;
+  isVisible?: boolean; // Track if component is visible/active
 }
 
 export interface CrimeListFromOthersRef {
   openFilterModal: () => void;
 }
 
-const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthersProps>(({ onViewReport }, ref) => {
+const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthersProps>(
+  ({ onViewReport, isVisible = true }, ref) => {
   const { isDarkMode } = useTheme();
   const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
@@ -43,8 +45,13 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   const itemsPerPage = 10;
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
+  // Refs for debouncing and visibility tracking (must be declared before other hooks)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const isVisibleRef = useRef(isVisible);
+
   // Calculate distance between two coordinates using Haversine formula
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const R = 6371; // Earth's radius in kilometers
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -54,7 +61,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in kilometers
-  };
+  }, []);
 
   // Get user's current location
   useEffect(() => {
@@ -76,7 +83,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   }, [selectedStatus]);
 
   // Filter reports based on selected status
-  const filterReports = (reportsList: CrimeReport[], status: string) => {
+  const filterReports = useCallback((reportsList: CrimeReport[], status: string) => {
     let filtered = reportsList;
 
     if (status === 'all') {
@@ -181,96 +188,43 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
     return filtered.sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  };
+  }, [calculateDistance, userLocation]);
 
   // Apply filter when reports, selectedStatus, or userLocation changes
+  const filteredReportsMemo = useMemo(() => {
+    return filterReports(reports, selectedStatus);
+  }, [reports, selectedStatus, filterReports]);
+
   useEffect(() => {
-    const filtered = filterReports(reports, selectedStatus);
-    setFilteredReports(filtered);
+    setFilteredReports(filteredReportsMemo);
     // Reset to page 1 when filter changes
     setCurrentPage(1);
-  }, [reports, selectedStatus, userLocation]);
+  }, [filteredReportsMemo]);
+
+  // Keep refs in sync with props
+  useEffect(() => {
+    isVisibleRef.current = isVisible;
+  }, [isVisible]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Expose filter modal control to parent
   useImperativeHandle(ref, () => ({
     openFilterModal: () => setShowFilterModal(true)
   }));
 
-  useEffect(() => {
-    loadOtherUsersReports();
-    
-    // Set up real-time listener for status updates from all users
-    const allReportsRef = firebaseRef(database, 'civilian/civilian crime reports');
-    
-    const handleStatusChange = (snapshot: any) => {
-      if (snapshot.exists()) {
-        const allReportsData = snapshot.val();
-        const currentUser = auth.currentUser;
-        
-        if (currentUser) {
-          // Filter out current user's reports and get all other users' reports
-          // Only show reports that are "received" or higher (verified by authorities)
-          const otherUsersReports: CrimeReport[] = [];
-          
-          Object.keys(allReportsData).forEach(reportId => {
-            const report = allReportsData[reportId];
-            console.log('Real-time: Checking report:', reportId, 'Status:', report.status, 'Reporter UID:', report.reporterUid);
-            // Only include reports from other users that are "received" or higher (verified by authorities)
-            const reportStatusLower = report.status ? report.status.toLowerCase().trim() : '';
-            if (report.reporterUid !== currentUser.uid && report.status && (
-              reportStatusLower === 'received' ||
-              reportStatusLower === 'in progress' ||
-              reportStatusLower === 'resolved' ||
-              reportStatusLower === 'case resolved' ||
-              reportStatusLower === 'dispatched' ||
-              reportStatusLower === 'pending' // Include pending for now
-            )) {
-              console.log('Real-time: Adding verified report:', reportId, 'Status:', report.status);
-              otherUsersReports.push({
-                ...report,
-                reportId: reportId,
-                dateTime: new Date(report.dateTime)
-              });
-            } else {
-              console.log('Real-time: Skipping report:', reportId, 'Status:', report.status, 'Reason:', report.reporterUid === currentUser.uid ? 'Own report' : 'Not verified');
-            }
-          });
-          
-          // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
-          // Note: Final sorting will be done in filterReports to ensure chronological order
-          otherUsersReports.sort((a, b) => {
-            const upvotesA = a.upvotes || 0;
-            const upvotesB = b.upvotes || 0;
-            
-            // First sort by upvotes (descending)
-            if (upvotesA !== upvotesB) {
-              return upvotesB - upvotesA;
-            }
-            
-            // If upvotes are equal, sort by date (newest first)
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          });
-          
-          setReports(otherUsersReports);
-        }
-      }
-    };
-    
-    onValue(allReportsRef, handleStatusChange);
-    
-    // Cleanup listener on unmount
-    return () => {
-      off(allReportsRef, 'value', handleStatusChange);
-    };
-  }, []);
-
-  const loadOtherUsersReports = async () => {
+  // Load initial reports function
+  const loadOtherUsersReports = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       
       const currentUser = auth.currentUser;
-      console.log('Current user for crime list:', currentUser);
       if (!currentUser) {
         setError(t('crimeList.userNotAuthenticated'));
         return;
@@ -278,7 +232,6 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
 
       // Get all crime reports excluding current user's reports
       const otherUsersReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid);
-      console.log('Other users crime reports loaded:', otherUsersReports.length);
       
       // Filter to only show verified reports (received or higher)
       const verifiedReports = otherUsersReports.filter(report => {
@@ -293,7 +246,6 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
           reportStatusLower === 'pending' // Include pending for now
         );
       });
-      console.log('Verified other users reports:', verifiedReports.length);
       
       setReports(verifiedReports);
     } catch (error) {
@@ -302,26 +254,135 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
-  const formatDate = (dateString: string) => {
+  // Load initial reports
+  useEffect(() => {
+    if (isVisible) {
+      loadOtherUsersReports();
+    }
+  }, [isVisible, loadOtherUsersReports]);
+
+  // Set up real-time listener with debouncing and visibility tracking
+  useEffect(() => {
+    // Don't set up listener if not visible
+    if (!isVisible) {
+      return;
+    }
+
+    // Set up real-time listener for status updates from all users
+    const allReportsRef = firebaseRef(database, 'civilian/civilian crime reports');
+    
+    const handleStatusChange = (snapshot: any) => {
+      // Skip processing if component is not visible or not mounted
+      if (!isVisibleRef.current || !isMountedRef.current) {
+        return;
+      }
+
+      // Clear existing debounce timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+
+      // Debounce the update to prevent excessive processing
+      debounceTimerRef.current = setTimeout(() => {
+        if (!isMountedRef.current || !isVisibleRef.current) {
+          return;
+        }
+
+        if (snapshot.exists()) {
+          const allReportsData = snapshot.val();
+          const currentUser = auth.currentUser;
+          
+          if (currentUser) {
+            // Filter out current user's reports and get all other users' reports
+            // Only show reports that are "received" or higher (verified by authorities)
+            const otherUsersReports: CrimeReport[] = [];
+            
+            // Process reports more efficiently
+            const reportEntries = Object.entries(allReportsData);
+            const currentUserUid = currentUser.uid;
+            
+            for (const [reportId, report] of reportEntries) {
+              const reportData = report as any;
+              
+              // Skip if no status or is current user's report
+              if (!reportData.status || reportData.reporterUid === currentUserUid) {
+                continue;
+              }
+
+              // Only include reports that are verified (received or higher)
+              const reportStatusLower = reportData.status.toLowerCase().trim();
+              if (
+                reportStatusLower === 'received' ||
+                reportStatusLower === 'in progress' ||
+                reportStatusLower === 'resolved' ||
+                reportStatusLower === 'case resolved' ||
+                reportStatusLower === 'dispatched' ||
+                reportStatusLower === 'pending'
+              ) {
+                otherUsersReports.push({
+                  ...reportData,
+                  reportId: reportId,
+                  dateTime: new Date(reportData.dateTime)
+                });
+              }
+            }
+            
+            // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
+            otherUsersReports.sort((a, b) => {
+              const upvotesA = a.upvotes || 0;
+              const upvotesB = b.upvotes || 0;
+              
+              // First sort by upvotes (descending)
+              if (upvotesA !== upvotesB) {
+                return upvotesB - upvotesA;
+              }
+              
+              // If upvotes are equal, sort by date (newest first)
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+            
+            // Only update state if component is still mounted and visible
+            if (isMountedRef.current && isVisibleRef.current) {
+              setReports(otherUsersReports);
+            }
+          }
+        }
+      }, 300); // 300ms debounce delay
+    };
+    
+    const unsubscribe = onValue(allReportsRef, handleStatusChange);
+    
+    // Cleanup listener on unmount or when visibility changes
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      // Unsubscribe from Firebase listener
+      unsubscribe();
+    };
+  }, [isVisible]);
+
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
-  };
+  }, []);
 
-  const formatTime = (dateString: string) => {
+  const formatTime = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     const statusLower = status.toLowerCase().trim();
     switch (statusLower) {
       case 'reported':
@@ -345,7 +406,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       default:
         return '#6B7280'; // Gray
     }
-  };
+  }, []);
 
   const styles = StyleSheet.create({
     listContainer: {
@@ -627,7 +688,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
     return report.userVotes[currentUser.uid] || null;
   };
 
-  const renderReportCard = ({ item }: { item: CrimeReport }) => (
+  const renderReportCard = useCallback(({ item }: { item: CrimeReport }) => (
     <TouchableOpacity
       style={styles.reportCard}
       onPress={() => onViewReport?.(item.reportId || '')}
@@ -709,7 +770,20 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         </View>
       </View>
     </TouchableOpacity>
-  );
+  ), [formatDate, formatTime, getStatusColor, onViewReport, handleVote, getUserVote, votingReports]);
+
+  // All hooks must be called before any early returns
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
+
+  const keyExtractor = useCallback((item: CrimeReport) => item.reportId || item.createdAt || '', []);
+
+  const getItemLayout = useCallback((_data: any, index: number) => ({
+    length: 220, // Approximate item height
+    offset: 220 * index,
+    index,
+  }), []);
 
   if (isLoading) {
     return (
@@ -748,10 +822,6 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   const endIndex = startIndex + itemsPerPage;
   const paginatedReports = filteredReports.slice(startIndex, endIndex);
 
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-  };
-
   return (
     <View style={styles.listContainer}>
       <Pagination
@@ -762,13 +832,19 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       <FlatList
         data={paginatedReports}
         renderItem={renderReportCard}
-        keyExtractor={(item) => item.reportId || item.createdAt}
+        keyExtractor={keyExtractor}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         onRefresh={loadOtherUsersReports}
         refreshing={isLoading}
         nestedScrollEnabled={true}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
+        getItemLayout={getItemLayout}
       />
 
       {/* Filter Modal */}
@@ -988,7 +1064,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       </Modal>
     </View>
   );
-});
+  }
+);
 
 CrimeListFromOthers.displayName = 'CrimeListFromOthers';
 

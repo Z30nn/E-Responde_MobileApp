@@ -117,13 +117,36 @@ export const apis = {
   // ========== User Profile APIs ==========
   user: {
     getProfile: async (userId: string): Promise<UserProfile | null> => {
+      // Check cache first
+      const { cache, cacheKeys } = await import('../utils/cache');
+      const cacheKey = cacheKeys.userProfile(userId);
+      const cached = cache.get<UserProfile>(cacheKey);
+      
+      if (cached) {
+        logger.debug('API: Get user profile from cache', userId);
+        return cached;
+      }
+
       logger.debug('API: Get user profile', userId);
-      return await firebaseClient.database.read(`civilian/civilian account/${userId}`);
+      const profile = await firebaseClient.database.read(`civilian/civilian account/${userId}`);
+      
+      // Cache for 5 minutes
+      if (profile) {
+        cache.set(cacheKey, profile, 5 * 60 * 1000);
+      }
+      
+      return profile;
     },
 
     updateProfile: async (userId: string, data: Partial<UserProfile>) => {
       logger.debug('API: Update user profile', userId);
-      return await firebaseClient.database.update(`civilian/civilian account/${userId}`, data);
+      const result = await firebaseClient.database.update(`civilian/civilian account/${userId}`, data);
+      
+      // Invalidate cache on update
+      const { cache, cacheKeys } = await import('../utils/cache');
+      cache.delete(cacheKeys.userProfile(userId));
+      
+      return result;
     },
 
     checkUserExists: async (email: string): Promise<boolean> => {
@@ -265,6 +288,16 @@ export const apis = {
   location: {
     reverseGeocode: async (latitude: number, longitude: number): Promise<string> => {
       try {
+        // Check cache first
+        const { cache, cacheKeys } = await import('../utils/cache');
+        const cacheKey = cacheKeys.geocode(latitude, longitude);
+        const cached = cache.get<string>(cacheKey);
+        
+        if (cached) {
+          logger.debug('API: Reverse geocode from cache', latitude, longitude);
+          return cached;
+        }
+
         logger.debug('API: Reverse geocode', latitude, longitude);
         const response = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
@@ -281,11 +314,17 @@ export const apis = {
         }
 
         const data = await response.json();
+        let address: string;
         if (data && data.display_name) {
-          return data.display_name;
+          address = data.display_name;
+        } else {
+          address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
         }
 
-        return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        // Cache the result for 24 hours (geocoding results don't change often)
+        cache.set(cacheKey, address, 24 * 60 * 60 * 1000);
+        
+        return address;
       } catch (error) {
         logger.error('API: Reverse geocode failed', error);
         return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
