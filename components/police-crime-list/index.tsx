@@ -40,7 +40,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
     
     for (const uid of uniqueUids) {
       const cacheKey = cacheKeys.userProfile(uid);
-      const cached = cache.get<CivilianUser>(cacheKey);
+      const cached = await cache.get<CivilianUser>(cacheKey, true); // Use persistent cache
       if (cached) {
         userDetailsMap[uid] = cached;
       } else {
@@ -58,8 +58,8 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
             const userDetailsData = await FirebaseService.getCivilianUser(uid);
             if (userDetailsData) {
               userDetailsMap[uid] = userDetailsData;
-              // Cache for 5 minutes
-              cache.set(cacheKeys.userProfile(uid), userDetailsData, 5 * 60 * 1000);
+              // Cache for 5 minutes with persistence
+              await cache.set(cacheKeys.userProfile(uid), userDetailsData, 5 * 60 * 1000, true);
             }
           } catch (fetchError) {
             console.error(`Error fetching user details for ${uid}:`, fetchError);

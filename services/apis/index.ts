@@ -120,7 +120,7 @@ export const apis = {
       // Check cache first
       const { cache, cacheKeys } = await import('../utils/cache');
       const cacheKey = cacheKeys.userProfile(userId);
-      const cached = cache.get<UserProfile>(cacheKey);
+      const cached = await cache.get<UserProfile>(cacheKey, true); // Use persistent cache
       
       if (cached) {
         logger.debug('API: Get user profile from cache', userId);
@@ -130,9 +130,9 @@ export const apis = {
       logger.debug('API: Get user profile', userId);
       const profile = await firebaseClient.database.read(`civilian/civilian account/${userId}`);
       
-      // Cache for 5 minutes
+      // Cache for 5 minutes with persistence
       if (profile) {
-        cache.set(cacheKey, profile, 5 * 60 * 1000);
+        await cache.set(cacheKey, profile, 5 * 60 * 1000, true);
       }
       
       return profile;
@@ -144,7 +144,7 @@ export const apis = {
       
       // Invalidate cache on update
       const { cache, cacheKeys } = await import('../utils/cache');
-      cache.delete(cacheKeys.userProfile(userId));
+      await cache.delete(cacheKeys.userProfile(userId));
       
       return result;
     },
@@ -167,29 +167,81 @@ export const apis = {
         downvotes: 0,
         userVotes: {},
       });
+      
+      // Invalidate relevant caches
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.crimeReportsAll());
+      if (report.reporterUid) {
+        await cache.delete(cacheKeys.crimeReports(report.reporterUid));
+      }
+      
       return reportId;
     },
 
     getByUser: async (userId: string) => {
       logger.debug('API: Get reports by user', userId);
-      return await firebaseClient.database.query('crime_reports', 'reporterUid', userId);
+      const { cache, cacheKeys } = await import('../utils/cache');
+      const cacheKey = cacheKeys.crimeReports(userId);
+      
+      // Use stale-while-revalidate for better UX
+      return await cache.staleWhileRevalidate(
+        cacheKey,
+        async () => {
+          return await firebaseClient.database.query('crime_reports', 'reporterUid', userId);
+        },
+        5 * 60 * 1000, // 5 minutes fresh
+        24 * 60 * 60 * 1000, // 24 hours stale acceptable
+        true // persistent
+      );
     },
 
     getById: async (reportId: string) => {
       logger.debug('API: Get report by ID', reportId);
-      return await firebaseClient.database.read(`crime_reports/${reportId}`);
+      const { cache, cacheKeys } = await import('../utils/cache');
+      const cacheKey = cacheKeys.crimeReport(reportId);
+      
+      const cached = await cache.get(cacheKey, true);
+      if (cached) {
+        logger.debug('API: Get report by ID from cache', reportId);
+        return cached;
+      }
+      
+      const report = await firebaseClient.database.read(`crime_reports/${reportId}`);
+      if (report) {
+        await cache.set(cacheKey, report, 10 * 60 * 1000, true); // Cache for 10 minutes
+      }
+      return report;
     },
 
     getAll: async () => {
       logger.debug('API: Get all reports');
-      return await firebaseClient.database.read('crime_reports');
+      const { cache, cacheKeys } = await import('../utils/cache');
+      const cacheKey = cacheKeys.crimeReportsAll();
+      
+      // Use stale-while-revalidate for better UX
+      return await cache.staleWhileRevalidate(
+        cacheKey,
+        async () => {
+          return await firebaseClient.database.read('crime_reports');
+        },
+        5 * 60 * 1000, // 5 minutes fresh
+        24 * 60 * 60 * 1000, // 24 hours stale acceptable
+        true // persistent
+      );
     },
 
     updateStatus: async (reportId: string, status: string, updatedBy?: string) => {
       logger.debug('API: Update report status', reportId, status);
       // Use FirebaseService to ensure both collections are updated and notifications are sent
       const { FirebaseService } = await import('../firebaseService');
-      return await FirebaseService.updateCrimeReportStatus(reportId, status, updatedBy);
+      const result = await FirebaseService.updateCrimeReportStatus(reportId, status, updatedBy);
+      
+      // Invalidate caches
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.crimeReport(reportId));
+      await cache.delete(cacheKeys.crimeReportsAll());
+      
+      return result;
     },
 
     vote: async (reportId: string, userId: string, voteType: 'upvote' | 'downvote') => {
@@ -213,7 +265,13 @@ export const apis = {
         updates[voteType === 'upvote' ? 'upvotes' : 'downvotes'] = (report[voteType === 'upvote' ? 'upvotes' : 'downvotes'] || 0) + 1;
       }
 
-      return await firebaseClient.database.update(`crime_reports/${reportId}`, updates);
+      const result = await firebaseClient.database.update(`crime_reports/${reportId}`, updates);
+      
+      // Invalidate report cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.crimeReport(reportId));
+      
+      return result;
     },
   },
 
@@ -221,22 +279,53 @@ export const apis = {
   emergencyContacts: {
     getAll: async (userId: string) => {
       logger.debug('API: Get emergency contacts', userId);
-      return await firebaseClient.database.read(`civilian/emergency_contacts/${userId}`);
+      const { cache, cacheKeys } = await import('../utils/cache');
+      const cacheKey = cacheKeys.emergencyContacts(userId);
+      
+      const cached = await cache.get(cacheKey, true);
+      if (cached) {
+        logger.debug('API: Get emergency contacts from cache', userId);
+        return cached;
+      }
+      
+      const contacts = await firebaseClient.database.read(`civilian/emergency_contacts/${userId}`);
+      if (contacts) {
+        await cache.set(cacheKey, contacts, 10 * 60 * 1000, true); // Cache for 10 minutes
+      }
+      return contacts;
     },
 
     add: async (userId: string, contact: any) => {
       logger.debug('API: Add emergency contact', userId);
-      return await firebaseClient.database.push(`civilian/emergency_contacts/${userId}`, contact);
+      const result = await firebaseClient.database.push(`civilian/emergency_contacts/${userId}`, contact);
+      
+      // Invalidate cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.emergencyContacts(userId));
+      
+      return result;
     },
 
     update: async (userId: string, contactId: string, data: any) => {
       logger.debug('API: Update emergency contact', userId, contactId);
-      return await firebaseClient.database.update(`civilian/emergency_contacts/${userId}/${contactId}`, data);
+      const result = await firebaseClient.database.update(`civilian/emergency_contacts/${userId}/${contactId}`, data);
+      
+      // Invalidate cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.emergencyContacts(userId));
+      
+      return result;
     },
 
     delete: async (userId: string, contactId: string) => {
       logger.debug('API: Delete emergency contact', userId, contactId);
-      return await firebaseClient.database.delete(`civilian/emergency_contacts/${userId}/${contactId}`);
+      const result = await firebaseClient.database.delete(`civilian/emergency_contacts/${userId}/${contactId}`);
+      
+      // Invalidate cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.emergencyContacts(userId));
+      
+      return result;
     },
   },
 
@@ -244,22 +333,47 @@ export const apis = {
   sos: {
     send: async (userId: string, location: any, message: string) => {
       logger.debug('API: Send SOS alert', userId);
-      return await firebaseClient.database.push(`civilian/sos_alerts/${userId}`, {
+      const result = await firebaseClient.database.push(`civilian/sos_alerts/${userId}`, {
         location,
         message,
         timestamp: new Date().toISOString(),
         status: 'active',
       });
+      
+      // Invalidate cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.sosAlerts(userId));
+      
+      return result;
     },
 
     getByUser: async (userId: string) => {
       logger.debug('API: Get SOS alerts', userId);
-      return await firebaseClient.database.read(`civilian/sos_alerts/${userId}`);
+      const { cache, cacheKeys } = await import('../utils/cache');
+      const cacheKey = cacheKeys.sosAlerts(userId);
+      
+      const cached = await cache.get(cacheKey);
+      if (cached) {
+        logger.debug('API: Get SOS alerts from cache', userId);
+        return cached;
+      }
+      
+      const alerts = await firebaseClient.database.read(`civilian/sos_alerts/${userId}`);
+      if (alerts) {
+        await cache.set(cacheKey, alerts, 2 * 60 * 1000); // Cache for 2 minutes (SOS alerts change frequently)
+      }
+      return alerts;
     },
 
     delete: async (userId: string, alertId: string) => {
       logger.debug('API: Delete SOS alert', userId, alertId);
-      return await firebaseClient.database.delete(`civilian/sos_alerts/${userId}/${alertId}`);
+      const result = await firebaseClient.database.delete(`civilian/sos_alerts/${userId}/${alertId}`);
+      
+      // Invalidate cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.sosAlerts(userId));
+      
+      return result;
     },
   },
 
@@ -267,20 +381,44 @@ export const apis = {
   notifications: {
     getByUser: async (userId: string) => {
       logger.debug('API: Get notifications', userId);
-      return await firebaseClient.database.read(`civilian/notifications/${userId}`);
+      const { cache, cacheKeys } = await import('../utils/cache');
+      const cacheKey = cacheKeys.notifications(userId);
+      
+      // Use stale-while-revalidate for notifications (important for UX)
+      return await cache.staleWhileRevalidate(
+        cacheKey,
+        async () => {
+          return await firebaseClient.database.read(`civilian/notifications/${userId}`);
+        },
+        2 * 60 * 1000, // 2 minutes fresh
+        1 * 60 * 60 * 1000, // 1 hour stale acceptable
+        true // persistent
+      );
     },
 
     markAsRead: async (userId: string, notificationId: string) => {
       logger.debug('API: Mark notification as read', userId, notificationId);
-      return await firebaseClient.database.update(
+      const result = await firebaseClient.database.update(
         `civilian/notifications/${userId}/${notificationId}`,
         { read: true, readAt: new Date().toISOString() }
       );
+      
+      // Invalidate cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.notifications(userId));
+      
+      return result;
     },
 
     delete: async (userId: string, notificationId: string) => {
       logger.debug('API: Delete notification', userId, notificationId);
-      return await firebaseClient.database.delete(`civilian/notifications/${userId}/${notificationId}`);
+      const result = await firebaseClient.database.delete(`civilian/notifications/${userId}/${notificationId}`);
+      
+      // Invalidate cache
+      const { cache, cacheKeys } = await import('../utils/cache');
+      await cache.delete(cacheKeys.notifications(userId));
+      
+      return result;
     },
   },
 
@@ -291,7 +429,7 @@ export const apis = {
         // Check cache first
         const { cache, cacheKeys } = await import('../utils/cache');
         const cacheKey = cacheKeys.geocode(latitude, longitude);
-        const cached = cache.get<string>(cacheKey);
+        const cached = await cache.get<string>(cacheKey, true); // Use persistent cache for geocoding
         
         if (cached) {
           logger.debug('API: Reverse geocode from cache', latitude, longitude);
@@ -321,8 +459,8 @@ export const apis = {
           address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
         }
 
-        // Cache the result for 24 hours (geocoding results don't change often)
-        cache.set(cacheKey, address, 24 * 60 * 60 * 1000);
+        // Cache the result for 24 hours (geocoding results don't change often) with persistence
+        await cache.set(cacheKey, address, 24 * 60 * 60 * 1000, true);
         
         return address;
       } catch (error) {
