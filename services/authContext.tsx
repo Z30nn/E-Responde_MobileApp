@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import { Alert } from 'react-native';
 import { auth, database } from '../firebaseConfig';
 import { FirebaseService } from './firebaseService';
@@ -154,6 +154,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       setIsLoading(true);
+      
+      // If user is police, set isActive to false before logout
+      if (user && userType === 'police') {
+        try {
+          const policeRef = ref(database, `police/police account/${user.uid}`);
+          await update(policeRef, {
+            isActive: false
+          });
+          console.log('AuthProvider: Police isActive set to false');
+        } catch (error) {
+          console.error('Error updating police isActive:', error);
+          // Continue with logout even if update fails
+        }
+      }
+      
       await signOut(auth);
       // Firebase Auth will handle clearing the user state via onAuthStateChanged
       console.log('AuthProvider: Logout successful, waiting for auth state change');
