@@ -450,7 +450,8 @@ export class FirebaseService {
           ...policeAccountData,
           uid: userCredential.user.uid,
           email: credentials.email,
-          lastLogin: new Date().toISOString()
+          lastLogin: new Date().toISOString(),
+          isActive: true
         });
         
         // Remove the old record if it exists
@@ -459,10 +460,17 @@ export class FirebaseService {
           await set(oldPoliceRef, null);
         }
       } else if (policeAccountData && (policeAccountData as any).uid === userCredential.user.uid) {
-        // Update last login time
+        // Update last login time and set isActive to true
         const userRef = ref(database, `police/police account/${userCredential.user.uid}`);
         await update(userRef, {
-          lastLogin: new Date().toISOString()
+          lastLogin: new Date().toISOString(),
+          isActive: true
+        });
+      } else {
+        // If account doesn't exist yet, set isActive to true
+        const userRef = ref(database, `police/police account/${userCredential.user.uid}`);
+        await update(userRef, {
+          isActive: true
         });
       }
 
