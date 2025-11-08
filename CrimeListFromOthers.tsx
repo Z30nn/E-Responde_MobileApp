@@ -35,6 +35,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   const [reports, setReports] = useState<CrimeReport[]>([]);
   const [filteredReports, setFilteredReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [votingReports, setVotingReports] = useState<Set<string>>(new Set());
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -230,8 +232,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         return;
       }
 
-      // Get all crime reports excluding current user's reports
-      const otherUsersReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid);
+      // Get crime reports excluding current user's reports with limit (50 reports)
+      const otherUsersReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid, 50);
       
       // Filter to only show verified reports (received or higher)
       const verifiedReports = otherUsersReports.filter(report => {
@@ -248,6 +250,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       });
       
       setReports(verifiedReports);
+      // If we got less than 50 reports, there are no more to load
+      setHasMore(otherUsersReports.length === 50);
     } catch (error) {
       console.error('Error loading other users crime reports:', error);
       setError(t('crimeList.failedToLoad'));
@@ -259,9 +263,56 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   // Load initial reports
   useEffect(() => {
     if (isVisible) {
+      setHasMore(true);
       loadOtherUsersReports();
     }
   }, [isVisible, loadOtherUsersReports]);
+
+  const loadMoreReports = useCallback(async () => {
+    if (isLoadingMore || !hasMore || reports.length === 0) return;
+    
+    try {
+      setIsLoadingMore(true);
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      // Get the oldest report's createdAt to use as pagination cursor
+      const oldestReport = reports[reports.length - 1];
+      const startAfter = oldestReport.createdAt;
+
+      // Load older reports
+      const olderReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid, 50, startAfter);
+      
+      if (olderReports.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      // Filter to only show verified reports (received or higher)
+      const verifiedReports = olderReports.filter(report => {
+        if (!report.status) return false;
+        const reportStatusLower = report.status.toLowerCase().trim();
+        return (
+          reportStatusLower === 'received' ||
+          reportStatusLower === 'in progress' ||
+          reportStatusLower === 'resolved' ||
+          reportStatusLower === 'case resolved' ||
+          reportStatusLower === 'dispatched' ||
+          reportStatusLower === 'pending'
+        );
+      });
+
+      // Append older reports to existing ones
+      setReports(prev => [...prev, ...verifiedReports]);
+      
+      // If we got less than 50 reports, there are no more to load
+      setHasMore(olderReports.length === 50);
+    } catch (error) {
+      console.error('Error loading more reports:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, reports]);
 
   // Set up real-time listener with debouncing and visibility tracking
   useEffect(() => {
@@ -343,9 +394,12 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
               return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             });
             
+            // Limit to latest 50 reports to prevent memory issues
+            const limitedReports = otherUsersReports.slice(0, 50);
+            
             // Only update state if component is still mounted and visible
             if (isMountedRef.current && isVisibleRef.current) {
-              setReports(otherUsersReports);
+              setReports(limitedReports);
             }
           }
         }
@@ -644,6 +698,21 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       fontSize: 16,
       fontWeight: '500',
     },
+    loadMoreContainer: {
+      padding: 20,
+      alignItems: 'center',
+    },
+    loadMoreButton: {
+      backgroundColor: theme.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+    },
+    loadMoreButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
   });
 
   const handleVote = async (reportId: string, voteType: 'upvote' | 'downvote') => {
@@ -840,6 +909,23 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         refreshing={isLoading}
         nestedScrollEnabled={true}
         removeClippedSubviews={true}
+        ListFooterComponent={
+          hasMore && reports.length >= 50 ? (
+            <View style={styles.loadMoreContainer}>
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <TouchableOpacity
+                  style={styles.loadMoreButton}
+                  onPress={loadMoreReports}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.loadMoreButtonText}>{t('crimeList.loadMore') || 'Load More Reports'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null
+        }
         maxToRenderPerBatch={10}
         updateCellsBatchingPeriod={50}
         initialNumToRender={10}

@@ -2,6 +2,7 @@ import { ref, get, set, update, onValue, off } from 'firebase/database';
 import { database } from '../firebaseConfig';
 import { auth } from '../firebaseConfig';
 import Geolocation from '@react-native-community/geolocation';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { FirebaseService } from './firebaseService';
 
 export interface SmartwatchDevice {
@@ -31,6 +32,9 @@ export class DeviceDiscoveryService {
   private monitoringInterval: ReturnType<typeof setInterval> | null = null;
   private isMonitoring = false;
   private lastSOSTrigger = 0; // Timestamp of last SOS trigger to prevent spam
+  private locationTrackingInterval: ReturnType<typeof setInterval> | null = null;
+  private isLocationTracking = false;
+  private currentUserId: string | null = null;
 
   static getInstance(): DeviceDiscoveryService {
     if (!DeviceDiscoveryService.instance) {
@@ -268,11 +272,21 @@ export class DeviceDiscoveryService {
   }
 
   // Update device location in Firebase
-  async updateDeviceLocation(deviceId: string, location: DeviceLocation): Promise<void> {
+  async updateDeviceLocation(deviceId: string, location: DeviceLocation, userId?: string): Promise<void> {
     try {
-      const deviceLocationRef = ref(database, `device_locations/${deviceId}`);
-      await set(deviceLocationRef, location);
-      console.log('DeviceDiscoveryService: Updated location for device:', deviceId);
+      // If deviceId is 'phone' and userId is provided, use the new path structure
+      if (deviceId === 'phone' && userId) {
+        const phoneLatitudeRef = ref(database, `device_locations/${userId}/phone/latitude`);
+        const phoneLongitudeRef = ref(database, `device_locations/${userId}/phone/longitude`);
+        await set(phoneLatitudeRef, location.latitude);
+        await set(phoneLongitudeRef, location.longitude);
+        console.log('DeviceDiscoveryService: Updated phone location for user:', userId);
+      } else {
+        // For backward compatibility, keep the old path for other devices
+        const deviceLocationRef = ref(database, `device_locations/${deviceId}`);
+        await set(deviceLocationRef, location);
+        console.log('DeviceDiscoveryService: Updated location for device:', deviceId);
+      }
     } catch (error) {
       console.error('DeviceDiscoveryService: Error updating device location:', error);
       throw error;
@@ -396,7 +410,7 @@ export class DeviceDiscoveryService {
             };
 
             // Update phone location in database
-            await this.updateDeviceLocation('phone', phoneLocation);
+            await this.updateDeviceLocation('phone', phoneLocation, userId);
 
             // Get smartwatch location from database
             const watchLocation = await this.getDeviceLocation(deviceId);
@@ -446,11 +460,195 @@ export class DeviceDiscoveryService {
     }
   }
 
-  // Clean up all listeners
+  // Clean up all listeners (but keep distance monitoring running)
   cleanup(): void {
     Object.values(this.listeners).forEach(unsubscribe => unsubscribe());
     this.listeners = {};
-    this.stopDistanceMonitoring();
+    // Don't stop distance monitoring here - it should continue running even when modal closes
+    console.log('DeviceDiscoveryService: Cleaned up listeners, but distance monitoring continues');
+  }
+
+  /**
+   * Request location permission
+   */
+  private async requestLocationPermission(): Promise<boolean> {
+    try {
+      if (Platform.OS === 'android') {
+        // First check if permission is already granted
+        const hasPermission = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+        );
+        
+        if (hasPermission) {
+          console.log('DeviceDiscoveryService: Location permission already granted');
+          return true;
+        }
+        
+        // Request permission
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'E-Responde needs access to your location to track device proximity and detect theft.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        
+        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+          console.log('DeviceDiscoveryService: Location permission granted');
+          return true;
+        } else {
+          console.log('DeviceDiscoveryService: Location permission denied');
+          return false;
+        }
+      } else {
+        // iOS - request authorization
+        Geolocation.requestAuthorization();
+        return true;
+      }
+    } catch (error) {
+      console.error('DeviceDiscoveryService: Error requesting location permission:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Start location tracking for the phone
+   * Updates location periodically to device_locations/{userId}/phone/longitude and latitude
+   */
+  async startLocationTracking(userId: string): Promise<void> {
+    if (this.isLocationTracking && this.currentUserId === userId) {
+      console.log('DeviceDiscoveryService: Location tracking already active for user:', userId);
+      return;
+    }
+
+    // Stop previous tracking if different user
+    if (this.isLocationTracking) {
+      this.stopLocationTracking();
+    }
+
+    // Request location permission first
+    const hasPermission = await this.requestLocationPermission();
+    if (!hasPermission) {
+      console.warn('DeviceDiscoveryService: Location permission not granted, cannot start tracking');
+      return;
+    }
+
+    this.isLocationTracking = true;
+    this.currentUserId = userId;
+    console.log('DeviceDiscoveryService: Starting location tracking for user:', userId);
+
+    // Update location immediately on login
+    this.updatePhoneLocation(userId);
+
+    // Set up interval for periodic updates (every 20 seconds, same as smartwatch)
+    this.locationTrackingInterval = setInterval(async () => {
+      try {
+        await this.updatePhoneLocation(userId);
+      } catch (error) {
+        console.error('DeviceDiscoveryService: Error in location tracking interval:', error);
+      }
+    }, 20000); // Update every 20 seconds
+  }
+
+  /**
+   * Update phone location in Firebase
+   */
+  private async updatePhoneLocation(userId: string): Promise<void> {
+    return new Promise((resolve) => {
+      try {
+        // First try with high accuracy
+        Geolocation.getCurrentPosition(
+          async (position) => {
+            try {
+              const phoneLocation: DeviceLocation = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                timestamp: Date.now()
+              };
+
+              // Update phone location in database using the new path structure
+              await this.updateDeviceLocation('phone', phoneLocation, userId);
+              console.log('DeviceDiscoveryService: Phone location updated:', {
+                latitude: phoneLocation.latitude,
+                longitude: phoneLocation.longitude,
+                userId,
+                accuracy: position.coords.accuracy
+              });
+              resolve();
+            } catch (error) {
+              console.error('DeviceDiscoveryService: Error updating location in Firebase:', error);
+              resolve();
+            }
+          },
+          (error) => {
+            // If high accuracy fails, try with lower accuracy
+            console.warn('DeviceDiscoveryService: High accuracy location failed, trying lower accuracy:', error);
+            
+            Geolocation.getCurrentPosition(
+              async (position) => {
+                try {
+                  const phoneLocation: DeviceLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    timestamp: Date.now()
+                  };
+
+                  await this.updateDeviceLocation('phone', phoneLocation, userId);
+                  console.log('DeviceDiscoveryService: Phone location updated (lower accuracy):', {
+                    latitude: phoneLocation.latitude,
+                    longitude: phoneLocation.longitude,
+                    userId,
+                    accuracy: position.coords.accuracy
+                  });
+                  resolve();
+                } catch (error) {
+                  console.error('DeviceDiscoveryService: Error updating location in Firebase:', error);
+                  resolve();
+                }
+              },
+              (retryError) => {
+                // Log error but don't stop tracking - will retry on next interval
+                console.warn('DeviceDiscoveryService: Location request failed (will retry):', {
+                  code: retryError.code,
+                  message: retryError.message,
+                  userId
+                });
+                resolve();
+              },
+              {
+                enableHighAccuracy: false,
+                timeout: 20000, // Longer timeout for retry
+                maximumAge: 30000 // Accept cached location up to 30 seconds old
+              }
+            );
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 15000, // Increased timeout to 15 seconds
+            maximumAge: 20000 // Accept cached location up to 20 seconds old
+          }
+        );
+      } catch (error) {
+        console.error('DeviceDiscoveryService: Error in updatePhoneLocation:', error);
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * Stop location tracking
+   */
+  stopLocationTracking(): void {
+    if (this.locationTrackingInterval) {
+      clearInterval(this.locationTrackingInterval);
+      this.locationTrackingInterval = null;
+      this.isLocationTracking = false;
+      this.currentUserId = null;
+      console.log('DeviceDiscoveryService: Location tracking stopped');
+    }
   }
 }
 

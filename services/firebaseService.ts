@@ -14,7 +14,13 @@ import {
   ref, 
   set, 
   get, 
-  update
+  update,
+  query,
+  limitToFirst,
+  limitToLast,
+  orderByChild,
+  startAt,
+  endAt
 } from 'firebase/database';
 import { auth, database } from '../firebaseConfig';
 import RNFS from 'react-native-fs';
@@ -1021,14 +1027,32 @@ export class FirebaseService {
   }
 
   // Get user's crime reports
-  static async getUserCrimeReports(uid: string): Promise<CrimeReport[]> {
+  static async getUserCrimeReports(uid: string, limit: number = 50, startAfter?: string): Promise<CrimeReport[]> {
     try {
-      console.log('Fetching crime reports for user:', uid);
+      console.log('Fetching crime reports for user:', uid, 'with limit:', limit, 'startAfter:', startAfter);
       const userReportsRef = ref(database, `civilian/civilian account/${uid}/crime reports`);
-      const snapshot = await get(userReportsRef);
+      
+      let reportsQuery;
+      if (startAfter) {
+        // Load older reports (before startAfter createdAt)
+        reportsQuery = query(
+          userReportsRef,
+          orderByChild('createdAt'),
+          endAt(startAfter),
+          limitToLast(limit)
+        );
+      } else {
+        // Initial load - get newest reports
+        reportsQuery = query(
+          userReportsRef,
+          orderByChild('createdAt'),
+          limitToLast(limit)
+        );
+      }
+      
+      const snapshot = await get(reportsQuery);
       
       console.log('Snapshot exists:', snapshot.exists());
-      console.log('Snapshot value:', snapshot.val());
       
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
@@ -1046,10 +1070,17 @@ export class FirebaseService {
           });
         });
         
-        console.log('Processed reports:', reports);
+        console.log('Processed reports:', reports.length);
         
-        // Sort by creation date (newest first)
-        return reports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Sort by creation date (newest first) - Firebase returns in ascending order, so reverse
+        const sorted = reports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        // If loading more, remove the last item (duplicate from startAfter)
+        if (startAfter && sorted.length > 0 && sorted[sorted.length - 1].createdAt === startAfter) {
+          sorted.pop();
+        }
+        
+        return sorted;
       }
       
       console.log('No crime reports found for user');
@@ -1155,11 +1186,30 @@ export class FirebaseService {
   }
 
   // Get all crime reports excluding current user's reports
-  static async getAllCrimeReportsExcludingUser(currentUserId: string): Promise<CrimeReport[]> {
+  static async getAllCrimeReportsExcludingUser(currentUserId: string, limit: number = 50, startAfter?: string): Promise<CrimeReport[]> {
     try {
-      console.log('Fetching all crime reports excluding user:', currentUserId);
+      console.log('Fetching crime reports excluding user:', currentUserId, 'with limit:', limit, 'startAfter:', startAfter);
       const allReportsRef = ref(database, `civilian/civilian crime reports`);
-      const snapshot = await get(allReportsRef);
+      
+      let reportsQuery;
+      if (startAfter) {
+        // Load older reports (before startAfter createdAt)
+        reportsQuery = query(
+          allReportsRef,
+          orderByChild('createdAt'),
+          endAt(startAfter),
+          limitToLast(limit)
+        );
+      } else {
+        // Initial load - get newest reports
+        reportsQuery = query(
+          allReportsRef,
+          orderByChild('createdAt'),
+          limitToLast(limit)
+        );
+      }
+      
+      const snapshot = await get(reportsQuery);
       
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
@@ -1183,7 +1233,7 @@ export class FirebaseService {
         console.log('Processed reports excluding current user:', reports.length);
         
         // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
-        return reports.sort((a, b) => {
+        const sorted = reports.sort((a, b) => {
           const upvotesA = a.upvotes || 0;
           const upvotesB = b.upvotes || 0;
           
@@ -1195,6 +1245,13 @@ export class FirebaseService {
           // If upvotes are equal, sort by date (newest first)
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         });
+        
+        // If loading more, remove the last item (duplicate from startAfter)
+        if (startAfter && sorted.length > 0 && sorted[sorted.length - 1].createdAt === startAfter) {
+          sorted.pop();
+        }
+        
+        return sorted;
       }
       
       console.log('No crime reports found');
