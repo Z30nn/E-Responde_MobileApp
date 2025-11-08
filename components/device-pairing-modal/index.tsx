@@ -39,10 +39,28 @@ const DevicePairingModal: FC<DevicePairingModalProps> = ({ visible, onClose }) =
     if (visible && user) {
       loadDevices();
       setupRealtimeListeners();
+      
+      // Start distance monitoring for any already-paired devices
+      const autoStartMonitoring = async () => {
+        try {
+          const paired = await deviceDiscoveryService.getUserPairedDevices(user.uid);
+          if (paired.length > 0) {
+            // Use the first paired device's ID
+            const deviceId = paired[0].id;
+            console.log('DevicePairingModal: Auto-starting distance monitoring for paired device:', deviceId);
+            deviceDiscoveryService.startDistanceMonitoring(user.uid, deviceId);
+          }
+        } catch (error) {
+          console.error('DevicePairingModal: Error auto-starting monitoring:', error);
+        }
+      };
+      
+      autoStartMonitoring();
     }
 
     return () => {
       // Cleanup listeners when modal closes
+      // Note: We don't stop distance monitoring here as it should continue running
       deviceDiscoveryService.cleanup();
     };
   }, [visible, user]);
@@ -97,7 +115,12 @@ const DevicePairingModal: FC<DevicePairingModalProps> = ({ visible, onClose }) =
     setPairingDeviceId(deviceId);
     try {
       await deviceDiscoveryService.pairWithDevice(deviceId, user.uid);
-      Alert.alert('Success', 'Device paired successfully!');
+      
+      // Start distance monitoring after successful pairing
+      console.log('DevicePairingModal: Starting distance monitoring for device:', deviceId);
+      deviceDiscoveryService.startDistanceMonitoring(user.uid, deviceId);
+      
+      Alert.alert('Success', 'Device paired successfully! Distance monitoring has been started.');
     } catch (error: any) {
       console.error('Error pairing device:', error);
       Alert.alert('Error', error.message || 'Failed to pair device. Please try again.');
@@ -121,7 +144,12 @@ const DevicePairingModal: FC<DevicePairingModalProps> = ({ visible, onClose }) =
             setUnpairingDeviceId(deviceId);
             try {
               await deviceDiscoveryService.unpairDevice(deviceId, user.uid);
-              Alert.alert('Success', 'Device unpaired successfully!');
+              
+              // Stop distance monitoring when device is unpaired
+              console.log('DevicePairingModal: Stopping distance monitoring for device:', deviceId);
+              deviceDiscoveryService.stopDistanceMonitoring();
+              
+              Alert.alert('Success', 'Device unpaired successfully! Distance monitoring has been stopped.');
             } catch (error: any) {
               console.error('Error unpairing device:', error);
               Alert.alert('Error', error.message || 'Failed to unpair device. Please try again.');

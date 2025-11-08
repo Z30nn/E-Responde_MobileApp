@@ -4,6 +4,7 @@ import { ref, onValue, update } from 'firebase/database';
 import { Alert } from 'react-native';
 import { auth, database } from '../firebaseConfig';
 import { FirebaseService } from './firebaseService';
+import { deviceDiscoveryService } from './deviceDiscoveryService';
 
 interface AuthContextType {
   user: User | null;
@@ -44,8 +45,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const type = await FirebaseService.getUserType(firebaseUser.uid);
         console.log('AuthProvider: User type:', type);
         setUserType(type);
+        
+        // Start location tracking on login
+        console.log('AuthProvider: Starting location tracking for user:', firebaseUser.uid);
+        deviceDiscoveryService.startLocationTracking(firebaseUser.uid).catch((error) => {
+          console.error('AuthProvider: Error starting location tracking:', error);
+        });
       } else {
         setUserType(null);
+        
+        // Stop location tracking on logout
+        console.log('AuthProvider: Stopping location tracking');
+        deviceDiscoveryService.stopLocationTracking();
       }
       
       setIsLoading(false);
@@ -154,6 +165,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async () => {
     try {
       setIsLoading(true);
+      
+      // Stop location tracking before logout
+      deviceDiscoveryService.stopLocationTracking();
       
       // If user is police, set isActive to false before logout
       if (user && userType === 'police') {

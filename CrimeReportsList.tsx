@@ -29,6 +29,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
   const [filteredReports, setFilteredReports] = useState<CrimeReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -215,8 +217,11 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
           
-          console.log('CrimeReportsList: Updated reports list with', sortedReports.length, 'reports');
-          setReports(sortedReports);
+          // Limit to latest 50 reports to prevent memory issues
+          const limitedReports = sortedReports.slice(0, 50);
+          
+          console.log('CrimeReportsList: Updated reports list with', limitedReports.length, 'reports (limited from', sortedReports.length, ')');
+          setReports(limitedReports);
         } else {
           console.log('CrimeReportsList: No reports found');
           setReports([]);
@@ -250,8 +255,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
         return;
       }
 
-      // Get user's crime reports from Firebase
-      const userReports = await FirebaseService.getUserCrimeReports(currentUser.uid);
+      // Get user's crime reports from Firebase with limit (50 reports)
+      const userReports = await FirebaseService.getUserCrimeReports(currentUser.uid, 50);
       console.log('CrimeReportsList: Loaded crime reports:', userReports.length);
       
       // Log each report's status for debugging
@@ -260,6 +265,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       });
       
       setReports(userReports);
+      // If we got less than 50 reports, there are no more to load
+      setHasMore(userReports.length === 50);
       
       // Status change monitoring removed to avoid duplicate notifications with Dashboard
     } catch (error) {
@@ -275,8 +282,41 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
   }, []);
 
   const handleRefresh = () => {
+    setHasMore(true);
     loadUserReports(true);
   };
+
+  const loadMoreReports = useCallback(async () => {
+    if (isLoadingMore || !hasMore || reports.length === 0) return;
+    
+    try {
+      setIsLoadingMore(true);
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      // Get the oldest report's createdAt to use as pagination cursor
+      const oldestReport = reports[reports.length - 1];
+      const startAfter = oldestReport.createdAt;
+
+      // Load older reports
+      const olderReports = await FirebaseService.getUserCrimeReports(currentUser.uid, 50, startAfter);
+      
+      if (olderReports.length === 0) {
+        setHasMore(false);
+        return;
+      }
+
+      // Append older reports to existing ones
+      setReports(prev => [...prev, ...olderReports]);
+      
+      // If we got less than 50 reports, there are no more to load
+      setHasMore(olderReports.length === 50);
+    } catch (error) {
+      console.error('Error loading more reports:', error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, reports]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -450,6 +490,21 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       textAlign: 'center',
       lineHeight: fonts.caption + 6,
     },
+    loadMoreContainer: {
+      padding: 20,
+      alignItems: 'center',
+    },
+    loadMoreButton: {
+      backgroundColor: theme.primary,
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+    },
+    loadMoreButtonText: {
+      color: '#FFFFFF',
+      fontSize: fonts.body,
+      fontWeight: '600',
+    },
   });
 
   const renderReportCard = ({ item }: { item: CrimeReport }) => (
@@ -540,6 +595,23 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
         onRefresh={handleRefresh}
         refreshing={isRefreshing}
         nestedScrollEnabled={true}
+        ListFooterComponent={
+          hasMore && reports.length >= 50 ? (
+            <View style={styles.loadMoreContainer}>
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <TouchableOpacity
+                  style={styles.loadMoreButton}
+                  onPress={loadMoreReports}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.loadMoreButtonText}>Load More Reports</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : null
+        }
       />
     </View>
   );
