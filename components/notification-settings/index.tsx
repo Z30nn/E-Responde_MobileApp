@@ -27,13 +27,14 @@ const NotificationSettings: React.FC = () => {
 
   useEffect(() => {
     if (settings) {
-      setLocalPreferences(settings.preferences);
+      setLocalPreferences(JSON.parse(JSON.stringify(settings.preferences)));
     }
   }, [settings]);
 
   const handlePreferenceChange = async (category: keyof NotificationPreferences, field: string, value: boolean) => {
     if (!localPreferences) return;
 
+    const previousPreferences = JSON.parse(JSON.stringify(localPreferences));
     const updatedPreferences = {
       ...localPreferences,
       [category]: {
@@ -47,12 +48,11 @@ const NotificationSettings: React.FC = () => {
     try {
       const success = await updatePreferences({ [category]: updatedPreferences[category] });
       if (!success) {
-        // Revert on failure
-        setLocalPreferences(localPreferences);
+        setLocalPreferences(previousPreferences);
         Alert.alert(t('common.error'), t('notifications.updateFailed'));
       }
     } catch (error) {
-      setLocalPreferences(localPreferences);
+      setLocalPreferences(previousPreferences);
       Alert.alert(t('common.error'), t('notifications.updateFailed'));
     }
   };
@@ -140,6 +140,34 @@ const NotificationSettings: React.FC = () => {
       )}
 
       {/* Emergency Section */}
+      {renderSection(
+        t('notifications.emergency'),
+        'emergency',
+        [
+          { key: 'enabled', label: t('notifications.emergencyEnabled'), description: t('notifications.emergencyEnabledDesc') },
+          { key: 'sosAlerts', label: t('notifications.sosAlerts'), description: t('notifications.sosAlertsDesc') },
+        ]
+      )}
+
+      {/* General Section */}
+      {renderSection(
+        t('notifications.general'),
+        'general',
+        [
+          { key: 'enabled', label: t('notifications.generalEnabled'), description: t('notifications.generalEnabledDesc') },
+        ]
+      )}
+
+      {/* Delivery Section */}
+      {renderSection(
+        t('notifications.delivery'),
+        'delivery',
+        [
+          { key: 'pushNotifications', label: t('notifications.pushNotifications'), description: t('notifications.pushNotificationsDesc') },
+          { key: 'emailNotifications', label: t('notifications.emailNotifications'), description: t('notifications.emailNotificationsDesc') },
+          { key: 'smsNotifications', label: t('notifications.smsNotifications'), description: t('notifications.smsNotificationsDesc') },
+        ]
+      )}
 
 
     </ScrollView>

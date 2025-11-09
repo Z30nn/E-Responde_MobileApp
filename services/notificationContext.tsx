@@ -2,11 +2,11 @@ import React, { createContext, useContext, useEffect, useState, ReactNode, useCa
 import { useAuth } from './authContext';
 import { NotificationService } from './notificationService';
 import { soundService } from './soundService';
-import { 
-  NotificationSettings, 
-  NotificationPreferences, 
+import {
+  NotificationSettings,
+  NotificationPreferences,
   defaultNotificationPreferences,
-  NotificationPayload 
+  NotificationPayload,
 } from './types/notification-types';
 
 interface NotificationContextType {
@@ -58,13 +58,18 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   const loadNotificationSettings = useCallback(async () => {
     if (!user) return;
-    
+
     try {
       setIsLoading(true);
-      console.log('NotificationContext: User notification preferences disabled - all notifications mandatory');
-      setSettings(null); // No settings since preferences are disabled
+      const fetchedSettings = await NotificationService.getInstance().getUserNotificationSettings(user.uid);
+      setSettings(fetchedSettings);
     } catch (error) {
       console.error('Error loading notification settings:', error);
+      setSettings({
+        userId: user.uid,
+        preferences: JSON.parse(JSON.stringify(defaultNotificationPreferences)),
+        lastUpdated: new Date().toISOString(),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -86,10 +91,24 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     }
   }, [user]);
 
-  const updatePreferences = async (_preferences: any): Promise<boolean> => {
-    console.log('NotificationContext: User notification preferences disabled - all notifications mandatory');
-    return true; // Always return true since preferences are disabled
-  };
+  const updatePreferences = useCallback(
+    async (preferences: Partial<NotificationPreferences>): Promise<boolean> => {
+      if (!user) return false;
+
+      try {
+        const updatedSettings = await NotificationService.getInstance().updateNotificationPreferences(
+          user.uid,
+          preferences,
+        );
+        setSettings(updatedSettings);
+        return true;
+      } catch (error) {
+        console.error('Error updating notification preferences:', error);
+        return false;
+      }
+    },
+    [user],
+  );
 
   const sendNotification = async (type: string, title: string, body: string, data?: Record<string, any>): Promise<boolean> => {
     if (!user) return false;

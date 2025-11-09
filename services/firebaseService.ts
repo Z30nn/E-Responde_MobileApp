@@ -25,6 +25,7 @@ import {
 import { auth, database } from '../firebaseConfig';
 import RNFS from 'react-native-fs';
 import storage from '@react-native-firebase/storage';
+import { defaultNotificationPreferences, NotificationPreferences } from './types/notification-types';
 
 export interface CivilianUser {
   firstName: string;
@@ -355,6 +356,14 @@ export class FirebaseService {
           createdAt: new Date().toISOString()
         });
       }
+
+      // Initialize notification settings with defaults
+      const notificationSettingsRef = ref(database, `notificationSettings/${userCredential.user.uid}`);
+      await set(notificationSettingsRef, {
+        userId: userCredential.user.uid,
+        preferences: JSON.parse(JSON.stringify(defaultNotificationPreferences)),
+        lastUpdated: new Date().toISOString(),
+      });
 
       return userCredential;
     } catch (error) {
@@ -981,44 +990,71 @@ export class FirebaseService {
       const { NotificationService } = await import('./notificationService');
       const notificationService = NotificationService.getInstance();
       
-      // Get all users from the database
-      const usersRef = ref(database, 'civilian/civilian account');
-      const snapshot = await get(usersRef);
-      
-      if (snapshot.exists()) {
-        const users = snapshot.val();
-        console.log('FirebaseService: Found users:', Object.keys(users).length);
-        
-        const notificationPromises: Promise<boolean>[] = [];
-        
-        // Send notification to each user (excluding the reporter)
-        for (const [userId, _userData] of Object.entries(users)) {
-          // Skip sending notification to the user who submitted the report
-          if (userId === crimeReport.reporterUid) {
-            console.log('FirebaseService: Skipping notification for reporter:', userId);
-            continue;
+      const notificationSettingsRef = ref(database, 'notificationSettings');
+      const settingsSnapshot = await get(notificationSettingsRef);
+      if (!settingsSnapshot.exists()) {
+        console.warn('FirebaseService: No notification settings found, skipping broadcast');
+        return;
+      }
+
+      const notificationSettings = settingsSnapshot.val() as Record<
+        string,
+        { preferences?: NotificationPreferences }
+      >;
+
+      const recipientIds = Object.entries(notificationSettings)
+        .filter(([userId]) => userId !== crimeReport.reporterUid)
+        .filter(([, setting]) => {
+          const rawPrefs = setting?.preferences;
+          const normalized: NotificationPreferences = {
+            crimeReports: {
+              ...defaultNotificationPreferences.crimeReports,
+              ...(rawPrefs?.crimeReports ?? {}),
+            },
+            emergency: {
+              ...defaultNotificationPreferences.emergency,
+              ...(rawPrefs?.emergency ?? {}),
+            },
+            general: {
+              ...defaultNotificationPreferences.general,
+              ...(rawPrefs?.general ?? {}),
+            },
+            delivery: {
+              ...defaultNotificationPreferences.delivery,
+              ...(rawPrefs?.delivery ?? {}),
+              quietHours: {
+                ...defaultNotificationPreferences.delivery.quietHours,
+                ...(rawPrefs?.delivery?.quietHours ?? {}),
+              },
+            },
+          };
+
+          if (!normalized.delivery.pushNotifications) {
+            return false;
           }
-          
-          console.log('FirebaseService: Sending notification to user:', userId);
-          
-          // Use NotificationService to respect user preferences
-          const promise = notificationService.sendNotification(
-            userId,
-            'crime_report_new',
-            'New Crime Report',
-            `A new ${crimeReport.crimeType} report has been submitted in your area.`,
-            { reportId, crimeType: crimeReport.crimeType }
-          );
-          
-          notificationPromises.push(promise);
-        }
-        
-        // Wait for all notifications to be processed
-        const results = await Promise.all(notificationPromises);
-        const successCount = results.filter(result => result === true).length;
-        console.log(`FirebaseService: Successfully sent new crime report notifications to ${successCount}/${notificationPromises.length} users`);
-      } else {
-        console.log('FirebaseService: No users found in database');
+
+          if (!normalized.crimeReports.enabled || !normalized.crimeReports.newReports) {
+            return false;
+          }
+
+          return true;
+        })
+        .map(([userId]) => userId);
+
+      const batchSize = 20;
+      for (let i = 0; i < recipientIds.length; i += batchSize) {
+        const batch = recipientIds.slice(i, i + batchSize);
+        await Promise.all(
+          batch.map((userId) =>
+            notificationService.sendNotification(
+              userId,
+              'crime_report_new',
+              'New Crime Report',
+              `A new ${crimeReport.crimeType} report has been submitted in your area.`,
+              { reportId, crimeType: crimeReport.crimeType },
+            ),
+          ),
+        );
       }
     } catch (error) {
       console.error('FirebaseService: Error notifying users of new crime report:', error);
@@ -1029,7 +1065,6 @@ export class FirebaseService {
   // Get user's crime reports
   static async getUserCrimeReports(uid: string, limit: number = 50, startAfter?: string): Promise<CrimeReport[]> {
     try {
-      console.log('Fetching crime reports for user:', uid, 'with limit:', limit, 'startAfter:', startAfter);
       const userReportsRef = ref(database, `civilian/civilian account/${uid}/crime reports`);
       
       let reportsQuery;
@@ -1052,8 +1087,6 @@ export class FirebaseService {
       
       const snapshot = await get(reportsQuery);
       
-      console.log('Snapshot exists:', snapshot.exists());
-      
       if (snapshot.exists()) {
         const reports: CrimeReport[] = [];
         snapshot.forEach((childSnapshot) => {
@@ -1070,8 +1103,6 @@ export class FirebaseService {
           });
         });
         
-        console.log('Processed reports:', reports.length);
-        
         // Sort by creation date (newest first) - Firebase returns in ascending order, so reverse
         const sorted = reports.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         
@@ -1083,7 +1114,6 @@ export class FirebaseService {
         return sorted;
       }
       
-      console.log('No crime reports found for user');
       return [];
     } catch (error) {
       console.error('Get user crime reports error:', error);
@@ -1188,7 +1218,6 @@ export class FirebaseService {
   // Get all crime reports excluding current user's reports
   static async getAllCrimeReportsExcludingUser(currentUserId: string, limit: number = 50, startAfter?: string): Promise<CrimeReport[]> {
     try {
-      console.log('Fetching crime reports excluding user:', currentUserId, 'with limit:', limit, 'startAfter:', startAfter);
       const allReportsRef = ref(database, `civilian/civilian crime reports`);
       
       let reportsQuery;
@@ -1230,8 +1259,6 @@ export class FirebaseService {
           }
         });
         
-        console.log('Processed reports excluding current user:', reports.length);
-        
         // Sort by upvotes (highest first), then by date (newest first) as tiebreaker
         const sorted = reports.sort((a, b) => {
           const upvotesA = a.upvotes || 0;
@@ -1254,7 +1281,6 @@ export class FirebaseService {
         return sorted;
       }
       
-      console.log('No crime reports found');
       return [];
     } catch (error) {
       console.error('Get all crime reports excluding user error:', error);
@@ -1295,8 +1321,6 @@ export class FirebaseService {
   // Vote on a crime report
   static async voteOnCrimeReport(reportId: string, userId: string, voteType: 'upvote' | 'downvote'): Promise<boolean> {
     try {
-      console.log(`Voting ${voteType} on report ${reportId} by user ${userId}`);
-      
       const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
       const snapshot = await get(reportRef);
       
@@ -1337,7 +1361,6 @@ export class FirebaseService {
         userVotes: currentVotes
       });
       
-      console.log(`Successfully voted ${voteType} on report ${reportId}`);
       return true;
     } catch (error) {
       console.error('Error voting on crime report:', error);
@@ -1349,8 +1372,6 @@ export class FirebaseService {
   // Remove vote from a crime report
   static async removeVoteFromCrimeReport(reportId: string, userId: string): Promise<boolean> {
     try {
-      console.log(`Removing vote from report ${reportId} by user ${userId}`);
-      
       const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
       const snapshot = await get(reportRef);
       
@@ -1363,7 +1384,6 @@ export class FirebaseService {
       const currentUserVote = currentVotes[userId];
       
       if (!currentUserVote) {
-        console.log('User has not voted on this report');
         return true; // No vote to remove
       }
       
@@ -1388,7 +1408,6 @@ export class FirebaseService {
         userVotes: currentVotes
       });
       
-      console.log(`Successfully removed vote from report ${reportId}`);
       return true;
     } catch (error) {
       console.error('Error removing vote from crime report:', error);
