@@ -1,4 +1,4 @@
-import React, { FC, useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,14 @@ import {
   PermissionsAndroid,
   Platform,
   Animated,
+  InteractionManager,
 } from 'react-native';
 import { auth } from '../../../../firebaseConfig';
 import { useTheme, colors, fontSizes } from '../../../../services/themeContext';
 import { useLanguage } from '../../../../services/languageContext';
-import { FirebaseService } from '../../../../services/firebaseService';
+import { FirebaseService, CivilianUser } from '../../../../services/firebaseService';
 import { EmergencyContactsService } from '../../../../services/emergencyContactsService';
+import { EmergencyContact } from '../../../../services/types/emergency-types';
 import SOSAlertsHistory from '../../../../components/sos-alerts-history';
 import Geolocation from '@react-native-community/geolocation';
 import { createStyles } from './styles';
@@ -29,10 +31,35 @@ export interface SOSTabRef {
   handleSOSPress: () => void;
 }
 
+interface SOSLocation {
+  latitude: number;
+  longitude: number;
+  address: string;
+}
+
+const CONTACT_CACHE_TTL = 30 * 1000;
+const PROFILE_CACHE_TTL = 5 * 60 * 1000;
+const LOCATION_TIMEOUT = 10000;
+const FALLBACK_LOCATION: SOSLocation = {
+  latitude: 0,
+  longitude: 0,
+  address: 'Location not available',
+};
+
 const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, onAlertSelected, onShowInfo }, ref) => {
   const [sosLoading, setSosLoading] = useState(false);
   const [sosCountdown, setSosCountdown] = useState<number | null>(null);
-  const [sosCountdownInterval, setSosCountdownInterval] = useState<NodeJS.Timeout | null>(null);
+  const sosCountdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const activeOperationRef = useRef(0);
+  const locationPromiseRef = useRef<Promise<SOSLocation> | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [userType, setUserType] = useState<'police' | 'civilian' | null>(null);
+  const [hasPrimaryContacts, setHasPrimaryContacts] = useState<boolean | null>(null);
+  const primaryContactsRef = useRef<EmergencyContact[]>([]);
+  const lastContactsFetchRef = useRef(0);
+  const reporterProfileRef = useRef<CivilianUser | null>(null);
+  const lastProfileFetchRef = useRef(0);
+  const lastUserTypeCheckRef = useRef(0);
   const { isDarkMode, fontSize } = useTheme();
   const { t } = useLanguage();
   const theme = isDarkMode ? colors.dark : colors.light;
@@ -79,10 +106,364 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
     };
   }, [rippleAnim1, rippleAnim2, rippleAnim3]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const preload = async () => {
+      if (!userId) {
+        return;
+      }
+
+      try {
+        const [typeResult, primaryContacts, profile] = await Promise.all([
+          FirebaseService.getUserType(userId).catch((error) => {
+            console.error('SOSTab: Failed to get user type during preload', error);
+            return null;
+          }),
+          EmergencyContactsService.getPrimaryEmergencyContacts(userId).catch((error) => {
+            console.error('SOSTab: Failed to preload primary contacts', error);
+            return [] as EmergencyContact[];
+          }),
+          FirebaseService.getCivilianUser(userId).catch((error) => {
+            console.error('SOSTab: Failed to preload reporter profile', error);
+            return null;
+          }),
+        ]);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setUserType(typeResult);
+        lastUserTypeCheckRef.current = Date.now();
+        primaryContactsRef.current = primaryContacts;
+        lastContactsFetchRef.current = Date.now();
+        setHasPrimaryContacts(primaryContacts.length > 0);
+
+        if (profile) {
+          reporterProfileRef.current = profile;
+          lastProfileFetchRef.current = Date.now();
+        }
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        console.error('SOSTab: Unexpected error while preloading SOS dependencies', error);
+      }
+    };
+
+    preload();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
+
+  const cleanupCountdownInterval = useCallback(() => {
+    if (sosCountdownIntervalRef.current) {
+      clearInterval(sosCountdownIntervalRef.current);
+      sosCountdownIntervalRef.current = null;
+    }
+  }, []);
+
+  const resetOperationState = useCallback(
+    (options?: { keepOperationId?: boolean }) => {
+      cleanupCountdownInterval();
+      setSosCountdown(null);
+      setSosLoading(false);
+      setStatusMessage(null);
+      locationPromiseRef.current = null;
+      if (!options?.keepOperationId) {
+        activeOperationRef.current += 1;
+      }
+    },
+    [cleanupCountdownInterval]
+  );
+
+  const ensureUserType = useCallback(async (): Promise<'police' | 'civilian' | null> => {
+    const now = Date.now();
+    if (userType !== null && now - lastUserTypeCheckRef.current < PROFILE_CACHE_TTL) {
+      return userType;
+    }
+
+    try {
+      const typeResult = await FirebaseService.getUserType(userId);
+      setUserType(typeResult);
+      lastUserTypeCheckRef.current = Date.now();
+      return typeResult;
+    } catch (error) {
+      console.error('SOSTab: Failed to verify user type', error);
+      return userType;
+    }
+  }, [userId, userType]);
+
+  const ensurePrimaryContacts = useCallback(async (): Promise<EmergencyContact[]> => {
+    const now = Date.now();
+    if (now - lastContactsFetchRef.current < CONTACT_CACHE_TTL && lastContactsFetchRef.current !== 0) {
+      return primaryContactsRef.current;
+    }
+
+    try {
+      const contacts = await EmergencyContactsService.getPrimaryEmergencyContacts(userId);
+      primaryContactsRef.current = contacts;
+      lastContactsFetchRef.current = Date.now();
+      setHasPrimaryContacts(contacts.length > 0);
+      return contacts;
+    } catch (error) {
+      console.error('SOSTab: Failed to load primary contacts', error);
+      throw error;
+    }
+  }, [userId]);
+
+  const ensureReporterProfile = useCallback(async (): Promise<CivilianUser | null> => {
+    const now = Date.now();
+    if (reporterProfileRef.current && now - lastProfileFetchRef.current < PROFILE_CACHE_TTL) {
+      return reporterProfileRef.current;
+    }
+
+    try {
+      const profile = await FirebaseService.getCivilianUser(userId);
+      reporterProfileRef.current = profile;
+      lastProfileFetchRef.current = Date.now();
+      return profile;
+    } catch (error) {
+      console.error('SOSTab: Failed to load reporter profile', error);
+      lastProfileFetchRef.current = Date.now();
+      return reporterProfileRef.current;
+    }
+  }, [userId]);
+
+  const fetchLocation = useCallback(async (): Promise<SOSLocation> => {
+    try {
+      const location = await Promise.race([
+        new Promise<SOSLocation>((resolve, reject) => {
+          Geolocation.getCurrentPosition(
+            async (position) => {
+              const { latitude, longitude } = position.coords;
+              let address = 'Location not available';
+
+              try {
+                const response = await fetch(
+                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+                  {
+                    headers: {
+                      'User-Agent': 'E-Responde-MobileApp/1.0',
+                      Accept: 'application/json',
+                    },
+                  }
+                );
+
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data && data.display_name) {
+                  address = data.display_name;
+                } else {
+                  address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                }
+              } catch (geocodeError) {
+                console.log('SOSTab: Reverse geocoding failed, using coordinates', geocodeError);
+                address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+              }
+
+              resolve({
+                latitude,
+                longitude,
+                address,
+              });
+            },
+            (error) => reject(error),
+            {
+              enableHighAccuracy: false,
+              timeout: LOCATION_TIMEOUT,
+              maximumAge: 30000,
+            }
+          );
+        }),
+        new Promise<SOSLocation>((_, reject) =>
+          setTimeout(() => reject(new Error('Location timeout')), LOCATION_TIMEOUT)
+        ),
+      ]);
+
+      return location;
+    } catch (error) {
+      console.log('SOSTab: Unable to capture location, using fallback', error);
+      return { ...FALLBACK_LOCATION };
+    }
+  }, []);
+
+  const beginLocationPrefetch = useCallback(
+    (operationId: number) => {
+      if (locationPromiseRef.current && activeOperationRef.current === operationId) {
+        return;
+      }
+      locationPromiseRef.current = fetchLocation();
+    },
+    [fetchLocation]
+  );
+
+  const executeSOS = useCallback(
+    async (operationId: number) => {
+      try {
+        if (activeOperationRef.current !== operationId) {
+          return;
+        }
+
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          resetOperationState();
+          Alert.alert(t('common.error') || 'Error', 'You must be logged in to send SOS alerts.', [
+            { text: t('common.ok') || 'OK' },
+          ]);
+          return;
+        }
+
+        setSosLoading(true);
+        setStatusMessage('Sending SOS alert...');
+
+        await new Promise<void>((resolve) =>
+          InteractionManager.runAfterInteractions(() => resolve())
+        );
+
+        const [contacts, profile] = await Promise.all([
+          ensurePrimaryContacts(),
+          ensureReporterProfile(),
+        ]);
+
+        if (activeOperationRef.current !== operationId) {
+          return;
+        }
+
+        if (!contacts || contacts.length === 0) {
+          resetOperationState();
+          Alert.alert(
+            t('emergency.noPrimaryContacts') || 'No Primary Contacts',
+            t('emergency.noPrimaryContactsDesc') ||
+              'You need at least one primary emergency contact to send SOS alerts. Please add emergency contacts first.',
+            [{ text: t('common.ok') || 'OK' }]
+          );
+          return;
+        }
+
+        const locationPromise = locationPromiseRef.current ?? fetchLocation();
+        const location = await locationPromise;
+        locationPromiseRef.current = null;
+
+        if (activeOperationRef.current !== operationId) {
+          return;
+        }
+
+        const reporterName = profile
+          ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || 'Unknown User'
+          : currentUser.displayName || currentUser.email || 'Unknown User';
+
+        const sosReport = {
+          crimeType: 'Emergency SOS',
+          dateTime: new Date(),
+          description: 'SOS Alert triggered - Immediate assistance required',
+          multimedia: [],
+          location,
+          anonymous: false,
+          reporterName,
+          reporterUid: currentUser.uid,
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          severity: 'Immediate' as const,
+        };
+
+        void FirebaseService.submitCrimeReport(sosReport).catch((reportError) => {
+          console.error('Error creating SOS report:', reportError);
+        });
+
+        const sosResult = await EmergencyContactsService.sendSOSAlert(
+          userId,
+          'Emergency SOS triggered - Immediate assistance required',
+          {
+            userType,
+            primaryContacts: contacts,
+            userProfile: profile,
+            location,
+          }
+        );
+
+        if (activeOperationRef.current !== operationId) {
+          return;
+        }
+
+        resetOperationState();
+
+        if (sosResult.success) {
+          Alert.alert(
+            t('emergency.sosSent') || 'SOS Alert Sent',
+            `SOS alert has been sent to ${sosResult.sentTo} emergency contact(s) with your current location.`,
+            [{ text: t('common.ok') || 'OK' }]
+          );
+        } else {
+          const errorMessage =
+            sosResult.errors[0] || t('emergency.sosError') || 'Failed to send SOS alert.';
+          Alert.alert(t('common.error') || 'Error', errorMessage, [
+            { text: t('common.ok') || 'OK' },
+          ]);
+        }
+      } catch (error: any) {
+        if (activeOperationRef.current !== operationId) {
+          return;
+        }
+
+        console.error('Error executing SOS alert:', error);
+        resetOperationState();
+        const errorMessage =
+          error?.message || t('emergency.sosError') || 'Failed to send SOS alert.';
+        Alert.alert(t('common.error') || 'Error', errorMessage, [{ text: t('common.ok') || 'OK' }]);
+      }
+    },
+    [
+      ensurePrimaryContacts,
+      ensureReporterProfile,
+      fetchLocation,
+      resetOperationState,
+      t,
+      userId,
+      userType,
+    ]
+  );
+
+  const startCountdown = useCallback(
+    (operationId: number) => {
+      cleanupCountdownInterval();
+      let remaining = 5;
+      setSosCountdown(remaining);
+
+      sosCountdownIntervalRef.current = setInterval(() => {
+        if (activeOperationRef.current !== operationId) {
+          cleanupCountdownInterval();
+          return;
+        }
+
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          cleanupCountdownInterval();
+          setSosCountdown(null);
+          void executeSOS(operationId);
+        } else {
+          setSosCountdown(remaining);
+        }
+      }, 1000);
+    },
+    [cleanupCountdownInterval, executeSOS]
+  );
   // Request location permission for SOS alerts
-  const requestLocationPermission = async (): Promise<boolean> => {
+  const requestLocationPermission = useCallback(async (): Promise<boolean> => {
     if (Platform.OS === 'android') {
       try {
+        const alreadyGranted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+        if (alreadyGranted) {
+          return true;
+        }
+
         const granted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           {
@@ -100,260 +481,88 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
       }
     }
     return true; // iOS handles permissions differently
-  };
+  }, []);
 
   const handleSOSPress = useCallback(async () => {
-    try {
-      // Check if current user is a police officer - prevent SOS for police
-      if (userId) {
-        try {
-          const userType = await FirebaseService.getUserType(userId);
-          if (userType === 'police') {
-            console.log('SOSTab: Police user detected - SOS functionality disabled for police officers');
-            Alert.alert(
-              'Access Denied',
-              'SOS functionality is not available for police officers. This feature is only available for civilians.',
-              [{ text: 'OK' }]
-            );
-            return;
-          }
-        } catch (error) {
-          console.error('Error checking user type:', error);
-        }
-      }
-
-      // If countdown is active, cancel it
-      if (sosCountdown !== null) {
-        if (sosCountdownInterval) {
-          clearInterval(sosCountdownInterval);
-        }
-        setSosCountdown(null);
-        setSosCountdownInterval(null);
-        setSosLoading(false);
-        console.log('SOS countdown cancelled');
-        return;
-      }
-
-      // Request location permission immediately
-      const hasLocationPermission = await requestLocationPermission();
-      if (!hasLocationPermission) {
-        Alert.alert(
-          'Location Permission Required',
-          'Location access is needed to send accurate SOS alerts. Please enable location permissions in your device settings.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      // Check if user has primary contacts
-      const contacts = await EmergencyContactsService.getUserEmergencyContacts(userId);
-      const primaryContacts = contacts.filter(contact => contact.isPrimary);
-
-      if (primaryContacts.length === 0) {
-        Alert.alert(
-          t('emergency.noPrimaryContacts') || 'No Primary Contacts',
-          t('emergency.noPrimaryContactsDesc') || 'You need at least one primary emergency contact to send SOS alerts. Please add emergency contacts first.',
-          [{ text: t('common.ok') || 'OK' }]
-        );
-        return;
-      }
-
-      // Start 5-second countdown for user to cancel if needed
-      let countdown = 5;
-      setSosCountdown(countdown);
-
-      const interval = setInterval(() => {
-        countdown--;
-        setSosCountdown(countdown);
-
-        if (countdown <= 0) {
-          clearInterval(interval);
-          setSosCountdown(null);
-          setSosCountdownInterval(null);
-          // Send SOS alert after countdown completes
-          sendSOSAlert();
-        }
-      }, 1000);
-
-      setSosCountdownInterval(interval);
-
-      const sendSOSAlert = async () => {
-        // Show loading state while capturing location and sending alert
-        setSosLoading(true);
-        try {
-          const currentUser = auth.currentUser;
-          if (currentUser) {
-            // Fetch user info for report
-            const userData = await FirebaseService.getCivilianUser(currentUser.uid);
-            const userName = userData
-              ? `${userData.firstName} ${userData.lastName}`
-              : 'Unknown User';
-
-            // Get current location for SOS report immediately
-            let sosLocation = {
-              latitude: 0,
-              longitude: 0,
-              address: 'Location not available',
-            };
-
-            try {
-              const locationPromise = new Promise<{latitude: number, longitude: number, address: string}>((resolve, reject) => {
-                console.log('SOS Report: Starting location capture...');
-
-                Geolocation.getCurrentPosition(
-                  async (position: any) => {
-                    console.log('SOS Report: Position received:', position);
-                    const { latitude, longitude } = position.coords;
-                    console.log('SOS Report: Coordinates - Lat:', latitude, 'Lng:', longitude);
-
-                    // Use reverse geocoding to get address
-                    let address = 'Location not available';
-                    try {
-                      console.log('SOS Report: Starting reverse geocoding...');
-                      const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-                        {
-                          headers: {
-                            'User-Agent': 'E-Responde-MobileApp/1.0',
-                            'Accept': 'application/json',
-                          },
-                        }
-                      );
-
-                      if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                      }
-
-                      const data = await response.json();
-                      console.log('SOS Report: Geocoding response:', data);
-                      if (data && data.display_name) {
-                        address = data.display_name;
-                        console.log('SOS Report: Address found:', address);
-                      } else {
-                        address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                        console.log('SOS Report: Using coordinate fallback:', address);
-                      }
-                    } catch (geocodeError) {
-                      console.log('SOS Report: Reverse geocoding failed:', geocodeError);
-                      address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                      console.log('SOS Report: Using coordinate fallback after error:', address);
-                    }
-
-                    const locationData = {
-                      latitude,
-                      longitude,
-                      address
-                    };
-                    console.log('SOS Report: Resolving with location data:', locationData);
-                    resolve(locationData);
-                  },
-                  (error: any) => {
-                    console.log('SOS Report: Location error:', error);
-                    console.log('SOS Report: Error code:', error.code);
-                    console.log('SOS Report: Error message:', error.message);
-                    reject(error);
-                  },
-                  {
-                    enableHighAccuracy: false,
-                    timeout: 10000,
-                    maximumAge: 30000
-                  }
-                );
-              });
-
-              console.log('SOS Report: Waiting for location with 10 second timeout...');
-              sosLocation = await Promise.race([
-                locationPromise,
-                new Promise<{latitude: number, longitude: number, address: string}>((_, reject) =>
-                  setTimeout(() => {
-                    console.log('SOS Report: Location timeout after 10 seconds');
-                    reject(new Error('Location timeout'));
-                  }, 10000)
-                )
-              ]);
-
-              console.log('SOS Report: Location captured successfully:', sosLocation);
-
-              if (sosLocation.latitude === 0 && sosLocation.longitude === 0) {
-                console.log('SOS Report: WARNING - Location is still 0,0 - this indicates a problem');
-              } else {
-                console.log('SOS Report: SUCCESS - Valid location captured');
-              }
-            } catch (error: any) {
-              console.log('SOS Report: Could not get location:', error);
-              console.log('SOS Report: Location error details:', error.message);
-            }
-
-            // Create immediate severity crime report for SOS
-            const sosReport = {
-              crimeType: 'Emergency SOS',
-              dateTime: new Date(),
-              description: 'SOS Alert triggered - Immediate assistance required',
-              multimedia: [],
-              location: sosLocation,
-              anonymous: false,
-              reporterName: userName,
-              reporterUid: currentUser.uid,
-              status: 'pending',
-              createdAt: new Date().toISOString(),
-              severity: 'Immediate' as const,
-            };
-
-            try {
-              await FirebaseService.submitCrimeReport(sosReport);
-              console.log('SOS: Emergency report created with Immediate severity');
-            } catch (reportError) {
-              console.error('Error creating SOS report:', reportError);
-            }
-          }
-
-          // Send SOS alert to emergency contacts
-          const result = await EmergencyContactsService.sendSOSAlert(
-            userId,
-            ''
-          );
-
-          if (result.success) {
-            Alert.alert(
-              t('emergency.sosSent') || 'SOS Alert Sent',
-              `SOS alert has been sent to ${result.sentTo} emergency contact(s) with your current location.`,
-              [{ text: t('common.ok') || 'OK' }]
-            );
-          } else {
-            Alert.alert(
-              t('common.error') || 'Error',
-              t('emergency.sosError') || 'Failed to send SOS alert.',
-              [{ text: t('common.ok') || 'OK' }]
-            );
-          }
-        } catch (error: any) {
-          console.error('Error in sendSOSAlert:', error);
-          Alert.alert(
-            t('common.error') || 'Error',
-            error.message || t('emergency.sosError') || 'Failed to send SOS alert.',
-            [{ text: t('common.ok') || 'OK' }]
-          );
-        } finally {
-          setSosLoading(false);
-          setSosCountdown(null);
-          if (sosCountdownInterval) {
-            clearInterval(sosCountdownInterval);
-            setSosCountdownInterval(null);
-          }
-        }
-      };
-    } catch (error: any) {
-      console.error('Error in handleSOSPress:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      Alert.alert(t('common.error') || 'Error', errorMessage);
-      setSosLoading(false);
-      setSosCountdown(null);
-      if (sosCountdownInterval) {
-        clearInterval(sosCountdownInterval);
-        setSosCountdownInterval(null);
-      }
+    if (sosCountdown !== null) {
+      console.log('SOS countdown cancelled by user');
+      resetOperationState();
+      return;
     }
-  }, [userId, t, sosCountdown, sosCountdownInterval]);
+
+    const typeResult = await ensureUserType();
+    if (typeResult === 'police') {
+      Alert.alert(
+        'Access Denied',
+        'SOS functionality is not available for police officers. This feature is only available for civilians.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const hasLocationPermission = await requestLocationPermission();
+    if (!hasLocationPermission) {
+      Alert.alert(
+        'Location Permission Required',
+        'Location access is needed to send accurate SOS alerts. Please enable location permissions in your device settings.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    let primaryContacts: EmergencyContact[] = [];
+    try {
+      primaryContacts = await ensurePrimaryContacts();
+    } catch (error) {
+      console.error('SOSTab: Unable to verify primary contacts before starting countdown', error);
+      Alert.alert(
+        t('common.error') || 'Error',
+        t('emergency.sosError') || 'Failed to send SOS alert.',
+        [{ text: t('common.ok') || 'OK' }]
+      );
+      return;
+    }
+
+    if (!primaryContacts || primaryContacts.length === 0) {
+      setHasPrimaryContacts(false);
+      Alert.alert(
+        t('emergency.noPrimaryContacts') || 'No Primary Contacts',
+        t('emergency.noPrimaryContactsDesc') ||
+          'You need at least one primary emergency contact to send SOS alerts. Please add emergency contacts first.',
+        [{ text: t('common.ok') || 'OK' }]
+      );
+      return;
+    }
+
+    setHasPrimaryContacts(true);
+    cleanupCountdownInterval();
+    locationPromiseRef.current = null;
+
+    const operationId = activeOperationRef.current + 1;
+    activeOperationRef.current = operationId;
+
+    setStatusMessage(t('emergency.tapToCancel') || 'Tap again to cancel the SOS.');
+    beginLocationPrefetch(operationId);
+    startCountdown(operationId);
+  }, [
+    sosCountdown,
+    resetOperationState,
+    ensureUserType,
+    requestLocationPermission,
+    ensurePrimaryContacts,
+    t,
+    cleanupCountdownInterval,
+    beginLocationPrefetch,
+    startCountdown,
+  ]);
+
+  useEffect(
+    () => () => {
+      cleanupCountdownInterval();
+      locationPromiseRef.current = null;
+    },
+    [cleanupCountdownInterval]
+  );
 
   // Expose handleSOSPress function to parent component
   useImperativeHandle(ref, () => ({
@@ -462,6 +671,10 @@ const SOSTab = forwardRef<SOSTabRef, SOSTabProps>(({ userId, selectedAlertId, on
           )}
         </TouchableOpacity>
       </View>
+
+      {statusMessage && (
+        <Text style={styles.statusMessage}>{statusMessage}</Text>
+      )}
 
       {/* SOS Alerts History */}
       <View style={styles.sosHistoryContainer}>

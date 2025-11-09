@@ -809,24 +809,26 @@ export class FirebaseService {
     try {
       const reportId = Date.now().toString(); // Generate unique ID
       
-      // Store in civilian -> civilian crime reports
       const crimeReportsRef = ref(database, `civilian/civilian crime reports/${reportId}`);
-      await set(crimeReportsRef, {
-        ...crimeReport,
-        dateTime: crimeReport.dateTime.toISOString(),
-        reportId,
-      });
-
-      // Store in civilian -> civilian account -> uid -> crime reports
       const userCrimeReportsRef = ref(database, `civilian/civilian account/${crimeReport.reporterUid}/crime reports/${reportId}`);
-      await set(userCrimeReportsRef, {
-        ...crimeReport,
-        dateTime: crimeReport.dateTime.toISOString(),
-        reportId,
-      });
 
-      // Send notifications to all users who have crime report notifications enabled
-      await this.notifyAllUsersOfNewCrimeReport(reportId, crimeReport);
+      await Promise.all([
+        set(crimeReportsRef, {
+          ...crimeReport,
+          dateTime: crimeReport.dateTime.toISOString(),
+          reportId,
+        }),
+        set(userCrimeReportsRef, {
+          ...crimeReport,
+          dateTime: crimeReport.dateTime.toISOString(),
+          reportId,
+        }),
+      ]);
+
+      // Send notifications to all users who have crime report notifications enabled (fire and forget)
+      void this.notifyAllUsersOfNewCrimeReport(reportId, crimeReport).catch((error) => {
+        console.error('Submit crime report notify error:', error);
+      });
 
       console.log('Crime report submitted successfully');
       return reportId;
@@ -861,22 +863,24 @@ export class FirebaseService {
         reportId,
       };
       
-      // Store in civilian -> civilian crime reports
       const crimeReportsRef = ref(database, `civilian/civilian crime reports/${reportId}`);
-      await set(crimeReportsRef, {
-        ...completeCrimeReport,
-        dateTime: completeCrimeReport.dateTime.toISOString(),
-      });
-
-      // Store in civilian -> civilian account -> uid -> crime reports
       const userCrimeReportsRef = ref(database, `civilian/civilian account/${completeCrimeReport.reporterUid}/crime reports/${reportId}`);
-      await set(userCrimeReportsRef, {
-        ...completeCrimeReport,
-        dateTime: completeCrimeReport.dateTime.toISOString(),
-      });
 
-      // Send notifications to all users who have crime report notifications enabled
-      await this.notifyAllUsersOfNewCrimeReport(reportId, completeCrimeReport);
+      await Promise.all([
+        set(crimeReportsRef, {
+          ...completeCrimeReport,
+          dateTime: completeCrimeReport.dateTime.toISOString(),
+        }),
+        set(userCrimeReportsRef, {
+          ...completeCrimeReport,
+          dateTime: completeCrimeReport.dateTime.toISOString(),
+        }),
+      ]);
+
+      // Send notifications to all users who have crime report notifications enabled (fire and forget)
+      void this.notifyAllUsersOfNewCrimeReport(reportId, completeCrimeReport).catch((error) => {
+        console.error('Submit crime report with media notify error:', error);
+      });
 
       console.log('Crime report with mixed media submitted successfully');
       return reportId;

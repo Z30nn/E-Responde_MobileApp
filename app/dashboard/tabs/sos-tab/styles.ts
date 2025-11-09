@@ -120,5 +120,11 @@ export const createStyles = (theme: any, fonts: any, isDarkMode: boolean) => Sty
     marginBottom: 10,
     paddingBottom: 0,
   },
+  statusMessage: {
+    marginTop: 12,
+    textAlign: 'center',
+    color: isDarkMode ? '#CBD5F5' : theme.secondaryText,
+    fontSize: fonts.caption,
+  },
 });
 
