@@ -16,6 +16,7 @@ import {
   Keyboard,
   AppState,
   AppStateStatus,
+  InteractionManager,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
@@ -48,6 +49,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     createdAt: new Date().toISOString(),
     severity: 'Low',
   });
+  const [reporterName, setReporterName] = useState('Unknown User');
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -62,6 +64,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const [isUploading, setIsUploading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
   const appState = useRef(AppState.currentState);
   const isSubmittingRef = useRef(false);
 
@@ -106,6 +109,49 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     getCurrentLocation();
     checkAuthentication();
   }, [checkAuthentication]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const preloadReporterProfile = async () => {
+      try {
+        const { auth } = require('./firebaseConfig');
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          return;
+        }
+
+        if (currentUser.displayName && isMounted) {
+          setReporterName(currentUser.displayName);
+        }
+
+        const userData = await FirebaseService.getCivilianUser(currentUser.uid);
+        if (!isMounted) {
+          return;
+        }
+
+        if (userData) {
+          const composedName = `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim();
+          if (composedName.length > 0) {
+            setReporterName(composedName);
+            return;
+          }
+        }
+
+        if (currentUser.email) {
+          setReporterName(currentUser.email);
+        }
+      } catch (error) {
+        console.error('CrimeReportForm: Failed to preload reporter profile', error);
+      }
+    };
+
+    preloadReporterProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Handle app state changes to prevent auto-submission when app returns from background
   useEffect(() => {
@@ -799,110 +845,81 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     // Set submission flag to prevent duplicate submissions
     isSubmittingRef.current = true;
     setIsLoading(true);
+    setProcessingStatus('Preparing report...');
     try {
-      // Get current user info from Firebase Auth
       const { auth } = require('./firebaseConfig');
       const currentUser = auth.currentUser;
-      
+
       if (!currentUser) {
         Alert.alert('Error', 'You must be logged in to submit a crime report. Please log in again.');
         setIsLoading(false);
+        setProcessingStatus(null);
         isSubmittingRef.current = false;
         return;
       }
 
-      // Process mixed media files (images and videos) if any
       let multimediaURLs: string[] = [];
       let videoURLs: string[] = [];
       if (uploadedFiles.length > 0) {
         try {
-          console.log('Processing mixed media files...');
-          Alert.alert('Processing Media', 'Please wait while we process your media files...');
-          
-          // Use the new mixed media processing method
+          setProcessingStatus('Processing attachments...');
+          await new Promise<void>((resolve) => {
+            InteractionManager.runAfterInteractions(() => resolve());
+          });
+
           const { images, videos } = await FirebaseService.processMixedMediaFiles(uploadedFiles, 'temp-report-id');
           multimediaURLs = images;
           videoURLs = videos;
-          
-          console.log(`Successfully processed ${images.length} images and ${videos.length} videos`);
-          
+
           if (multimediaURLs.length + videoURLs.length < uploadedFiles.length) {
-            Alert.alert(
-              'Partial Processing Success',
-              `Successfully processed ${multimediaURLs.length} images and ${videoURLs.length} videos out of ${uploadedFiles.length} files. The report will be submitted with the processed media.`,
-              [{ text: 'Continue', onPress: () => {} }]
-            );
+            setProcessingStatus(`Processed ${multimediaURLs.length + videoURLs.length} of ${uploadedFiles.length} attachments`);
+          } else {
+            setProcessingStatus('Attachments ready');
           }
         } catch (processingError: any) {
           console.error('Error processing mixed media:', processingError);
-          
-          let errorMessage = 'Failed to process media files. ';
-          if (processingError.message) {
-            errorMessage += processingError.message;
+
+          let errorMessage = 'Failed to process media files.';
+          if (processingError?.message) {
+            errorMessage = `${errorMessage} ${processingError.message}`;
           }
-          
+
+          setProcessingStatus('Skipping attachments after processing failure');
           Alert.alert(
             'Media Processing Error',
-            `${errorMessage}\n\nDo you want to submit the report without attachments?`,
-            [
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: () => {
-                  setIsLoading(false);
-                  isSubmittingRef.current = false;
-                  return;
-                }
-              },
-              {
-                text: 'Submit Anyway',
-                onPress: () => {
-                  // Continue without files
-                  multimediaURLs = [];
-                  videoURLs = [];
-                }
-              }
-            ]
+            `${errorMessage}\n\nThe report will be submitted without attachments.`,
+            [{ text: 'OK' }]
           );
-          
-          // User cancelled or chose to continue without files
-          setIsLoading(false);
-          isSubmittingRef.current = false;
-          return;
+
+          multimediaURLs = [];
+          videoURLs = [];
         }
       }
 
-      // Get user profile data
-      let userName = 'Unknown User';
-      try {
-        const userData = await FirebaseService.getCivilianUser(currentUser.uid);
-        if (userData) {
-          userName = `${userData.firstName} ${userData.lastName}`;
-        }
-      } catch (error) {
-        console.log('Could not fetch user profile, using default name');
-      }
+      setProcessingStatus('Saving report...');
+
+      const resolvedReporterName =
+        formData.anonymous ? 'Anonymous' : reporterName || currentUser.displayName || currentUser.email || 'Unknown User';
 
       const crimeReport: CrimeReport = {
         crimeType: formData.crimeType!,
         dateTime: formData.dateTime!,
         description: formData.description!,
-        multimedia: multimediaURLs, // Base64 images for database
-        videos: videoURLs, // Video URLs from Firebase Storage
+        multimedia: multimediaURLs,
+        videos: videoURLs,
         location: formData.location!,
         barangay: formData.barangay!,
         anonymous: formData.anonymous!,
-        reporterName: formData.anonymous ? 'Anonymous' : userName,
+        reporterName: resolvedReporterName,
         reporterUid: currentUser.uid,
         status: 'pending',
         createdAt: new Date().toISOString(),
         severity: formData.severity || 'Low',
       };
 
-      // Submit to Firebase and get the report ID
       const reportId = await FirebaseService.submitCrimeReport(crimeReport);
 
-      // Send confirmation notification to the user
+      setProcessingStatus('Sending confirmation...');
       console.log('CrimeReportForm: Sending confirmation notification for report:', reportId);
       const notificationSent = await sendNotification(
         'crime_report_submitted',
@@ -912,6 +929,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       );
       console.log('CrimeReportForm: Notification sent result:', notificationSent);
 
+      setProcessingStatus(null);
       Alert.alert('Success', 'Crime report submitted successfully!', [
         {
           text: 'OK',
@@ -924,19 +942,20 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     } catch (error: any) {
       console.error('Error submitting crime report:', error);
       let errorMessage = 'Failed to submit crime report. Please try again.';
-      
+
       if (error.code === 'auth/permission-denied' || error.message?.includes('PERMISSION_DENIED')) {
         errorMessage = 'Permission denied. Please check your login status or contact support.';
       } else if (error.code === 'auth/network-request-failed') {
         errorMessage = 'Network error. Please check your internet connection.';
       } else if (error.message) {
-        // Use the error message if available
         errorMessage = error.message;
       }
-      
+
+      setProcessingStatus(null);
       Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
+      setProcessingStatus(null);
       isSubmittingRef.current = false;
     }
   };
@@ -1129,6 +1148,12 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       fontSize: 16,
       fontWeight: '600',
       letterSpacing: 0.5,
+    },
+    processingStatus: {
+      marginTop: 12,
+      textAlign: 'center',
+      color: theme.secondaryText,
+      fontSize: fonts.caption,
     },
     // Dropdown Container and List Styles
     dropdownContainer: {
@@ -1627,6 +1652,9 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
             <Text style={styles.submitButtonText}>{t('crime.submitReport')}</Text>
           )}
         </TouchableOpacity>
+        {isLoading && processingStatus && (
+          <Text style={styles.processingStatus}>{processingStatus}</Text>
+        )}
       </View>
       </ScrollView>
 

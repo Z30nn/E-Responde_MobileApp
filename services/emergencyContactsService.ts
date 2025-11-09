@@ -1,8 +1,19 @@
 import { ref, set, get, remove, push, update, query, orderByChild, equalTo } from 'firebase/database';
 import { database } from '../firebaseConfig';
 import { EmergencyContact, CreateEmergencyContactData, UpdateEmergencyContactData } from './types/emergency-types';
-import { FirebaseService } from './firebaseService';
+import { FirebaseService, CivilianUser } from './firebaseService';
 import Geolocation from '@react-native-community/geolocation';
+
+interface SendSOSAlertOptions {
+  userType?: 'police' | 'civilian' | null;
+  primaryContacts?: EmergencyContact[];
+  userProfile?: CivilianUser | null;
+  location?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  } | null;
+}
 
 export class EmergencyContactsService {
   // Get all emergency contacts for a user
@@ -467,32 +478,45 @@ export class EmergencyContactsService {
   }
 
   // Send SOS alert to emergency contacts
-  static async sendSOSAlert(userId: string, message?: string): Promise<{ success: boolean; sentTo: number; errors: string[] }> {
-    // Check if user is a police officer - prevent SOS for police
-    try {
-      const userType = await FirebaseService.getUserType(userId);
-      if (userType === 'police') {
-        console.log('EmergencyContactsService: Police user detected - SOS functionality disabled for police officers');
+  static async sendSOSAlert(
+    userId: string,
+    message?: string,
+    options?: SendSOSAlertOptions
+  ): Promise<{ success: boolean; sentTo: number; errors: string[] }> {
+    let effectiveUserType = options?.userType ?? null;
+
+    if (effectiveUserType === null) {
+      try {
+        effectiveUserType = await FirebaseService.getUserType(userId);
+      } catch (error) {
+        console.error('Error checking user type in sendSOSAlert:', error);
         return {
           success: false,
           sentTo: 0,
-          errors: ['SOS functionality is not available for police officers']
+          errors: ['Unable to verify user type']
         };
       }
-    } catch (error) {
-      console.error('Error checking user type in sendSOSAlert:', error);
+    }
+
+    if (effectiveUserType === 'police') {
+      console.log('EmergencyContactsService: Police user detected - SOS functionality disabled for police officers');
       return {
         success: false,
         sentTo: 0,
-        errors: ['Unable to verify user type']
+        errors: ['SOS functionality is not available for police officers']
       };
     }
+
     try {
       console.log('EmergencyContactsService: Sending SOS alert for user:', userId);
       console.log('EmergencyContactsService: Message:', message);
       
       // Get user's primary emergency contacts
-      const primaryContacts = await this.getPrimaryEmergencyContacts(userId);
+      let primaryContacts = options?.primaryContacts;
+      if (!primaryContacts) {
+        primaryContacts = await this.getPrimaryEmergencyContacts(userId);
+      }
+
       console.log('EmergencyContactsService: Primary contacts:', primaryContacts.length);
       
       if (primaryContacts.length === 0) {
@@ -510,17 +534,17 @@ export class EmergencyContactsService {
       }
 
       // Get user profile data
-      let userName = 'Unknown User';
-      let userData = null;
-      try {
-        userData = await FirebaseService.getCivilianUser(currentUser.uid);
-        console.log('EmergencyContactsService: User data:', userData);
-        if (userData) {
-          userName = `${userData.firstName} ${userData.lastName}`;
+      let userData: CivilianUser | null = options?.userProfile ?? null;
+      if (!userData) {
+        try {
+          userData = await FirebaseService.getCivilianUser(currentUser.uid);
+          console.log('EmergencyContactsService: User data:', userData);
+        } catch (error) {
+          console.log('EmergencyContactsService: Could not fetch user profile for SOS alert:', error);
         }
-      } catch (error) {
-        console.log('EmergencyContactsService: Could not fetch user profile for SOS alert:', error);
       }
+
+      const userName = userData ? `${userData.firstName} ${userData.lastName}`.trim() || 'Unknown User' : 'Unknown User';
       
       console.log('EmergencyContactsService: userData after fetch:', userData);
       console.log('EmergencyContactsService: userData type:', typeof userData);
@@ -530,94 +554,92 @@ export class EmergencyContactsService {
       const alertBody = sosMessage;
 
       // Get user's current location (if available)
-      let userLocation = null;
-      try {
-        // Get current position with timeout (same approach as working crime reports)
-        const locationPromise = new Promise((resolve, reject) => {
-          Geolocation.getCurrentPosition(
-            async (position) => {
-              const { latitude, longitude } = position.coords;
-              
-              // Use reverse geocoding to get address (same as working crime reports)
-              let address = 'Location not available';
-              try {
-                console.log('EmergencyContactsService: Starting reverse geocoding...');
-                const response = await fetch(
-                  `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-                  {
-                    headers: {
-                      'User-Agent': 'E-Responde-MobileApp/1.0',
-                      'Accept': 'application/json',
-                    },
+      let userLocation =
+        options?.location ??
+        null;
+
+      if (!userLocation) {
+        try {
+          const locationPromise = new Promise<{ latitude: number; longitude: number; address: string }>((resolve, reject) => {
+            Geolocation.getCurrentPosition(
+              async (position) => {
+                const { latitude, longitude } = position.coords;
+
+                let address = 'Location not available';
+                try {
+                  console.log('EmergencyContactsService: Starting reverse geocoding...');
+                  const response = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+                    {
+                      headers: {
+                        'User-Agent': 'E-Responde-MobileApp/1.0',
+                        'Accept': 'application/json',
+                      },
+                    }
+                  );
+
+                  if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                   }
-                );
-                
-                if (!response.ok) {
-                  throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log('EmergencyContactsService: Geocoding response:', data);
-                if (data && data.display_name) {
-                  address = data.display_name;
-                  console.log('EmergencyContactsService: Address found:', address);
-                } else {
-                  // Fallback to coordinates if no address found
+
+                  const data = await response.json();
+                  console.log('EmergencyContactsService: Geocoding response:', data);
+                  if (data && data.display_name) {
+                    address = data.display_name;
+                    console.log('EmergencyContactsService: Address found:', address);
+                  } else {
+                    address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+                    console.log('EmergencyContactsService: Using coordinate fallback:', address);
+                  }
+                } catch (geocodeError) {
+                  console.log('EmergencyContactsService: Reverse geocoding failed:', geocodeError);
                   address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                  console.log('EmergencyContactsService: Using coordinate fallback:', address);
+                  console.log('EmergencyContactsService: Using coordinate fallback after error:', address);
                 }
-              } catch (geocodeError) {
-                console.log('EmergencyContactsService: Reverse geocoding failed:', geocodeError);
-                // Fallback to coordinates on error
-                address = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                console.log('EmergencyContactsService: Using coordinate fallback after error:', address);
+
+                resolve({
+                  latitude,
+                  longitude,
+                  address
+                });
+              },
+              (error) => {
+                console.log('Location error:', error);
+                reject(error);
+              },
+              {
+                enableHighAccuracy: false,
+                timeout: 10000,
+                maximumAge: 30000
               }
-              
-              resolve({
-                latitude,
-                longitude,
-                address
-              });
-            },
-            (error) => {
-              console.log('Location error:', error);
-              reject(error);
-            },
-                   {
-                     enableHighAccuracy: false, // Same as working crime reports
-                     timeout: 10000, // Same as working crime reports
-                     maximumAge: 30000 // Same as working crime reports
-                   }
-          );
-        });
-        
-        // Wait for location with same timeout as working crime reports
-        userLocation = await Promise.race([
-          locationPromise,
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Location timeout')), 10000)
-          )
-        ]);
-        
-        console.log('SOS Alert: Location captured:', userLocation);
-        console.log('SOS Alert: Location details - Lat:', userLocation.latitude, 'Lng:', userLocation.longitude, 'Address:', userLocation.address);
-        
-        // Debug: Check if location is valid
-        if (userLocation.latitude === 0 && userLocation.longitude === 0) {
-          console.log('SOS Alert: WARNING - Location is still 0,0 - this indicates a problem');
+            );
+          });
+
+          userLocation = await Promise.race([
+            locationPromise,
+            new Promise<{ latitude: number; longitude: number; address: string }>((_, reject) =>
+              setTimeout(() => reject(new Error('Location timeout')), 10000)
+            )
+          ]);
+
+          console.log('SOS Alert: Location captured:', userLocation);
+          console.log('SOS Alert: Location details - Lat:', userLocation.latitude, 'Lng:', userLocation.longitude, 'Address:', userLocation.address);
+
+          if (userLocation.latitude === 0 && userLocation.longitude === 0) {
+            console.log('SOS Alert: WARNING - Location is still 0,0 - this indicates a problem');
+          }
+        } catch (error: any) {
+          console.log('Could not get user location for SOS alert:', error);
+          console.log('SOS Alert: Location error details:', error?.message || String(error));
+
+          userLocation = {
+            latitude: 0,
+            longitude: 0,
+            address: 'Location not available'
+          };
+
+          console.log('SOS Alert: Using fallback location:', userLocation);
         }
-      } catch (error: any) {
-        console.log('Could not get user location for SOS alert:', error);
-        console.log('SOS Alert: Location error details:', error?.message || String(error));
-        
-        // Fallback to default location
-        userLocation = {
-          latitude: 0,
-          longitude: 0,
-          address: 'Location not available'
-        };
-        
-        console.log('SOS Alert: Using fallback location:', userLocation);
       }
 
       let sentToPrimaryContacts = 0;

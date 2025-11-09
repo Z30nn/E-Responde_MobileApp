@@ -43,11 +43,31 @@ class GyroscopeService {
     timeout: 1000, // 1 second between shake detections
     requiredShakes: 3, // Require 3 quick shakes
   };
+  private cachedUserType: 'civilian' | 'police' | null = null;
+  private userTypeLastChecked = 0;
 
   constructor() {
     console.log('GyroscopeService: Constructor called - using react-native-sensors');
     // Set update interval for accelerometer
     setUpdateIntervalForType(SensorTypes.accelerometer, 100);
+  }
+
+  private async ensureUserType(uid: string, force = false): Promise<'civilian' | 'police' | null> {
+    const now = Date.now();
+    if (!force && this.cachedUserType !== null && now - this.userTypeLastChecked < 5 * 60 * 1000) {
+      return this.cachedUserType;
+    }
+
+    try {
+      const type = await FirebaseService.getUserType(uid);
+      this.cachedUserType = type;
+      this.userTypeLastChecked = Date.now();
+      return type;
+    } catch (error) {
+      console.error('GyroscopeService: Failed to determine user type', error);
+      this.userTypeLastChecked = Date.now();
+      return this.cachedUserType;
+    }
   }
 
   public async startListening(onShake: () => void, callbacks?: GyroscopeCallbacks) {
@@ -60,12 +80,14 @@ class GyroscopeService {
       // Check if current user is a police officer - prevent SOS for police
       const currentUser = auth.currentUser;
       if (currentUser) {
-        const userType = await FirebaseService.getUserType(currentUser.uid);
+        const userType = await this.ensureUserType(currentUser.uid, true);
         if (userType === 'police') {
           console.log('GyroscopeService: Police user detected - SOS functionality disabled for police officers');
           this.isListening = false;
           return;
         }
+      } else {
+        this.cachedUserType = null;
       }
 
       // Always store the callbacks and callback function, even if disabled
@@ -124,18 +146,15 @@ class GyroscopeService {
     if (!this.isListening || !this.onShakeCallback) return;
 
     // Double-check: Verify user is not a police officer before triggering SOS
+    if (this.cachedUserType === 'police') {
+      return;
+    }
+
     const currentUser = auth.currentUser;
-    if (currentUser) {
-      try {
-        const userType = await FirebaseService.getUserType(currentUser.uid);
-        if (userType === 'police') {
-          console.log('GyroscopeService: Police user detected in motion handler - preventing SOS trigger');
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking user type in motion handler:', error);
-        return; // Fail safe - don't trigger if we can't verify user type
-      }
+    if (currentUser && this.cachedUserType === null && Date.now() - this.userTypeLastChecked > 5 * 60 * 1000) {
+      this.ensureUserType(currentUser.uid, true).catch((error) => {
+        console.error('GyroscopeService: Error refreshing user type in motion handler', error);
+      });
     }
 
     const { x, y, z } = data;

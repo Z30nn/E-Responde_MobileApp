@@ -161,7 +161,11 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
             {otherUser.userType === 'civilian' ? otherUser.name.toUpperCase() : otherUser.name}
           </Text>
           <Text style={styles.userType}>
-            {otherUser.userType === 'police' ? '👮 Police Officer' : 'CIVILIAN'}
+            {otherUser.userType === 'police'
+              ? 'POLICE OFFICER'
+              : otherUser.userType === 'admin'
+              ? 'ADMINISTRATOR'
+              : 'CIVILIAN'}
           </Text>
         </View>
 
@@ -208,7 +212,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
         {callData.reportId && (
           <View style={styles.reportInfoContainer}>
             <Text style={styles.reportInfoText}>
-              📋 Related to Report #{callData.reportId.substring(0, 8)}
+              Related to Report #{callData.reportId.substring(0, 8)}
             </Text>
           </View>
         )}

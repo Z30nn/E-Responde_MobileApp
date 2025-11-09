@@ -344,6 +344,8 @@ const AppContent = () => {
 
   // Handle incoming call rejection
   const handleRejectCall = () => {
+    setActiveCall(null);
+    setIsCallScreenVisible(false);
     dismissIncomingCall();
   };
 

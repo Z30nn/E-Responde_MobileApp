@@ -50,30 +50,35 @@ export class VoIPService {
   }
 
   // Request audio and video permissions
-  async requestPermissions(): Promise<boolean> {
+  async requestPermissions(videoEnabled: boolean = false): Promise<boolean> {
     try {
       if (Platform.OS === 'android') {
-        const audioGranted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-          {
-            title: 'Microphone Permission',
-            message: 'E-Responde needs microphone access for voice calls',
+        const ensurePermission = async (permission: string, rationale: { title: string; message: string }) => {
+          const alreadyGranted = await PermissionsAndroid.check(permission);
+          if (alreadyGranted) {
+            return PermissionsAndroid.RESULTS.GRANTED;
+          }
+
+          return PermissionsAndroid.request(permission, {
+            ...rationale,
             buttonNeutral: 'Ask Me Later',
             buttonNegative: 'Cancel',
             buttonPositive: 'OK',
-          }
-        );
+          });
+        };
 
-        const cameraGranted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
+        const audioGranted = await ensurePermission(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO, {
+          title: 'Microphone Permission',
+          message: 'E-Responde needs microphone access for voice calls',
+        });
+
+        let cameraGranted = PermissionsAndroid.RESULTS.GRANTED;
+        if (videoEnabled) {
+          cameraGranted = await ensurePermission(PermissionsAndroid.PERMISSIONS.CAMERA, {
             title: 'Camera Permission',
             message: 'E-Responde needs camera access for video calls',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
+          });
+        }
 
         return (
           audioGranted === PermissionsAndroid.RESULTS.GRANTED &&
@@ -90,7 +95,18 @@ export class VoIPService {
   // Initialize local media stream (audio only for voice calls)
   async initializeLocalStream(videoEnabled: boolean = false): Promise<MediaStream | null> {
     try {
-      const hasPermissions = await this.requestPermissions();
+      if (this.localStream) {
+        const hasVideoTrack = this.localStream.getVideoTracks().length > 0;
+        if (!videoEnabled || hasVideoTrack) {
+          return this.localStream;
+        }
+
+        // If we need video but current stream is audio-only, stop and recreate
+        this.localStream.getTracks().forEach((track) => track.stop());
+        this.localStream = null;
+      }
+
+      const hasPermissions = await this.requestPermissions(videoEnabled);
       if (!hasPermissions) {
         throw new Error('Microphone and camera permissions are required');
       }
@@ -123,17 +139,42 @@ export class VoIPService {
     // Add local stream tracks to peer connection
     if (this.localStream) {
       this.localStream.getTracks().forEach((track) => {
-        this.peerConnection!.addTrack(track, this.localStream!);
+        if (this.peerConnection) {
+          try {
+            this.peerConnection.addTrack(track, this.localStream as MediaStream);
+          } catch (error) {
+            console.error('Error adding track to peer connection:', error);
+          }
+        }
       });
+
+      try {
+        (this.peerConnection as any).addStream?.(this.localStream);
+      } catch (error) {
+        console.warn('addStream not available on peer connection:', error);
+      }
     }
+
+    const handleRemoteStream = (stream: MediaStream | null) => {
+      if (!stream) {
+        return;
+      }
+      this.remoteStream = stream;
+      console.log('Remote stream received:', this.remoteStream?.toURL?.() ?? 'n/a');
+      this.setSpeakerMode(true);
+    };
 
     // Handle remote stream
     (this.peerConnection as any).ontrack = (event: any) => {
       console.log('Received remote track:', event.track.kind);
       if (event.streams && event.streams[0]) {
-        this.remoteStream = event.streams[0];
-        console.log('Remote stream received:', this.remoteStream?.toURL());
+        handleRemoteStream(event.streams[0]);
       }
+    };
+
+    (this.peerConnection as any).onaddstream = (event: any) => {
+      console.log('Received remote stream via onaddstream');
+      handleRemoteStream(event.stream);
     };
 
     // Handle ICE candidates
@@ -232,15 +273,17 @@ export class VoIPService {
     try {
       this.currentCallId = callId;
 
-      // Initialize local stream
-      await this.initializeLocalStream(false);
+      // Get the offer from signaling
+      const offerRef = ref(database, `voip_signaling/${callId}/offer`);
+
+      const [offerSnapshot] = await Promise.all([
+        get(offerRef),
+        this.initializeLocalStream(false),
+      ]);
 
       // Create peer connection
       this.createPeerConnection();
 
-      // Get the offer from signaling
-      const offerRef = ref(database, `voip_signaling/${callId}/offer`);
-      const offerSnapshot = await get(offerRef);
       const offer = offerSnapshot.val();
 
       if (!offer) {

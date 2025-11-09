@@ -28,6 +28,11 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
       // Vibrate when call comes in
       Vibration.vibrate([0, 400, 200, 400], true);
 
+      // Pre-warm microphone permission to reduce accept latency
+      VoIPService.requestPermissions(false).catch((error) => {
+        console.error('IncomingCallModal: Failed to pre-warm permissions', error);
+      });
+
       // Pulse animation for incoming call
       const pulse = Animated.loop(
         Animated.sequence([
@@ -53,15 +58,26 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
   }, [visible]);
 
   const handleAccept = async () => {
+    if (isAnswering) {
+      return;
+    }
+
+    setIsAnswering(true);
+    Vibration.cancel();
+    onAccept();
+
     try {
-      setIsAnswering(true);
-      Vibration.cancel();
-      
       await VoIPService.answerCall(callData.callId);
-      onAccept();
     } catch (error) {
       console.error('Error accepting call:', error);
-      Alert.alert('Error', 'Failed to accept call: ' + String(error));
+      Alert.alert('Error', 'Failed to connect the call. Please try again.');
+      try {
+        await VoIPService.rejectCall(callData.callId);
+      } catch (rejectError) {
+        console.error('Error reverting call after failed accept:', rejectError);
+      }
+      onReject();
+    } finally {
       setIsAnswering(false);
     }
   };
@@ -109,14 +125,17 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
 
             <Text style={styles.callerName}>{callData.caller.name}</Text>
             <Text style={styles.callerType}>
-              {callData.caller.userType === 'police' ? '👮 Police Officer' : 
-               callData.caller.userType === 'admin' ? '👨‍💼 Admin' : '👤 Civilian'}
+              {callData.caller.userType === 'police'
+                ? 'Police Officer'
+                : callData.caller.userType === 'admin'
+                ? 'Administrator'
+                : 'Civilian'}
             </Text>
 
             {callData.reportId && (
               <View style={styles.reportBadge}>
                 <Text style={styles.reportBadgeText}>
-                  📋 Report #{callData.reportId.substring(0, 8)}
+                  Report #{callData.reportId.substring(0, 8)}
                 </Text>
               </View>
             )}
@@ -132,7 +151,6 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
               onPress={handleReject}
               disabled={isAnswering}
             >
-              <Text style={styles.actionIcon}>📞</Text>
               <Text style={styles.actionText}>Decline</Text>
             </TouchableOpacity>
 
@@ -142,7 +160,6 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
               onPress={handleAccept}
               disabled={isAnswering}
             >
-              <Text style={styles.actionIcon}>📞</Text>
               <Text style={styles.actionText}>{isAnswering ? 'Connecting...' : 'Accept'}</Text>
             </TouchableOpacity>
           </View>
@@ -151,7 +168,7 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
           {callData.caller.userType === 'police' && (
             <View style={styles.contextInfo}>
               <Text style={styles.contextText}>
-                🚨 This is a call from an officer assigned to your report
+                This call is from the officer assigned to your report.
               </Text>
             </View>
           )}
@@ -252,10 +269,6 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     backgroundColor: '#10B981',
-  },
-  actionIcon: {
-    fontSize: 50,
-    marginBottom: 10,
   },
   actionText: {
     fontSize: 16,
