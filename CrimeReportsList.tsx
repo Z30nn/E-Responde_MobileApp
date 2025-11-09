@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,7 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const REPORT_FETCH_LIMIT = 25;
   // const [previousReports, setPreviousReports] = useState<{[key: string]: CrimeReport}>({}); // Removed to avoid duplicate notifications
 
   // Calculate distance between two coordinates using Haversine formula
@@ -157,8 +158,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
         filtered = filtered
           .filter(report => report.distance !== undefined && report.distance !== Infinity)
           .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
-        // Limit to nearest 50 reports, then sort chronologically
-        filtered = filtered.slice(0, 50);
+        // Limit to nearest reports, then sort chronologically
+        filtered = filtered.slice(0, REPORT_FETCH_LIMIT);
       } else {
         // If location not available, return empty array
         filtered = [];
@@ -185,60 +186,6 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
     setCurrentPage(1);
   }, [reports, selectedStatus, userLocation]);
 
-  // Note: Status change monitoring is handled by Dashboard.tsx to avoid duplicate notifications
-
-  useEffect(() => {
-    loadUserReports();
-    
-    // Set up real-time listener for status updates
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      
-      const reportsRef = ref(database, `civilian/civilian account/${currentUser.uid}/crime reports`);
-      
-      const handleStatusChange = (snapshot: any) => {
-        console.log('CrimeReportsList: Real-time update received');
-        if (snapshot.exists()) {
-          const reportsData = snapshot.val();
-          console.log('CrimeReportsList: Reports data:', Object.keys(reportsData).length, 'reports');
-          
-          const reportsArray = Object.keys(reportsData).map(key => {
-            const report = {
-              ...reportsData[key],
-              reportId: key,
-              dateTime: new Date(reportsData[key].dateTime)
-            };
-            console.log('CrimeReportsList: Report', key, 'Status:', report.status);
-            return report;
-          });
-          
-          // Sort by creation date (newest first) - will be re-sorted in filterReports
-          const sortedReports = reportsArray.sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
-          
-          // Limit to latest 50 reports to prevent memory issues
-          const limitedReports = sortedReports.slice(0, 50);
-          
-          console.log('CrimeReportsList: Updated reports list with', limitedReports.length, 'reports (limited from', sortedReports.length, ')');
-          setReports(limitedReports);
-        } else {
-          console.log('CrimeReportsList: No reports found');
-          setReports([]);
-        }
-      };
-      
-      onValue(reportsRef, handleStatusChange);
-      
-      // Note: Status change monitoring removed to avoid duplicate notifications with Dashboard
-      
-      // Cleanup listeners on unmount
-      return () => {
-        off(reportsRef, 'value', handleStatusChange);
-      };
-    }
-  }, []);
-
   const loadUserReports = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -249,24 +196,16 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       setError(null);
       
       const currentUser = auth.currentUser;
-      console.log('Current user:', currentUser);
       if (!currentUser) {
         setError('User not authenticated');
         return;
       }
 
-      // Get user's crime reports from Firebase with limit (50 reports)
-      const userReports = await FirebaseService.getUserCrimeReports(currentUser.uid, 50);
-      console.log('CrimeReportsList: Loaded crime reports:', userReports.length);
-      
-      // Log each report's status for debugging
-      userReports.forEach(report => {
-        console.log('CrimeReportsList: Report', report.reportId, 'Status:', report.status);
-      });
-      
+      // Get user's crime reports from Firebase with the configured limit
+      const userReports = await FirebaseService.getUserCrimeReports(currentUser.uid, REPORT_FETCH_LIMIT);
       setReports(userReports);
-      // If we got less than 50 reports, there are no more to load
-      setHasMore(userReports.length === 50);
+      // If we got less than the limit, there are no more to load
+      setHasMore(userReports.length === REPORT_FETCH_LIMIT);
       
       // Status change monitoring removed to avoid duplicate notifications with Dashboard
     } catch (error) {
@@ -286,6 +225,57 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
     loadUserReports(true);
   };
 
+  // Note: Status change monitoring is handled by Dashboard.tsx to avoid duplicate notifications
+
+  useEffect(() => {
+    loadUserReports();
+    
+    // Set up real-time listener for status updates
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      
+      const reportsRef = ref(database, `civilian/civilian account/${currentUser.uid}/crime reports`);
+      
+      const handleStatusChange = (snapshot: any) => {
+        if (snapshot.exists()) {
+          const reportsData = snapshot.val();
+          
+          const reportsArray = Object.keys(reportsData).map(key => {
+            const report = {
+              ...reportsData[key],
+              reportId: key,
+              dateTime: new Date(reportsData[key].dateTime)
+            };
+            return report;
+          });
+          
+          // Sort by creation date (newest first) - will be re-sorted in filterReports
+          const sortedReports = reportsArray.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          
+          // Limit to latest reports to prevent memory issues
+          const limitedReports = sortedReports.slice(0, REPORT_FETCH_LIMIT);
+          
+          setReports(limitedReports);
+        } else {
+          setReports([]);
+        }
+      };
+      
+      onValue(reportsRef, handleStatusChange);
+      
+      // Note: Status change monitoring removed to avoid duplicate notifications with Dashboard
+      
+      // Cleanup listeners on unmount
+      return () => {
+        off(reportsRef, 'value', handleStatusChange);
+      };
+    }
+
+    return () => {};
+  }, [loadUserReports]);
+
   const loadMoreReports = useCallback(async () => {
     if (isLoadingMore || !hasMore || reports.length === 0) return;
     
@@ -299,7 +289,7 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       const startAfter = oldestReport.createdAt;
 
       // Load older reports
-      const olderReports = await FirebaseService.getUserCrimeReports(currentUser.uid, 50, startAfter);
+      const olderReports = await FirebaseService.getUserCrimeReports(currentUser.uid, REPORT_FETCH_LIMIT, startAfter);
       
       if (olderReports.length === 0) {
         setHasMore(false);
@@ -309,8 +299,8 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
       // Append older reports to existing ones
       setReports(prev => [...prev, ...olderReports]);
       
-      // If we got less than 50 reports, there are no more to load
-      setHasMore(olderReports.length === 50);
+      // If we got less than the limit, there are no more to load
+      setHasMore(olderReports.length === REPORT_FETCH_LIMIT);
     } catch (error) {
       console.error('Error loading more reports:', error);
     } finally {
@@ -361,151 +351,154 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
     }
   };
 
-  const styles = StyleSheet.create({
-    listContainer: {
-      flex: 1,
-      minHeight: 300,
-    },
-    list: {
-      flex: 1,
-    },
-    listContent: {
-      paddingBottom: 20,
-    },
-    reportCard: {
-      backgroundColor: theme.menuBackground,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: isDarkMode ? 0.3 : 0.1,
-      shadowRadius: 3,
-      elevation: 3,
-    },
-    cardHeader: {
-      marginBottom: 12,
-    },
-    crimeTypeContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    crimeType: {
-      fontSize: fonts.subtitle,
-      fontWeight: 'bold',
-      color: isDarkMode ? '#f8f9ed' : theme.primary,
-      flex: 1,
-    },
-    statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
-      minWidth: 80,
-      // Remove any default backgroundColor to ensure our dynamic color shows
-    },
-    statusText: {
-      color: '#FFFFFF',
-      fontSize: fonts.caption,
-      fontWeight: '600',
-      textAlign: 'center',
-      textTransform: 'capitalize',
-    },
-    dateTime: {
-      fontSize: fonts.caption,
-      color: theme.secondaryText,
-      fontStyle: 'italic',
-    },
-    description: {
-      fontSize: fonts.body,
-      color: theme.text,
-      lineHeight: fonts.body + 6,
-      marginBottom: 16,
-    },
-    cardFooter: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    location: {
-      fontSize: fonts.caption,
-      color: theme.secondaryText,
-      flex: 1,
-    },
-    reporter: {
-      fontSize: fonts.caption,
-      color: theme.secondaryText,
-      fontStyle: 'italic',
-      textAlign: 'right',
-    },
-    loadingContainer: {
-      alignItems: 'center',
-      padding: 40,
-    },
-    loadingText: {
-      marginTop: 16,
-      fontSize: fonts.body,
-      color: theme.secondaryText,
-    },
-    errorContainer: {
-      alignItems: 'center',
-      padding: 40,
-    },
-    errorText: {
-      fontSize: fonts.body,
-      color: '#EF4444',
-      textAlign: 'center',
-      marginBottom: 16,
-    },
-    retryButton: {
-      backgroundColor: theme.primary,
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 8,
-    },
-    retryButtonText: {
-      color: theme.background,
-      fontSize: fonts.caption,
-      fontWeight: '600',
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      padding: 40,
-    },
-    emptyText: {
-      fontSize: fonts.subtitle,
-      color: theme.secondaryText,
-      fontWeight: '600',
-      marginBottom: 8,
-    },
-    emptySubtext: {
-      fontSize: fonts.caption,
-      color: theme.secondaryText,
-      textAlign: 'center',
-      lineHeight: fonts.caption + 6,
-    },
-    loadMoreContainer: {
-      padding: 20,
-      alignItems: 'center',
-    },
-    loadMoreButton: {
-      backgroundColor: theme.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
-    },
-    loadMoreButtonText: {
-      color: '#FFFFFF',
-      fontSize: fonts.body,
-      fontWeight: '600',
-    },
-  });
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        listContainer: {
+          flex: 1,
+          minHeight: 300,
+        },
+        list: {
+          flex: 1,
+        },
+        listContent: {
+          paddingBottom: 20,
+        },
+        reportCard: {
+          backgroundColor: theme.menuBackground,
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: theme.border,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: isDarkMode ? 0.3 : 0.1,
+          shadowRadius: 3,
+          elevation: 3,
+        },
+        cardHeader: {
+          marginBottom: 12,
+        },
+        crimeTypeContainer: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        crimeType: {
+          fontSize: fonts.subtitle,
+          fontWeight: 'bold',
+          color: isDarkMode ? '#f8f9ed' : theme.primary,
+          flex: 1,
+        },
+        statusBadge: {
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 12,
+          minWidth: 80,
+        },
+        statusText: {
+          color: '#FFFFFF',
+          fontSize: fonts.caption,
+          fontWeight: '600',
+          textAlign: 'center',
+          textTransform: 'capitalize',
+        },
+        dateTime: {
+          fontSize: fonts.caption,
+          color: theme.secondaryText,
+          fontStyle: 'italic',
+        },
+        description: {
+          fontSize: fonts.body,
+          color: theme.text,
+          lineHeight: fonts.body + 6,
+          marginBottom: 16,
+        },
+        cardFooter: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        },
+        location: {
+          fontSize: fonts.caption,
+          color: theme.secondaryText,
+          flex: 1,
+        },
+        reporter: {
+          fontSize: fonts.caption,
+          color: theme.secondaryText,
+          fontStyle: 'italic',
+          textAlign: 'right',
+        },
+        loadingContainer: {
+          alignItems: 'center',
+          padding: 40,
+        },
+        loadingText: {
+          marginTop: 16,
+          fontSize: fonts.body,
+          color: theme.secondaryText,
+        },
+        errorContainer: {
+          alignItems: 'center',
+          padding: 40,
+        },
+        errorText: {
+          fontSize: fonts.body,
+          color: '#EF4444',
+          textAlign: 'center',
+          marginBottom: 16,
+        },
+        retryButton: {
+          backgroundColor: theme.primary,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+          borderRadius: 8,
+        },
+        retryButtonText: {
+          color: theme.background,
+          fontSize: fonts.caption,
+          fontWeight: '600',
+        },
+        emptyContainer: {
+          alignItems: 'center',
+          padding: 40,
+        },
+        emptyText: {
+          fontSize: fonts.subtitle,
+          color: theme.secondaryText,
+          fontWeight: '600',
+          marginBottom: 8,
+        },
+        emptySubtext: {
+          fontSize: fonts.caption,
+          color: theme.secondaryText,
+          textAlign: 'center',
+          lineHeight: fonts.caption + 6,
+        },
+        loadMoreContainer: {
+          padding: 20,
+          alignItems: 'center',
+        },
+        loadMoreButton: {
+          backgroundColor: theme.primary,
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+          borderRadius: 8,
+        },
+        loadMoreButtonText: {
+          color: '#FFFFFF',
+          fontSize: fonts.body,
+          fontWeight: '600',
+        },
+      }),
+    [theme, fonts, isDarkMode],
+  );
 
   const renderReportCard = ({ item }: { item: CrimeReport }) => (
     <TouchableOpacity
@@ -596,7 +589,7 @@ const CrimeReportsList = ({ onViewReport, selectedStatus = 'all' }: CrimeReports
         refreshing={isRefreshing}
         nestedScrollEnabled={true}
         ListFooterComponent={
-          hasMore && reports.length >= 50 ? (
+          hasMore && reports.length >= REPORT_FETCH_LIMIT ? (
             <View style={styles.loadMoreContainer}>
               {isLoadingMore ? (
                 <ActivityIndicator size="small" color={theme.primary} />

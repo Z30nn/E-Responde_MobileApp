@@ -46,6 +46,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const REPORT_FETCH_LIMIT = 25;
 
   // Refs for debouncing and visibility tracking (must be declared before other hooks)
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -63,7 +64,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in kilometers
-  }, []);
+  }, [reports]);
 
   // Get user's current location
   useEffect(() => {
@@ -172,8 +173,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         filtered = filtered
           .filter(report => report.distance !== undefined && report.distance !== Infinity)
           .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
-        // Limit to nearest 50 reports, then sort chronologically
-        filtered = filtered.slice(0, 50);
+        // Limit to nearest reports, then sort chronologically
+        filtered = filtered.slice(0, REPORT_FETCH_LIMIT);
       } else {
         // If location not available, return empty array
         filtered = [];
@@ -213,7 +214,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
     return () => {
       isMountedRef.current = false;
     };
-  }, []);
+  }, [reports]);
 
   // Expose filter modal control to parent
   useImperativeHandle(ref, () => ({
@@ -232,8 +233,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         return;
       }
 
-      // Get crime reports excluding current user's reports with limit (50 reports)
-      const otherUsersReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid, 50);
+      // Get crime reports excluding current user's reports with limit
+      const otherUsersReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid, REPORT_FETCH_LIMIT);
       
       // Filter to only show verified reports (received or higher)
       const verifiedReports = otherUsersReports.filter(report => {
@@ -250,8 +251,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       });
       
       setReports(verifiedReports);
-      // If we got less than 50 reports, there are no more to load
-      setHasMore(otherUsersReports.length === 50);
+      // If we got less than the limit, there are no more to load
+      setHasMore(otherUsersReports.length === REPORT_FETCH_LIMIT);
     } catch (error) {
       console.error('Error loading other users crime reports:', error);
       setError(t('crimeList.failedToLoad'));
@@ -281,7 +282,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       const startAfter = oldestReport.createdAt;
 
       // Load older reports
-      const olderReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid, 50, startAfter);
+      const olderReports = await FirebaseService.getAllCrimeReportsExcludingUser(currentUser.uid, REPORT_FETCH_LIMIT, startAfter);
       
       if (olderReports.length === 0) {
         setHasMore(false);
@@ -305,8 +306,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       // Append older reports to existing ones
       setReports(prev => [...prev, ...verifiedReports]);
       
-      // If we got less than 50 reports, there are no more to load
-      setHasMore(olderReports.length === 50);
+      // If we got less than the limit, there are no more to load
+      setHasMore(olderReports.length === REPORT_FETCH_LIMIT);
     } catch (error) {
       console.error('Error loading more reports:', error);
     } finally {
@@ -394,8 +395,8 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
               return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             });
             
-            // Limit to latest 50 reports to prevent memory issues
-            const limitedReports = otherUsersReports.slice(0, 50);
+            // Limit to latest reports to prevent memory issues
+            const limitedReports = otherUsersReports.slice(0, REPORT_FETCH_LIMIT);
             
             // Only update state if component is still mounted and visible
             if (isMountedRef.current && isVisibleRef.current) {
@@ -462,260 +463,264 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
     }
   }, []);
 
-  const styles = StyleSheet.create({
-    listContainer: {
-      flex: 1,
-      minHeight: 300,
-    },
-    list: {
-      flex: 1,
-    },
-    listContent: {
-      paddingBottom: 20,
-    },
-    reportCard: {
-      backgroundColor: theme.menuBackground,
-      borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
-      shadowColor: '#000',
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: isDarkMode ? 0.3 : 0.1,
-      shadowRadius: 3,
-      elevation: 3,
-    },
-    cardHeader: {
-      marginBottom: 12,
-    },
-    crimeTypeContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    crimeType: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: isDarkMode ? '#f8f9ed' : theme.primary,
-      flex: 1,
-    },
-    statusBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 12,
-      minWidth: 80,
-    },
-    statusText: {
-      color: '#FFFFFF',
-      fontSize: 12,
-      fontWeight: '600',
-      textAlign: 'center',
-      textTransform: 'capitalize',
-    },
-    dateTime: {
-      fontSize: 14,
-      color: theme.secondaryText,
-      fontStyle: 'italic',
-    },
-    description: {
-      fontSize: 16,
-      color: theme.text,
-      lineHeight: 22,
-      marginBottom: 16,
-    },
-    cardFooter: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    location: {
-      fontSize: 14,
-      color: theme.secondaryText,
-      flex: 1,
-    },
-    reporter: {
-      fontSize: 14,
-      color: theme.secondaryText,
-      fontStyle: 'italic',
-      textAlign: 'right',
-    },
-    loadingContainer: {
-      alignItems: 'center',
-      padding: 40,
-    },
-    loadingText: {
-      marginTop: 16,
-      fontSize: 16,
-      color: theme.secondaryText,
-    },
-    errorContainer: {
-      alignItems: 'center',
-      padding: 40,
-    },
-    errorText: {
-      fontSize: 16,
-      color: '#EF4444',
-      textAlign: 'center',
-      marginBottom: 16,
-    },
-    retryButton: {
-      backgroundColor: theme.primary,
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 8,
-    },
-    retryButtonText: {
-      color: theme.background,
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      padding: 40,
-    },
-    emptyText: {
-      fontSize: 18,
-      color: theme.secondaryText,
-      fontWeight: '600',
-      marginBottom: 8,
-    },
-    emptySubtext: {
-      fontSize: 14,
-      color: theme.secondaryText,
-      textAlign: 'center',
-      lineHeight: 20,
-    },
-    votingSection: {
-      marginTop: 12,
-      paddingTop: 12,
-      borderTopWidth: 1,
-      borderTopColor: theme.border,
-    },
-    voteButtons: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-    },
-    voteButton: {
-      flex: 0.4,
-      padding: 8,
-      marginHorizontal: 4,
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.background,
-      alignItems: 'center',
-      maxWidth: 80,
-    },
-    voteButtonActive: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
-    },
-    voteButtonText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.text,
-    },
-    voteButtonTextActive: {
-      color: 'white',
-    },
-    voteButtonContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    voteIcon: {
-      width: 16,
-      height: 16,
-      marginRight: 4,
-    },
-    headerContainer: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-    },
-    filterButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 6,
-    },
-    filterIcon: {
-      width: 20,
-      height: 20,
-      marginRight: 6,
-    },
-    filterButtonText: {
-      color: '#374151',
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalContainer: {
-      width: '80%',
-      maxWidth: 300,
-      borderRadius: 12,
-      overflow: 'hidden',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 16,
-      borderBottomWidth: 1,
-    },
-    modalTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-    },
-    closeButton: {
-      padding: 4,
-    },
-    closeButtonText: {
-      fontSize: 24,
-      fontWeight: 'bold',
-    },
-    filterOptions: {
-      paddingVertical: 8,
-    },
-    filterOption: {
-      padding: 16,
-      borderBottomWidth: 1,
-    },
-    filterOptionText: {
-      fontSize: 16,
-      fontWeight: '500',
-    },
-    loadMoreContainer: {
-      padding: 20,
-      alignItems: 'center',
-    },
-    loadMoreButton: {
-      backgroundColor: theme.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
-    },
-    loadMoreButtonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-  });
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        listContainer: {
+          flex: 1,
+          minHeight: 300,
+        },
+        list: {
+          flex: 1,
+        },
+        listContent: {
+          paddingBottom: 20,
+        },
+        reportCard: {
+          backgroundColor: theme.menuBackground,
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: theme.border,
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 2,
+          },
+          shadowOpacity: isDarkMode ? 0.3 : 0.1,
+          shadowRadius: 3,
+          elevation: 3,
+        },
+        cardHeader: {
+          marginBottom: 12,
+        },
+        crimeTypeContainer: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 8,
+        },
+        crimeType: {
+          fontSize: 18,
+          fontWeight: 'bold',
+          color: isDarkMode ? '#f8f9ed' : theme.primary,
+          flex: 1,
+        },
+        statusBadge: {
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 12,
+          minWidth: 80,
+        },
+        statusText: {
+          color: '#FFFFFF',
+          fontSize: 12,
+          fontWeight: '600',
+          textAlign: 'center',
+          textTransform: 'capitalize',
+        },
+        dateTime: {
+          fontSize: 14,
+          color: theme.secondaryText,
+          fontStyle: 'italic',
+        },
+        description: {
+          fontSize: 16,
+          color: theme.text,
+          lineHeight: 22,
+          marginBottom: 16,
+        },
+        cardFooter: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        },
+        location: {
+          fontSize: 14,
+          color: theme.secondaryText,
+          flex: 1,
+        },
+        reporter: {
+          fontSize: 14,
+          color: theme.secondaryText,
+          fontStyle: 'italic',
+          textAlign: 'right',
+        },
+        loadingContainer: {
+          alignItems: 'center',
+          padding: 40,
+        },
+        loadingText: {
+          marginTop: 16,
+          fontSize: 16,
+          color: theme.secondaryText,
+        },
+        errorContainer: {
+          alignItems: 'center',
+          padding: 40,
+        },
+        errorText: {
+          fontSize: 16,
+          color: '#EF4444',
+          textAlign: 'center',
+          marginBottom: 16,
+        },
+        retryButton: {
+          backgroundColor: theme.primary,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+          borderRadius: 8,
+        },
+        retryButtonText: {
+          color: theme.background,
+          fontSize: 14,
+          fontWeight: '600',
+        },
+        emptyContainer: {
+          alignItems: 'center',
+          padding: 40,
+        },
+        emptyText: {
+          fontSize: 18,
+          color: theme.secondaryText,
+          fontWeight: '600',
+          marginBottom: 8,
+        },
+        emptySubtext: {
+          fontSize: 14,
+          color: theme.secondaryText,
+          textAlign: 'center',
+          lineHeight: 20,
+        },
+        votingSection: {
+          marginTop: 12,
+          paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: theme.border,
+        },
+        voteButtons: {
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+        },
+        voteButton: {
+          flex: 0.4,
+          padding: 8,
+          marginHorizontal: 4,
+          borderRadius: 6,
+          borderWidth: 1,
+          borderColor: theme.border,
+          backgroundColor: theme.background,
+          alignItems: 'center',
+          maxWidth: 80,
+        },
+        voteButtonActive: {
+          backgroundColor: theme.primary,
+          borderColor: theme.primary,
+        },
+        voteButtonText: {
+          fontSize: 14,
+          fontWeight: '600',
+          color: theme.text,
+        },
+        voteButtonTextActive: {
+          color: 'white',
+        },
+        voteButtonContent: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        voteIcon: {
+          width: 16,
+          height: 16,
+          marginRight: 4,
+        },
+        headerContainer: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        },
+        filterButton: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+          borderRadius: 6,
+        },
+        filterIcon: {
+          width: 20,
+          height: 20,
+          marginRight: 6,
+        },
+        filterButtonText: {
+          color: '#374151',
+          fontSize: 14,
+          fontWeight: '600',
+        },
+        modalOverlay: {
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+        },
+        modalContainer: {
+          width: '80%',
+          maxWidth: 300,
+          borderRadius: 12,
+          overflow: 'hidden',
+        },
+        modalHeader: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 16,
+          borderBottomWidth: 1,
+        },
+        modalTitle: {
+          fontSize: 18,
+          fontWeight: 'bold',
+        },
+        closeButton: {
+          padding: 4,
+        },
+        closeButtonText: {
+          fontSize: 24,
+          fontWeight: 'bold',
+        },
+        filterOptions: {
+          paddingVertical: 8,
+        },
+        filterOption: {
+          padding: 16,
+          borderBottomWidth: 1,
+        },
+        filterOptionText: {
+          fontSize: 16,
+          fontWeight: '500',
+        },
+        loadMoreContainer: {
+          padding: 20,
+          alignItems: 'center',
+        },
+        loadMoreButton: {
+          backgroundColor: theme.primary,
+          paddingHorizontal: 24,
+          paddingVertical: 12,
+          borderRadius: 8,
+        },
+        loadMoreButtonText: {
+          color: '#FFFFFF',
+          fontSize: 16,
+          fontWeight: '600',
+        },
+      }),
+    [theme, isDarkMode],
+  );
 
-  const handleVote = async (reportId: string, voteType: 'upvote' | 'downvote') => {
+  const handleVote = useCallback(async (reportId: string, voteType: 'upvote' | 'downvote') => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
       Alert.alert('Error', 'You must be logged in to vote');
@@ -738,7 +743,45 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
       }
       
       // Refresh the reports to show updated vote counts
-      await loadOtherUsersReports();
+      setReports(prevReports => prevReports.map(report => {
+        if ((report.reportId || '') !== reportId) {
+          return report;
+        }
+
+        const existingVote = report.userVotes?.[currentUser.uid];
+        let upvotes = report.upvotes || 0;
+        let downvotes = report.downvotes || 0;
+        const updatedUserVotes = { ...(report.userVotes || {}) };
+
+        if (existingVote === voteType) {
+          if (voteType === 'upvote') {
+            upvotes = Math.max(0, upvotes - 1);
+          } else {
+            downvotes = Math.max(0, downvotes - 1);
+          }
+          delete updatedUserVotes[currentUser.uid];
+        } else {
+          if (voteType === 'upvote') {
+            upvotes += 1;
+            if (existingVote === 'downvote') {
+              downvotes = Math.max(0, downvotes - 1);
+            }
+          } else {
+            downvotes += 1;
+            if (existingVote === 'upvote') {
+              upvotes = Math.max(0, upvotes - 1);
+            }
+          }
+          updatedUserVotes[currentUser.uid] = voteType;
+        }
+
+        return {
+          ...report,
+          upvotes,
+          downvotes,
+          userVotes: updatedUserVotes,
+        };
+      }));
     } catch (error) {
       console.error('Error voting:', error);
       Alert.alert('Error', 'Failed to vote. Please try again.');
@@ -749,13 +792,13 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         return newSet;
       });
     }
-  };
+  }, []);
 
-  const getUserVote = (report: CrimeReport): 'upvote' | 'downvote' | null => {
+  const getUserVote = useCallback((report: CrimeReport): 'upvote' | 'downvote' | null => {
     const currentUser = auth.currentUser;
     if (!currentUser || !report.userVotes) return null;
     return report.userVotes[currentUser.uid] || null;
-  };
+  }, []);
 
   const renderReportCard = useCallback(({ item }: { item: CrimeReport }) => (
     <TouchableOpacity
@@ -910,7 +953,7 @@ const CrimeListFromOthers = forwardRef<CrimeListFromOthersRef, CrimeListFromOthe
         nestedScrollEnabled={true}
         removeClippedSubviews={true}
         ListFooterComponent={
-          hasMore && reports.length >= 50 ? (
+          hasMore && reports.length >= REPORT_FETCH_LIMIT ? (
             <View style={styles.loadMoreContainer}>
               {isLoadingMore ? (
                 <ActivityIndicator size="small" color={theme.primary} />

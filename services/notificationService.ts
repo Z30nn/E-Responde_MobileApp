@@ -2,9 +2,12 @@ import { database } from '../firebaseConfig';
 import { ref, set, get, update, push, onValue } from 'firebase/database';
 import { db } from '../firebaseConfig';
 import { collection, addDoc } from 'firebase/firestore';
-import { 
+import {
   NotificationPayload,
-  NotificationType 
+  NotificationType,
+  NotificationSettings,
+  NotificationPreferences,
+  defaultNotificationPreferences,
 } from './types/notification-types';
 
 // Translation helper function
@@ -45,28 +48,85 @@ export class NotificationService {
     return NotificationService.instance;
   }
 
-  /**
-   * Get user's notification preferences (disabled - all notifications mandatory)
-   */
-  async getUserNotificationSettings(_userId: string): Promise<null> {
-    console.log('NotificationService: User notification preferences disabled - all notifications mandatory');
-    return null;
+  private cloneDefaultPreferences(): NotificationPreferences {
+    return JSON.parse(JSON.stringify(defaultNotificationPreferences));
   }
 
   /**
-   * Update user's notification preferences (disabled - all notifications mandatory)
+   * Get user's notification preferences
    */
-  async updateUserNotificationSettings(_userId: string, _settings: any): Promise<boolean> {
-    console.log('NotificationService: User notification preferences disabled - all notifications mandatory');
-    return true; // Always return true since preferences are disabled
+  async getUserNotificationSettings(userId: string): Promise<NotificationSettings> {
+    const settingsRef = ref(database, `notificationSettings/${userId}`);
+    const snapshot = await get(settingsRef);
+
+    if (snapshot.exists()) {
+      return snapshot.val() as NotificationSettings;
+    }
+
+    const defaultSettings: NotificationSettings = {
+      userId,
+      preferences: this.cloneDefaultPreferences(),
+      lastUpdated: new Date().toISOString(),
+    };
+
+    await set(settingsRef, defaultSettings);
+    return defaultSettings;
   }
 
   /**
-   * Update specific notification preferences (disabled - all notifications mandatory)
+   * Update user's notification settings
    */
-  async updateNotificationPreferences(_userId: string, _preferences: any): Promise<boolean> {
-    console.log('NotificationService: User notification preferences disabled - all notifications mandatory');
-    return true; // Always return true since preferences are disabled
+  async updateUserNotificationSettings(userId: string, settings: NotificationSettings): Promise<NotificationSettings> {
+    const settingsRef = ref(database, `notificationSettings/${userId}`);
+    const payload: NotificationSettings = {
+      ...settings,
+      userId,
+      lastUpdated: new Date().toISOString(),
+    };
+    await set(settingsRef, payload);
+    return payload;
+  }
+
+  /**
+   * Update specific notification preferences
+   */
+  async updateNotificationPreferences(
+    userId: string,
+    preferences: Partial<NotificationPreferences>,
+  ): Promise<NotificationSettings> {
+    const currentSettings = await this.getUserNotificationSettings(userId);
+    const mergedPreferences: NotificationPreferences = {
+      crimeReports: {
+        ...currentSettings.preferences.crimeReports,
+        ...(preferences.crimeReports ?? {}),
+      },
+      emergency: {
+        ...currentSettings.preferences.emergency,
+        ...(preferences.emergency ?? {}),
+      },
+      general: {
+        ...currentSettings.preferences.general,
+        ...(preferences.general ?? {}),
+      },
+      delivery: {
+        ...currentSettings.preferences.delivery,
+        ...(preferences.delivery ?? {}),
+        quietHours: {
+          ...currentSettings.preferences.delivery.quietHours,
+          ...(preferences.delivery?.quietHours ?? {}),
+        },
+      },
+    };
+
+    const updatedSettings: NotificationSettings = {
+      ...currentSettings,
+      preferences: mergedPreferences,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    const settingsRef = ref(database, `notificationSettings/${userId}`);
+    await set(settingsRef, updatedSettings);
+    return updatedSettings;
   }
 
   /**
