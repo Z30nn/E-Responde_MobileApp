@@ -30,6 +30,7 @@ export class VoIPService {
   private remoteStream: MediaStream | null = null;
   private currentCallId: string | null = null;
   private signalingListeners: (() => void)[] = [];
+  private speakerEnabled = false;
 
   // ICE servers for WebRTC (using public STUN servers)
   private iceServers = {
@@ -125,6 +126,7 @@ export class VoIPService {
 
       this.localStream = await mediaDevices.getUserMedia(constraints);
       console.log('Local stream initialized:', this.localStream.toURL());
+      this.speakerEnabled = false;
       return this.localStream;
     } catch (error) {
       console.error('Error initializing local stream:', error);
@@ -159,9 +161,14 @@ export class VoIPService {
       if (!stream) {
         return;
       }
+      const isFirstRemoteStream = !this.remoteStream;
       this.remoteStream = stream;
       console.log('Remote stream received:', this.remoteStream?.toURL?.() ?? 'n/a');
-      this.setSpeakerMode(true);
+      if (isFirstRemoteStream) {
+        this.setSpeakerMode(false);
+      } else {
+        this.setSpeakerMode(this.speakerEnabled);
+      }
     };
 
     // Handle remote stream
@@ -339,6 +346,7 @@ export class VoIPService {
       this.signalingListeners = [];
 
       this.currentCallId = null;
+      this.setSpeakerMode(false);
 
       console.log('Call ended:', callId);
     } catch (error) {
@@ -699,15 +707,10 @@ export class VoIPService {
   // Speaker control methods
   setSpeakerMode(enabled: boolean): void {
     try {
-      if (enabled) {
-        InCallManager.setForceSpeakerphoneOn(true);
-        InCallManager.setSpeakerphoneOn(true);
-        console.log('Speaker mode enabled');
-      } else {
-        InCallManager.setForceSpeakerphoneOn(false);
-        InCallManager.setSpeakerphoneOn(false);
-        console.log('Speaker mode disabled');
-      }
+      InCallManager.setForceSpeakerphoneOn(enabled);
+      InCallManager.setSpeakerphoneOn(enabled);
+      this.speakerEnabled = enabled;
+      console.log(`Speaker mode ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
       console.error('Error setting speaker mode:', error);
     }
@@ -715,15 +718,17 @@ export class VoIPService {
 
   toggleSpeaker(): boolean {
     try {
-      // Get current speaker state and toggle it
-      InCallManager.getIsSpeakerphoneOn((isSpeakerOn: boolean) => {
-        this.setSpeakerMode(!isSpeakerOn);
-      });
-      return true;
+      const newState = !this.speakerEnabled;
+      this.setSpeakerMode(newState);
+      return this.speakerEnabled;
     } catch (error) {
       console.error('Error toggling speaker:', error);
-      return false;
+      return this.speakerEnabled;
     }
+  }
+
+  isSpeakerOn(): boolean {
+    return this.speakerEnabled;
   }
 
   // Get current mute status

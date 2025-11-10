@@ -24,6 +24,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
   const [callDuration, setCallDuration] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [remoteStream, setRemoteStream] = useState<any>(null);
+  const [isSpeakerOn, setIsSpeakerOn] = useState<boolean>(VoIPService.isSpeakerOn());
 
   // Listen for real-time call status updates
   useEffect(() => {
@@ -77,10 +78,11 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
       const muteState = VoIPService.isMicrophoneMuted();
       setIsMuted(muteState);
 
-      // Initialize InCallManager for speaker control
+      // Initialize InCallManager for audio routing
       try {
         InCallManager.start({ media: 'audio' });
         console.log('InCallManager started for audio call');
+        setIsSpeakerOn(VoIPService.isSpeakerOn());
       } catch (error) {
         console.error('Error starting InCallManager:', error);
       }
@@ -134,6 +136,11 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
     setIsMuted(!newMuteState); // newMuteState is true if unmuted, so we want the opposite for isMuted state
   };
 
+  const handleSpeakerToggle = () => {
+    const newSpeakerState = VoIPService.toggleSpeaker();
+    setIsSpeakerOn(newSpeakerState);
+  };
+
   // Safety check - if otherUser data is not available, don't render
   const otherUser = isOutgoing ? currentCallData?.callee : currentCallData?.caller;
   if (!otherUser || !otherUser.name) {
@@ -182,7 +189,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
             {/* Mute Button */}
             <View style={styles.muteButtonContainer}>
               <TouchableOpacity
-                style={[styles.muteButton, isMuted && styles.muteButtonActive]}
+                style={[styles.circleButton, isMuted && styles.circleButtonActive]}
                 onPress={handleMuteToggle}
               >
                 <Image
@@ -191,7 +198,7 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
                   resizeMode="contain"
                 />
               </TouchableOpacity>
-              <Text style={styles.muteButtonLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+              <Text style={styles.circleButtonLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
             </View>
 
             {/* End Call Button */}
@@ -204,6 +211,19 @@ const VoiceCallScreen: FC<VoiceCallScreenProps> = ({ callData, isOutgoing, onEnd
                 />
               </TouchableOpacity>
               <Text style={styles.endCallButtonLabel}>End Call</Text>
+            </View>
+
+            {/* Speaker Toggle */}
+            <View style={styles.speakerButtonContainer}>
+              <TouchableOpacity
+                style={[styles.circleButton, isSpeakerOn && styles.circleButtonActive]}
+                onPress={handleSpeakerToggle}
+              >
+                <Text style={[styles.speakerIcon, { color: isSpeakerOn ? '#374151' : '#FFFFFF' }]}>
+                  {isSpeakerOn ? '🔊' : '📞'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.circleButtonLabel}>{isSpeakerOn ? 'Speaker' : 'Handset'}</Text>
             </View>
           </View>
         </View>
@@ -310,7 +330,7 @@ const styles = StyleSheet.create({
   controlButtonActive: {
     backgroundColor: '#3B82F6',
   },
-  muteButton: {
+  circleButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
@@ -326,7 +346,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
     elevation: 8,
   },
-  muteButtonActive: {
+  circleButtonActive: {
     backgroundColor: '#FFFFFF',
   },
   muteIcon: {
@@ -338,7 +358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 40,
   },
-  muteButtonLabel: {
+  circleButtonLabel: {
     fontSize: 14,
     color: '#FFFFFF',
     fontWeight: '600',
@@ -382,6 +402,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     marginTop: 8,
+  },
+  speakerButtonContainer: {
+    alignItems: 'center',
+    marginLeft: 40,
+  },
+  speakerIcon: {
+    fontSize: 30,
   },
   reportInfoContainer: {
     backgroundColor: '#374151',
