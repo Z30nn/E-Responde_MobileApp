@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { CallData } from '../../services/voipService';
 import VoIPService from '../../services/voipService';
+import { soundService } from '../../services/soundService';
 
 interface IncomingCallModalProps {
   visible: boolean;
@@ -25,15 +26,13 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
 
   React.useEffect(() => {
     if (visible) {
-      // Vibrate when call comes in
+      soundService.startIncomingCallRingtone();
       Vibration.vibrate([0, 400, 200, 400], true);
 
-      // Pre-warm microphone permission to reduce accept latency
       VoIPService.requestPermissions(false).catch((error) => {
         console.error('IncomingCallModal: Failed to pre-warm permissions', error);
       });
 
-      // Pulse animation for incoming call
       const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -52,10 +51,14 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
 
       return () => {
         pulse.stop();
+        soundService.stopIncomingCallRingtone();
         Vibration.cancel();
       };
+    } else {
+      soundService.stopIncomingCallRingtone();
+      Vibration.cancel();
     }
-  }, [visible]);
+  }, [visible, pulseAnim]);
 
   const handleAccept = async () => {
     if (isAnswering) {
@@ -63,6 +66,7 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
     }
 
     setIsAnswering(true);
+    soundService.stopIncomingCallRingtone();
     Vibration.cancel();
     onAccept();
 
@@ -84,6 +88,7 @@ const IncomingCallModal: FC<IncomingCallModalProps> = ({ visible, callData, onAc
 
   const handleReject = async () => {
     try {
+      soundService.stopIncomingCallRingtone();
       Vibration.cancel();
       await VoIPService.rejectCall(callData.callId);
       onReject();

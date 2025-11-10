@@ -1,31 +1,88 @@
-// Sound service for SOS notifications
+import InCallManager from 'react-native-incall-manager';
 
 class SoundService {
-  private isPlaying = false;
+  private sosPlaying = false;
+  private ringtoneActive = false;
+  private assignmentActive = false;
 
   public async playSOSSound() {
-    if (this.isPlaying) return;
-    
-    this.isPlaying = true;
-    
+    if (this.sosPlaying) return;
+
+    this.sosPlaying = true;
+
     try {
-      // For now, we'll use a simple approach
-      // In a real implementation, you'd use react-native-sound or expo-av
       console.log('SoundService: Playing SOS sound');
-      
-      // Reset flag after a delay
       setTimeout(() => {
-        this.isPlaying = false;
+        this.sosPlaying = false;
       }, 3000);
-      
     } catch (error) {
       console.error('SoundService: Error playing sound:', error);
-      this.isPlaying = false;
+      this.sosPlaying = false;
     }
   }
 
   public stopSound() {
-    this.isPlaying = false;
+    this.sosPlaying = false;
+  }
+
+  public startIncomingCallRingtone() {
+    if (this.ringtoneActive) {
+      return;
+    }
+    try {
+      InCallManager.start({ media: 'audio' });
+      InCallManager.startRingtone('_DEFAULT_');
+      this.ringtoneActive = true;
+      console.log('SoundService: Incoming ringtone started');
+    } catch (error) {
+      console.error('SoundService: Error starting ringtone:', error);
+      this.ringtoneActive = false;
+    }
+  }
+
+  public stopIncomingCallRingtone() {
+    if (!this.ringtoneActive) {
+      return;
+    }
+    try {
+      InCallManager.stopRingtone();
+      InCallManager.stop();
+    } catch (error) {
+      console.error('SoundService: Error stopping ringtone:', error);
+    } finally {
+      this.ringtoneActive = false;
+      console.log('SoundService: Incoming ringtone stopped');
+    }
+  }
+
+  public startAssignmentAlert() {
+    if (this.assignmentActive) {
+      return;
+    }
+    try {
+      InCallManager.start({ media: 'audio' });
+      InCallManager.startRingback('_DEFAULT_');
+      this.assignmentActive = true;
+      console.log('SoundService: Assignment alert started');
+    } catch (error) {
+      console.error('SoundService: Error starting assignment alert:', error);
+      this.assignmentActive = false;
+    }
+  }
+
+  public stopAssignmentAlert() {
+    if (!this.assignmentActive) {
+      return;
+    }
+    try {
+      InCallManager.stopRingback();
+      InCallManager.stop();
+    } catch (error) {
+      console.error('SoundService: Error stopping assignment alert:', error);
+    } finally {
+      this.assignmentActive = false;
+      console.log('SoundService: Assignment alert stopped');
+    }
   }
 }
 
