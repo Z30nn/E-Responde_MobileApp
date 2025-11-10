@@ -73,7 +73,7 @@ export interface CrimeReport {
   status: string;
   createdAt: string;
   reportId?: string;
-  severity: 'Immediate' | 'High' | 'Moderate' | 'Low';
+  severity?: 'Immediate' | 'High' | 'Moderate' | 'Low';
   upvotes?: number;
   downvotes?: number;
   userVotes?: { [userId: string]: 'upvote' | 'downvote' };
@@ -1159,7 +1159,6 @@ export class FirebaseService {
           status: report.status || 'Unknown',
           createdAt: report.dateReported || report.createdAt || new Date().toISOString(),
           reportId: snapshot.key || undefined,
-          severity: report.severity || 'Moderate',
           upvotes: report.upvotes || 0,
           downvotes: report.downvotes || 0,
           userVotes: report.userVotes || {},
@@ -1168,6 +1167,9 @@ export class FirebaseService {
           respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber,
           assignmentStatus: report.assignmentStatus
         };
+        if (report.severity) {
+          crimeReport.severity = report.severity;
+        }
         return crimeReport;
       }
       
@@ -1574,7 +1576,6 @@ export class FirebaseService {
         status: report.status || 'Unknown',
         createdAt: report.dateReported || report.createdAt || new Date().toISOString(),
         reportId: reportSnapshot.key || undefined,
-        severity: report.severity || 'Moderate',
         upvotes: report.upvotes || 0,
         downvotes: report.downvotes || 0,
         userVotes: report.userVotes || {},
@@ -1582,6 +1583,9 @@ export class FirebaseService {
         respondingOfficerName: report.respondingOfficerName,
         respondingOfficerBadgeNumber: report.respondingOfficerBadgeNumber
       };
+      if (report.severity) {
+        crimeReport.severity = report.severity;
+      }
       
       console.log('Found assigned report:', crimeReport);
       return [crimeReport];

@@ -176,7 +176,7 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (severity?: string) => {
     switch (severity) {
       case 'Immediate':
         return '#EF4444'; // Red
@@ -252,7 +252,7 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
                   {crimeReport.crimeType}
                 </Text>
                 <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(crimeReport.severity) }]}>
-                  <Text style={styles.severityText}>{crimeReport.severity}</Text>
+                  <Text style={styles.severityText}>{crimeReport.severity ?? 'Pending'}</Text>
                 </View>
               </View>
               

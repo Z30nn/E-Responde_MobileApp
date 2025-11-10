@@ -83,9 +83,6 @@ export const crimeReportSchema = Yup.object().shape({
   barangay: Yup.string()
     .oneOf(['Barangay 41', 'Barangay 43'], 'Please select a valid barangay')
     .required('Barangay is required'),
-  severity: Yup.string()
-    .oneOf(['Immediate', 'High', 'Moderate', 'Low'], 'Invalid severity level')
-    .required('Severity is required'),
   anonymous: Yup.boolean(),
 });
 

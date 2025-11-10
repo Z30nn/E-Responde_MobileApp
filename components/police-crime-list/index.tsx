@@ -190,7 +190,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
     }
   }, []);
 
-  const getSeverityColor = useCallback((severity: string) => {
+  const getSeverityColor = useCallback((severity?: string) => {
     switch (severity) {
       case 'Immediate':
         return '#EF4444'; // Red
@@ -217,7 +217,7 @@ const PoliceCrimeList = ({ onViewReport }: PoliceCrimeListProps) => {
           <View style={styles.headerRow}>
             <Text style={styles.crimeType}>{item.crimeType}</Text>
             <View style={[styles.severityBadge, { backgroundColor: getSeverityColor(item.severity) }]}>
-              <Text style={styles.severityText}>{item.severity}</Text>
+              <Text style={styles.severityText}>{item.severity ?? 'Pending'}</Text>
             </View>
           </View>
           <View style={styles.statusRow}>
