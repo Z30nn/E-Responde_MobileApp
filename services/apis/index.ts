@@ -45,7 +45,6 @@ export interface CrimeReportData {
   reporterUid: string;
   status: string;
   createdAt: string;
-  severity: 'Immediate' | 'High' | 'Moderate' | 'Low';
   upvotes?: number;
   downvotes?: number;
   userVotes?: { [userId: string]: 'upvote' | 'downvote' };

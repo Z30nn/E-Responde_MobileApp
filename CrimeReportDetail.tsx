@@ -58,6 +58,27 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [civilianUser, setCivilianUser] = useState<CivilianUser | null>(null);
+
+  const getCivilianDisplayName = (civilian?: CivilianUser | null) => {
+    if (!civilian) {
+      return null;
+    }
+
+    const composedName = `${civilian.firstName ?? ''} ${civilian.lastName ?? ''}`.trim();
+    if (composedName.length > 0) {
+      return composedName;
+    }
+
+    if (civilian.email) {
+      return civilian.email;
+    }
+
+    if (civilian.contactNumber) {
+      return civilian.contactNumber;
+    }
+
+    return null;
+  };
   
   // Store latest onClose in ref to avoid stale closure issues
   const onCloseRef = useRef(onClose);
@@ -77,18 +98,25 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
       if (reportDetails) {
         setReport(reportDetails);
         
-        // If police view, fetch civilian user details even if anonymous
-        if (isPoliceView && reportDetails.reporterUid) {
+        const shouldFetchCivilian =
+          !!reportDetails.reporterUid &&
+          (isPoliceView || (user?.uid && user.uid === reportDetails.reporterUid));
+
+        if (shouldFetchCivilian) {
           try {
             const civilianDetails = await FirebaseService.getCivilianUser(reportDetails.reporterUid);
             setCivilianUser(civilianDetails);
           } catch (userError) {
             console.error('Error fetching civilian user details:', userError);
+            setCivilianUser(null);
           }
+        } else {
+          setCivilianUser(null);
         }
       } else {
         console.log('CrimeReportDetail: Report not found for ID:', reportId);
         setError('Report not found');
+        setCivilianUser(null);
       }
     } catch (loadError) {
       console.error('Error loading report details:', loadError);
@@ -96,7 +124,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
     } finally {
       setIsLoading(false);
     }
-  }, [reportId, isPoliceView]);
+  }, [reportId, isPoliceView, user?.uid]);
 
   useEffect(() => {
     loadReportDetails();
@@ -348,7 +376,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
     }
   };
 
-  const getSeverityColor = (severity: string) => {
+  const getSeverityColor = (severity?: string) => {
     switch (severity?.toLowerCase()) {
       case 'immediate':
         return '#DC2626'; // Red - Critical/Immediate danger
@@ -725,6 +753,35 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
     );
   }
 
+  const isReporterViewingOwnReport =
+    !isPoliceView && user?.uid && report.reporterUid === user.uid;
+
+  const civilianDisplayName = getCivilianDisplayName(civilianUser);
+
+  const reporterDisplayName = (() => {
+    if (isPoliceView) {
+      if (civilianDisplayName) {
+        return civilianDisplayName;
+      }
+      return report.reporterName;
+    }
+
+    if (isReporterViewingOwnReport) {
+      if (civilianDisplayName) {
+        return civilianDisplayName;
+      }
+      if (user?.displayName && user.displayName.trim().length > 0) {
+        return user.displayName;
+      }
+      if (user?.email) {
+        return user.email;
+      }
+      return report.reporterName;
+    }
+
+    return report.anonymous ? 'Anonymous' : report.reporterName;
+  })();
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -772,13 +829,7 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
           
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Reporter:</Text>
-            <Text style={styles.infoValue}>
-              {isPoliceView && civilianUser && civilianUser.firstName && civilianUser.lastName
-                ? `${civilianUser.firstName} ${civilianUser.lastName}`
-                : report.anonymous
-                  ? 'Anonymous'
-                  : report.reporterName}
-            </Text>
+            <Text style={styles.infoValue}>{reporterDisplayName}</Text>
           </View>
         </View>
 
@@ -796,17 +847,17 @@ const CrimeReportDetail = ({ reportId, onClose, isPoliceView = false }: CrimeRep
             <Text style={styles.infoValue}>{formatDateTime(report.dateTime.toString())}</Text>
           </View>
 
-          {report.severity && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Severity:</Text>
-              <View style={styles.severityInfoContainer}>
-                <View style={[styles.severityIndicator, { backgroundColor: getSeverityColor(report.severity) }]} />
-                <Text style={[styles.infoValue, styles.severityText]}>
-                  {report.severity.charAt(0).toUpperCase() + report.severity.slice(1)}
-                </Text>
-              </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Severity:</Text>
+            <View style={styles.severityInfoContainer}>
+              <View style={[styles.severityIndicator, { backgroundColor: getSeverityColor(report.severity) }]} />
+              <Text style={[styles.infoValue, styles.severityText]}>
+                {report.severity
+                  ? report.severity.charAt(0).toUpperCase() + report.severity.slice(1)
+                  : 'Pending'}
+              </Text>
             </View>
-          )}
+          </View>
           
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Description:</Text>

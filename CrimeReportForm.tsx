@@ -9,7 +9,6 @@ import {
   Alert,
   Switch,
   ActivityIndicator,
-  Modal,
   PermissionsAndroid,
   Platform,
   KeyboardAvoidingView,
@@ -18,7 +17,6 @@ import {
   AppStateStatus,
   InteractionManager,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { FirebaseService, CrimeReport } from './services/firebaseService';
 import { useTheme, colors, fontSizes } from './services/themeContext';
 import { useLanguage } from './services/languageContext';
@@ -35,7 +33,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
   const fonts = fontSizes[fontSize];
   const [formData, setFormData] = useState<Partial<CrimeReport>>({
     crimeType: '',
-    dateTime: new Date(),
     description: '',
     multimedia: [],
     location: {
@@ -46,20 +43,13 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     barangay: '',
     anonymous: false,
     status: 'pending',
-    createdAt: new Date().toISOString(),
-    severity: 'Low',
   });
   const [reporterName, setReporterName] = useState('Unknown User');
 
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [showCrimeTypeDropdown, setShowCrimeTypeDropdown] = useState(false);
-  const [showSeverityDropdown, setShowSeverityDropdown] = useState(false);
   const [showBarangayDropdown, setShowBarangayDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLocationLoading, setIsLocationLoading] = useState(true);
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [manualAddress, setManualAddress] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -79,13 +69,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     t('crime.crimeTypes.drugRelated'),
     t('crime.crimeTypes.domesticViolence'),
     t('crime.crimeTypes.other'),
-  ];
-
-  const severityOptions = [
-    { value: 'Immediate', label: 'Immediate', color: '#FF0000' },
-    { value: 'High', label: 'High', color: '#FF6B35' },
-    { value: 'Moderate', label: 'Moderate', color: '#FFA500' },
-    { value: 'Low', label: 'Low', color: '#32CD32' },
   ];
 
   const barangayOptions = [
@@ -248,42 +231,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     }
   };
 
-  const forwardGeocode = async (address: string): Promise<{latitude: number, longitude: number} | null> => {
-    try {
-      // Using a free forward geocoding service (Nominatim)
-      const encodedAddress = encodeURIComponent(address);
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}&limit=1`,
-        {
-          headers: {
-            'User-Agent': 'E-Responde-MobileApp/1.0',
-            'Accept': 'application/json',
-          },
-        }
-      );
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const text = await response.text();
-      console.log('Forward geocoding response:', text.substring(0, 200)); // Log first 200 chars for debugging
-      
-      const data = JSON.parse(text);
-      
-      if (data && data.length > 0) {
-        return {
-          latitude: parseFloat(data[0].lat),
-          longitude: parseFloat(data[0].lon)
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error('Forward geocoding error:', error);
-      return null;
-    }
-  };
-
   const getCurrentLocation = async () => {
     try {
       setIsLocationLoading(true);
@@ -317,20 +264,19 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
               errorMessage = 'Location permission denied. Please enable location access in settings.';
               break;
             case 2: // POSITION_UNAVAILABLE
-              errorMessage = 'Location is currently unavailable. Please try again or enter address manually.';
+              errorMessage = 'Location is currently unavailable. Please try again.';
               break;
             case 3: // TIMEOUT
-              errorMessage = 'Location request timed out. Please try again or enter address manually.';
+              errorMessage = 'Location request timed out. Please try again.';
               break;
             default:
-              errorMessage = 'Unable to get your current location. You can manually enter an address instead.';
+              errorMessage = 'Unable to get your current location.';
           }
           
           Alert.alert(
             'Location Error',
             errorMessage,
             [
-              { text: 'Enter Address', onPress: () => setShowAddressModal(true) },
               { text: 'Try Again', onPress: () => getCurrentLocation() },
               { text: 'Cancel', style: 'cancel' }
             ]
@@ -353,40 +299,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       );
     } catch (error) {
       console.error('Error getting location:', error);
-      setIsLocationLoading(false);
-    }
-  };
-
-  const handleManualAddressSubmit = async () => {
-    if (!manualAddress.trim()) {
-      Alert.alert('Error', 'Please enter a valid address');
-      return;
-    }
-
-    try {
-      setIsLocationLoading(true);
-      
-      // Use forward geocoding to get coordinates from address
-      const coordinates = await forwardGeocode(manualAddress);
-      
-      if (coordinates) {
-        setFormData(prev => ({
-          ...prev,
-          location: {
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            address: manualAddress,
-          },
-        }));
-        setShowAddressModal(false);
-        setManualAddress('');
-      } else {
-        Alert.alert('Error', 'Could not find coordinates for the entered address. Please try a different address.');
-      }
-    } catch (error) {
-      console.error('Error geocoding address:', error);
-      Alert.alert('Error', 'Could not process the entered address. Please try again.');
-    } finally {
       setIsLocationLoading(false);
     }
   };
@@ -780,49 +692,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     return true;
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (event.type === 'dismissed') {
-      return;
-    }
-    if (selectedDate) {
-      const now = new Date();
-      // Ensure selected date is not in the future
-      const dateToUse = selectedDate > now ? now : selectedDate;
-      const currentTime = formData.dateTime || new Date();
-      const newDateTime = new Date(dateToUse);
-      newDateTime.setHours(currentTime.getHours());
-      newDateTime.setMinutes(currentTime.getMinutes());
-      // Ensure the combined date-time is not in the future
-      if (newDateTime > now) {
-        setFormData(prev => ({ ...prev, dateTime: now }));
-      } else {
-        setFormData(prev => ({ ...prev, dateTime: newDateTime }));
-      }
-    }
-  };
-
-  const handleTimeChange = (event: any, selectedTime?: Date) => {
-    setShowTimePicker(false);
-    if (event.type === 'dismissed') {
-      return;
-    }
-    if (selectedTime) {
-      const now = new Date();
-      const currentDate = formData.dateTime || new Date();
-      const newDateTime = new Date(currentDate);
-      newDateTime.setHours(selectedTime.getHours());
-      newDateTime.setMinutes(selectedTime.getMinutes());
-      // Ensure the combined date-time is not in the future
-      if (newDateTime > now) {
-        setFormData(prev => ({ ...prev, dateTime: now }));
-      } else {
-        setFormData(prev => ({ ...prev, dateTime: newDateTime }));
-      }
-    }
-  };
-
-
   const handleSubmit = async () => {
     // Prevent multiple submissions
     if (isSubmittingRef.current || isLoading) {
@@ -835,10 +704,15 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       return;
     }
 
+    if (isLocationLoading) {
+      Alert.alert('Location Pending', 'Still acquiring your location. Please wait a moment and try again.');
+      return;
+    }
+
     // Check if location is valid
     if (!formData.location || formData.location.latitude === 0 || formData.location.longitude === 0 || 
         formData.location.address === 'Getting current location...' || formData.location.address === 'Location unavailable') {
-      Alert.alert('Location Required', 'Please provide a valid location for your report. You can use your current location or enter an address manually.');
+      Alert.alert('Location Required', 'Please wait for your location to be detected before submitting the report.');
       return;
     }
 
@@ -900,10 +774,11 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
 
       const resolvedReporterName =
         formData.anonymous ? 'Anonymous' : reporterName || currentUser.displayName || currentUser.email || 'Unknown User';
+      const submissionDateTime = new Date();
 
       const crimeReport: CrimeReport = {
         crimeType: formData.crimeType!,
-        dateTime: formData.dateTime!,
+        dateTime: submissionDateTime,
         description: formData.description!,
         multimedia: multimediaURLs,
         videos: videoURLs,
@@ -913,8 +788,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
         reporterName: resolvedReporterName,
         reporterUid: currentUser.uid,
         status: 'pending',
-        createdAt: new Date().toISOString(),
-        severity: formData.severity || 'Low',
+        createdAt: submissionDateTime.toISOString(),
       };
 
       const reportId = await FirebaseService.submitCrimeReport(crimeReport);
@@ -958,16 +832,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       setProcessingStatus(null);
       isSubmittingRef.current = false;
     }
-  };
-
-  const formatDateTime = (date: Date) => {
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const styles = StyleSheet.create({
@@ -1036,29 +900,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       fontSize: fonts.caption,
       marginLeft: 8,
     },
-    dateTimeContainer: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    dateTimeButton: {
-      flex: 1,
-      backgroundColor: theme.menuBackground,
-      padding: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    dateTimeButtonText: {
-      textAlign: 'center',
-      color: theme.text,
-      fontWeight: '500',
-    },
-    currentDateTime: {
-      fontSize: fonts.caption,
-      color: theme.secondaryText,
-      marginTop: 8,
-      fontStyle: 'italic',
-    },
     textArea: {
       borderWidth: 1,
       borderColor: theme.border,
@@ -1068,35 +909,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       fontSize: fonts.body,
       minHeight: 100,
       color: theme.text,
-    },
-    locationContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-    locationText: {
-      flex: 1,
-      backgroundColor: theme.menuBackground,
-      padding: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.border,
-      color: theme.text,
-    },
-    refreshLocationButton: {
-      padding: 12,
-      backgroundColor: theme.primary,
-      borderRadius: 8,
-    },
-    refreshLocationButtonText: {
-      color: theme.background,
-      fontSize: fonts.button,
-    },
-    locationCoords: {
-      fontSize: fonts.caption,
-      color: theme.secondaryText,
-      marginTop: 8,
-      fontFamily: 'monospace',
     },
     multimediaButton: {
       backgroundColor: theme.menuBackground,
@@ -1180,7 +992,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     },
     crimeTypeDropdownList: {
       position: 'absolute',
-      top: 120, // Position it to overlay above severity field
+      top: 120, // Position it to overlay above other inputs
       left: 20, // Match the form padding
       right: 20, // Match the form padding
       backgroundColor: theme.background,
@@ -1217,87 +1029,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
     selectedDropdownItemText: {
       color: theme.primary,
       fontWeight: '600',
-    },
-    manualAddressButton: {
-      backgroundColor: theme.menuBackground,
-      padding: 12,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: theme.border,
-      marginTop: 8,
-    },
-    manualAddressButtonText: {
-      textAlign: 'center',
-      color: theme.primary,
-      fontWeight: '500',
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalContent: {
-      backgroundColor: theme.menuBackground,
-      borderRadius: 12,
-      padding: 20,
-      width: '90%',
-      maxWidth: 400,
-      borderWidth: 1,
-      borderColor: theme.border,
-    },
-    modalTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: theme.primary,
-      marginBottom: 16,
-      textAlign: 'center',
-    },
-    addressInput: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 8,
-      padding: 12,
-      backgroundColor: theme.background,
-      fontSize: 16,
-      minHeight: 80,
-      color: theme.text,
-      marginBottom: 20,
-    },
-    modalButtons: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: 12,
-    },
-    modalCancelButton: {
-      flex: 1,
-      backgroundColor: theme.border,
-      paddingHorizontal: 24,
-      paddingVertical: 16,
-      borderRadius: 12,
-      alignItems: 'center',
-      minHeight: 56,
-      justifyContent: 'center',
-    },
-    modalCancelButtonText: {
-      color: theme.text,
-      fontSize: 18,
-      fontWeight: '700',
-    },
-    modalSubmitButton: {
-      flex: 1,
-      backgroundColor: theme.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 16,
-      borderRadius: 12,
-      alignItems: 'center',
-      minHeight: 56,
-      justifyContent: 'center',
-    },
-    modalSubmitButtonText: {
-      color: 'white',
-      fontSize: 18,
-      fontWeight: '700',
     },
     uploadedFilesContainer: {
       marginTop: 12,
@@ -1336,34 +1067,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       color: '#EF4444',
       fontSize: 16,
       fontWeight: 'bold',
-    },
-    severityItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    severityIndicator: {
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-    },
-    severityDropdownList: {
-      position: 'absolute',
-      top: 50,
-      left: 0,
-      right: 0,
-      backgroundColor: theme.background,
-      borderWidth: 1,
-      borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.3)' : theme.border,
-      borderTopWidth: 0,
-      borderBottomLeftRadius: 8,
-      borderBottomRightRadius: 8,
-      zIndex: 2000, // Higher z-index than crime type dropdown
-      elevation: 10,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.25,
-      shadowRadius: 3.84,
     },
   });
 
@@ -1414,87 +1117,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           </View>
         </View>
 
-        {/* Severity */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>Severity *</Text>
-          <View style={styles.dropdownContainer}>
-            <TouchableOpacity 
-              style={styles.pickerContainer}
-              onPress={() => setShowSeverityDropdown(!showSeverityDropdown)}
-            >
-              <Text style={[
-                styles.pickerText,
-                { color: formData.severity ? theme.text : theme.placeholder }
-              ]}>
-                {formData.severity || 'Select Severity'}
-              </Text>
-              <Text style={[styles.dropdownArrow, { color: theme.text }]}>
-                {showSeverityDropdown ? '▲' : '▼'}
-              </Text>
-            </TouchableOpacity>
-            
-            {showSeverityDropdown && (
-              <>
-                <TouchableOpacity 
-                  style={styles.dropdownOverlay}
-                  onPress={() => setShowSeverityDropdown(false)}
-                />
-                <View style={styles.severityDropdownList}>
-                  {severityOptions.map((option) => (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[
-                        styles.dropdownItem,
-                        formData.severity === option.value && styles.selectedDropdownItem
-                      ]}
-                      onPress={() => {
-                        setFormData(prev => ({ ...prev, severity: option.value as any }));
-                        setShowSeverityDropdown(false);
-                      }}
-                    >
-                      <View style={styles.severityItem}>
-                        <View style={[styles.severityIndicator, { backgroundColor: option.color }]} />
-                        <Text style={[
-                          styles.dropdownItemText,
-                          formData.severity === option.value && styles.selectedDropdownItemText
-                        ]}>
-                          {option.label}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Date and Time */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>{t('crime.dateTime')} *</Text>
-          <View style={styles.dateTimeContainer}>
-            <TouchableOpacity
-              style={styles.dateTimeButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Text style={styles.dateTimeButtonText}>
-                📅 {formData.dateTime?.toLocaleDateString() || 'Select Date'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.dateTimeButton}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Text style={styles.dateTimeButtonText}>
-                🕐 {formData.dateTime?.toLocaleTimeString() || 'Select Time'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.currentDateTime}>
-            Current: {formatDateTime(formData.dateTime || new Date())}
-          </Text>
-        </View>
-
         {/* Description */}
         <View style={styles.fieldContainer}>
           <Text style={styles.label}>{t('crime.description')} *</Text>
@@ -1508,32 +1130,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
             onChangeText={(text) => setFormData(prev => ({ ...prev, description: text }))}
             textAlignVertical="top"
           />
-        </View>
-
-        {/* Location */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>{t('crime.location')} <Text style={styles.requiredIndicator}>*</Text></Text>
-          <View style={styles.locationContainer}>
-            <Text style={styles.locationText}>
-              {isLocationLoading ? 'Getting location...' : formData.location?.address}
-            </Text>
-            <TouchableOpacity
-              style={styles.refreshLocationButton}
-              onPress={getCurrentLocation}
-              disabled={isLocationLoading}
-            >
-              <Text style={styles.refreshLocationButtonText}>🔄</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity
-            style={styles.manualAddressButton}
-            onPress={() => setShowAddressModal(true)}
-          >
-            <Text style={styles.manualAddressButtonText}>📍 Enter Address Manually</Text>
-          </TouchableOpacity>
-          <Text style={styles.locationCoords}>
-            Coordinates: {formData.location?.latitude.toFixed(6)}, {formData.location?.longitude.toFixed(6)}
-          </Text>
         </View>
 
         {/* Barangay */}
@@ -1658,7 +1254,7 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
       </View>
       </ScrollView>
 
-      {/* Crime Type Dropdown - Positioned outside form to overlay above severity */}
+      {/* Crime Type Dropdown */}
       {showCrimeTypeDropdown && (
         <>
           <TouchableOpacity 
@@ -1689,73 +1285,6 @@ const CrimeReportForm = ({ onClose, onSuccess }: { onClose: () => void; onSucces
           </View>
         </>
       )}
-
-      {/* Date/Time Pickers */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={formData.dateTime || new Date()}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-          themeVariant={isDarkMode ? 'dark' : 'light'}
-          maximumDate={new Date()}
-        />
-      )}
-      {showTimePicker && (
-        <DateTimePicker
-          value={formData.dateTime || new Date()}
-          mode="time"
-          display="default"
-          onChange={handleTimeChange}
-          themeVariant={isDarkMode ? 'dark' : 'light'}
-        />
-      )}
-
-      {/* Manual Address Modal */}
-      <Modal
-        visible={showAddressModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAddressModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Enter Address Manually</Text>
-            <TextInput
-              style={styles.addressInput}
-              placeholder="Enter the exact address where the crime occurred..."
-              placeholderTextColor={theme.secondaryText}
-              value={manualAddress}
-              onChangeText={setManualAddress}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  setShowAddressModal(false);
-                  setManualAddress('');
-                }}
-              >
-                <Text style={styles.modalCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalSubmitButton}
-                onPress={handleManualAddressSubmit}
-                disabled={isLocationLoading}
-              >
-                {isLocationLoading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <Text style={styles.modalSubmitButtonText}>Use Address</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
       </KeyboardAvoidingView>
     </View>
   );
