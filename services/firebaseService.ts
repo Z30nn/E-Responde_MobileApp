@@ -15,6 +15,7 @@ import {
   set, 
   get, 
   update,
+  remove,
   query,
   limitToFirst,
   limitToLast,
@@ -22,7 +23,8 @@ import {
   startAt,
   endAt
 } from 'firebase/database';
-import { auth, database } from '../firebaseConfig';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, database, db } from '../firebaseConfig';
 import RNFS from 'react-native-fs';
 import storage from '@react-native-firebase/storage';
 import { defaultNotificationPreferences, NotificationPreferences } from './types/notification-types';
@@ -1600,13 +1602,41 @@ export class FirebaseService {
     try {
       console.log('Resolving case:', reportId, 'for police:', policeId);
       
-      // Update the crime report status to "Case Resolved"
+      // Fetch the existing report data
       const reportRef = ref(database, `civilian/civilian crime reports/${reportId}`);
-      await update(reportRef, {
+      const reportSnapshot = await get(reportRef);
+
+      if (!reportSnapshot.exists()) {
+        throw new Error(`Crime report ${reportId} not found`);
+      }
+
+      const reportData = reportSnapshot.val();
+      const resolvedAt = new Date().toISOString();
+
+      const updatedReport = {
+        ...reportData,
         status: 'Case Resolved',
-        resolvedAt: new Date().toISOString(),
-        resolvedBy: policeId
+        resolvedAt,
+        resolvedBy: policeId,
+      };
+
+      // Update the civilian's personal copy with the resolved status
+      if (reportData?.reporterUid) {
+        const userReportRef = ref(
+          database,
+          `civilian/civilian account/${reportData.reporterUid}/crime reports/${reportId}`
+        );
+        await set(userReportRef, updatedReport);
+      }
+
+      // Archive the report in Firestore
+      await setDoc(doc(db, 'crime_reports', reportId), {
+        ...updatedReport,
+        archivedAt: resolvedAt,
       });
+
+      // Remove the report from the public realtime database node
+      await remove(reportRef);
       
       // Clear the police officer's current assignment
       const policeAssignmentRef = ref(database, `police/police account/${policeId}/currentAssignment`);
