@@ -3,6 +3,7 @@ import { ref, set, onValue, off, push, get, update } from 'firebase/database';
 import { database, auth } from '../firebaseConfig';
 import { Platform, PermissionsAndroid } from 'react-native';
 import InCallManager from 'react-native-incall-manager';
+import { soundService } from './soundService';
 
 export interface CallData {
   callId: string;
@@ -278,6 +279,7 @@ export class VoIPService {
   // Answer an incoming call
   async answerCall(callId: string): Promise<void> {
     try {
+      soundService.stopIncomingCallRingtone();
       this.currentCallId = callId;
 
       // Get the offer from signaling
@@ -347,6 +349,8 @@ export class VoIPService {
 
       this.currentCallId = null;
       this.setSpeakerMode(false);
+      soundService.stopIncomingCallRingtone();
+      soundService.stopAssignmentAlert();
 
       console.log('Call ended:', callId);
     } catch (error) {
@@ -360,6 +364,7 @@ export class VoIPService {
     try {
       await this.updateCallStatus(callId, 'rejected');
       console.log('Call rejected:', callId);
+      soundService.stopIncomingCallRingtone();
     } catch (error) {
       console.error('Error rejecting call:', error);
       throw error;

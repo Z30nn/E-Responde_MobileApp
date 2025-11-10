@@ -14,6 +14,7 @@ import { useLanguage } from '../../services/languageContext';
 import { CrimeReport } from '../../services/firebaseService';
 import { FirebaseService } from '../../services/firebaseService';
 import { useAuth } from '../../services/authContext';
+import { soundService } from '../../services/soundService';
 
 interface CrimeAssignmentModalProps {
   visible: boolean;
@@ -44,6 +45,7 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
+    soundService.stopAssignmentAlert();
     
     if (!user) {
       onTimeout(crimeReport?.reportId || '');
@@ -105,7 +107,19 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
         if (timerRef.current) {
           clearInterval(timerRef.current);
         }
+        soundService.stopAssignmentAlert();
       };
+    }
+  }, [visible, crimeReport, handleTimeout, progressAnim]);
+
+  useEffect(() => {
+    if (visible && crimeReport) {
+      soundService.startAssignmentAlert();
+      return () => {
+        soundService.stopAssignmentAlert();
+      };
+    } else {
+      soundService.stopAssignmentAlert();
     }
   }, [visible, crimeReport, handleTimeout]);
 
@@ -126,6 +140,7 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
       
       // Call the accept callback
       onAccept(crimeReport.reportId || '');
+      soundService.stopAssignmentAlert();
       
       // Clear timer
       if (timerRef.current) {
@@ -158,6 +173,7 @@ const CrimeAssignmentModal: React.FC<CrimeAssignmentModalProps> = ({
       
       // Call the decline callback
       onDecline(crimeReport.reportId || '');
+      soundService.stopAssignmentAlert();
       
       // Clear timer
       if (timerRef.current) {
