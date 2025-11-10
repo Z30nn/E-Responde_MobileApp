@@ -17,10 +17,8 @@ import {
   update,
   remove,
   query,
-  limitToFirst,
   limitToLast,
   orderByChild,
-  startAt,
   endAt
 } from 'firebase/database';
 import { doc, setDoc } from 'firebase/firestore';
@@ -828,7 +826,7 @@ export class FirebaseService {
       ]);
 
       // Send notifications to all users who have crime report notifications enabled (fire and forget)
-      void this.notifyAllUsersOfNewCrimeReport(reportId, crimeReport).catch((error) => {
+      this.notifyAllUsersOfNewCrimeReport(reportId, crimeReport).catch((error) => {
         console.error('Submit crime report notify error:', error);
       });
 
@@ -880,7 +878,7 @@ export class FirebaseService {
       ]);
 
       // Send notifications to all users who have crime report notifications enabled (fire and forget)
-      void this.notifyAllUsersOfNewCrimeReport(reportId, completeCrimeReport).catch((error) => {
+      this.notifyAllUsersOfNewCrimeReport(reportId, completeCrimeReport).catch((error) => {
         console.error('Submit crime report with media notify error:', error);
       });
 
@@ -1176,6 +1174,48 @@ export class FirebaseService {
       }
       
       console.log('FirebaseService: Report not found for ID:', reportId);
+      // If not found in public reports, check the reporter's personal node
+      const accountsRef = ref(database, 'civilian/civilian account');
+      const accountsSnapshot = await get(accountsRef);
+      if (accountsSnapshot.exists()) {
+        const accounts = accountsSnapshot.val() as Record<string, any>;
+        for (const [uid, accountData] of Object.entries(accounts)) {
+          const reports = accountData?.['crime reports'];
+          if (reports && reports[reportId]) {
+            const archivedReport = reports[reportId];
+            const crimeReport: CrimeReport = {
+              crimeType: archivedReport.crimeType || 'Unknown',
+              dateTime: archivedReport.dateTime ? new Date(archivedReport.dateTime) : new Date(),
+              description: archivedReport.description || '',
+              multimedia: archivedReport.multimedia || [],
+              videos: archivedReport.videos || [],
+              location: {
+                latitude: archivedReport.location?.latitude || 0,
+                longitude: archivedReport.location?.longitude || 0,
+                address:
+                  archivedReport.location?.address ||
+                  (typeof archivedReport.location === 'string' ? archivedReport.location : 'Unknown location'),
+              },
+              barangay: archivedReport.barangay || 'Unknown',
+              anonymous: archivedReport.anonymous || false,
+              reporterName: archivedReport.reporterName || 'Unknown',
+              reporterUid: archivedReport.reporterUid || uid,
+              status: archivedReport.status || 'Case Resolved',
+              createdAt: archivedReport.createdAt || new Date().toISOString(),
+              reportId,
+              upvotes: archivedReport.upvotes || 0,
+              downvotes: archivedReport.downvotes || 0,
+              userVotes: archivedReport.userVotes || {},
+              respondingOfficerId: archivedReport.respondingOfficerId || archivedReport.dispatchInfo?.unit || null,
+              respondingOfficerName: archivedReport.respondingOfficerName,
+              respondingOfficerBadgeNumber: archivedReport.respondingOfficerBadgeNumber,
+              assignmentStatus: archivedReport.assignmentStatus,
+              severity: archivedReport.severity,
+            };
+            return crimeReport;
+          }
+        }
+      }
       return null;
     } catch (error) {
       console.error('Get crime report error:', error);
