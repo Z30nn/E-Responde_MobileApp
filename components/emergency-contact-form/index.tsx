@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Dimensions,
 } from 'react-native';
 import { EmergencyContact, CreateEmergencyContactData, UpdateEmergencyContactData } from '../../services/types/emergency-types';
 import { useTheme, colors, fontSizes } from '../../services/themeContext';
@@ -47,6 +48,7 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
   const theme = isDarkMode ? colors.dark : colors.light;
   const fonts = fontSizes[fontSize];
   const styles = createStyles(theme);
+  const screenHeight = Dimensions.get('window').height;
 
   useEffect(() => {
     if (editingContact) {
@@ -253,43 +255,44 @@ const EmergencyContactForm: React.FC<EmergencyContactFormProps> = ({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalCard, { backgroundColor: theme.background }]}>
-        <View style={[styles.header, { backgroundColor: theme.menuBackground, borderBottomColor: theme.border }]}>
-          <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
-            <Text style={[styles.cancelButtonText, { color: theme.primary, fontSize: fonts.body }]}>{t('common.cancel')}</Text>
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: theme.text, fontSize: fonts.title }]}>
-            {editingContact ? t('emergency.editContact') : t('emergency.addContact')}
-          </Text>
-          <TouchableOpacity 
-            onPress={handleSave} 
-            style={[styles.saveButton, { backgroundColor: theme.primary }, isLoading && styles.saveButtonDisabled]}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={[styles.saveButtonText, { fontSize: fonts.body }]}>{t('common.save')}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={[
-          { flex: 1 },
-          Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
-        ]}>
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-            enabled={Platform.OS === 'ios'}
-            style={{ flex: 1 }}
-          >
-            <ScrollView 
-              style={styles.form} 
-              showsVerticalScrollIndicator={true}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
+        <View style={[styles.modalCard, { backgroundColor: theme.background, height: screenHeight * 0.7 }]}>
+          <View style={[styles.header, { backgroundColor: theme.menuBackground, borderBottomColor: theme.border }]}>
+            <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
+              <Text style={[styles.cancelButtonText, { color: theme.primary, fontSize: fonts.body }]}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <Text style={[styles.title, { color: theme.text, fontSize: fonts.title }]}>
+              {editingContact ? t('emergency.editContact') : t('emergency.addContact')}
+            </Text>
+            <TouchableOpacity 
+              onPress={handleSave} 
+              style={[styles.saveButton, { backgroundColor: theme.primary }, isLoading && styles.saveButtonDisabled]}
+              disabled={isLoading}
             >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={[styles.saveButtonText, { fontSize: fonts.body }]}>{t('common.save')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={[
+            { flex: 1 },
+            Platform.OS === 'android' && keyboardHeight > 0 && { paddingBottom: keyboardHeight }
+          ]}>
+            <KeyboardAvoidingView 
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+              enabled={Platform.OS === 'ios'}
+              style={{ flex: 1 }}
+            >
+              <ScrollView 
+                style={styles.form} 
+                contentContainerStyle={{ flexGrow: 1 }}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+              >
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.text, fontSize: fonts.body }]}>{t('emergency.name')} *</Text>
             <TextInput
