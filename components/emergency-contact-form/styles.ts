@@ -12,9 +12,11 @@ export const createStyles = (theme: any) => StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     maxHeight: '90%',
+    minHeight: 400,
     borderRadius: 16,
     backgroundColor: theme.background,
     overflow: 'hidden',
+    flexDirection: 'column',
   },
   container: {
     backgroundColor: theme.background,
